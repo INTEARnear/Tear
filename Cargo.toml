@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = ["contract-logs", "tearbot", "tearbot-common", "utilities"]
+
+[workspace.dependencies]
+anyhow = "1.0.86"
+async-trait = "0.1.79"
+base64 = "0.22.0"
+cached = "0.53.1"
+chrono = "0.4.37"
+dashmap = "6.0.1"
+lazy_static = "1.4.0"
+log = "0.4.21"
+mongodb = "3.0.1"
+bson = "2.11.0"
+rand = "0.8.5"
+reqwest = "0.11"
+serde = "1.0.197"
+serde_json = "1.0.115"
+teloxide = { git = "https://github.com/syrtcevvi/teloxide", rev = "fe8d9f80e43539ab38e8e92cebc1bc105b65a226" }
+tokio = "1.37.0"
+tokio-stream = "0.1.15"
+near-primitives = "0.23.0"
+inindexer = { git = "https://github.com/INTEARnear/inindexer" }
+redis = "0.25.3"
+inevents-redis = { git = "https://github.com/INTEARnear/inevents" }
+intear-events = { git = "https://github.com/INTEARnear/inevents", default-features = false }
+futures-util = "0.3.30"
+semver = "1.0.23"
+dotenvy = "0.15.7"
+itertools = "0.13.0"
+simple_logger = "5.0.0"

@@ -1,0 +1,56 @@
+[package]
+name = "tearbot-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+cached = { workspace = true, features = [
+    "async",
+    "async_tokio_rt_multi_thread",
+    "disk_store",
+] }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
+mongodb = { workspace = true }
+bson = { workspace = true, features = ["chrono-0_4"] }
+rand = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+teloxide = { git = "https://github.com/syrtcevvi/teloxide", rev = "fe8d9f80e43539ab38e8e92cebc1bc105b65a226", features = [
+    "throttle",
+    "cache-me",
+] }
+tokio = { workspace = true, features = [
+    "sync",
+    "time",
+] }
+tokio-stream = { workspace = true }
+near-primitives = { workspace = true }
+inindexer = { workspace = true }
+redis = { workspace = true, features = [
+    "tokio-rustls-comp",
+    "connection-manager",
+] }
+inevents-redis = { workspace = true }
+intear-events = { workspace = true }
+futures-util = { workspace = true }
+semver = { workspace = true, optional = true }
+
+[features]
+aqua-module = []
+contract-logs-module = ["semver"]
+ft-buybot-module = []
+new-liquidity-pools-module = []
+nft-buybot-module = []
+potlock-module = []
+price-alerts-module = []
+socialdb-module = []
+new-tokens-module = []
+utilities-module = []
+honey-module = []
