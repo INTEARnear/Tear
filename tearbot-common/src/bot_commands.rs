@@ -678,3 +678,34 @@ pub enum NearSocialEvent {
     Star,
     Other,
 }
+
+#[cfg(feature = "socialdb-module")]
+impl NearSocialEvent {
+    pub fn all() -> std::collections::HashSet<Self> {
+        std::collections::HashSet::from_iter([
+            Self::Like,
+            Self::Repost,
+            Self::Comment,
+            Self::Mention,
+            Self::Follow,
+            Self::Poke,
+            Self::Dao,
+            Self::Star,
+            Self::Other,
+        ])
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Like => "Like",
+            Self::Repost => "Repost",
+            Self::Comment => "Comment",
+            Self::Mention => "Mention",
+            Self::Follow => "Follow / Unfollow",
+            Self::Poke => "Poke",
+            Self::Dao => "DAO",
+            Self::Star => "Star",
+            Self::Other => "Other",
+        }
+    }
+}

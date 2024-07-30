@@ -3107,6 +3107,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "socialdb"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
+
+[[package]]
 name = "socket2"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3498,6 +3513,7 @@ dependencies = [
  "log",
  "reqwest",
  "simple_logger",
+ "socialdb",
  "tearbot-common",
  "tokio",
  "utilities",

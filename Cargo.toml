@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["contract-logs", "tearbot", "tearbot-common", "utilities"]
+members = [
+    "contract-logs",
+    "tearbot",
+    "tearbot-common",
+    "utilities",
+]
 
 [workspace.package]
 version = "0.1.0"

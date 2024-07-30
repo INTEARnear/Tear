@@ -8,6 +8,7 @@ license = { workspace = true }
 tearbot-common = { path = "../tearbot-common" }
 contract-logs = { path = "../contract-logs", optional = true }
 utilities = { path = "../utilities", optional = true }
+socialdb = { path = "../xeon-private-modules/socialdb", optional = true }
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
 tokio = { workspace = true, features = [
@@ -44,7 +45,7 @@ new-liquidity-pools-module = [ "tearbot-common/new-liquidity-pools-module" ]
 nft-buybot-module = [ "tearbot-common/nft-buybot-module" ]
 potlock-module = [ "tearbot-common/potlock-module" ]
 price-alerts-module = [ "tearbot-common/price-alerts-module" ]
-socialdb-module = [ "tearbot-common/socialdb-module" ]
+socialdb-module = [ "tearbot-common/socialdb-module", "socialdb" ]
 new-tokens-module = [ "tearbot-common/new-tokens-module" ]
 utilities-module = [ "tearbot-common/utilities-module", "utilities" ]
 honey-module = [ "tearbot-common/honey-module" ]
