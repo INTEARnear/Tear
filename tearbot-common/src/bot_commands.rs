@@ -59,6 +59,34 @@ pub enum TgCommand {
     #[cfg(feature = "nft-buybot-module")]
     CancelNftNotificationsEditLinks(ChatId, CollectionId),
     #[cfg(feature = "aqua-module")]
+    AquaOpenMenu {
+        referrer_id: Option<AccountId>,
+    },
+    #[cfg(feature = "aqua-module")]
+    AquaBecomeFollowerMenu {
+        referrer_id: AccountId,
+    },
+    #[cfg(feature = "aqua-module")]
+    AquaConfirm {
+        referrer_id: AccountId,
+        account_id: AccountId,
+        gender: String,
+        age: String,
+        contact_details: String,
+        profession: String,
+    },
+    #[cfg(feature = "aqua-module")]
+    AquaMinted {
+        account_id: AccountId,
+    },
+    #[cfg(feature = "aqua-module")]
+    AquaGetReferralLink,
+    #[cfg(feature = "aqua-module")]
+    AquaKazumaResetCooldown {
+        thread_id: String,
+        next_message: String,
+    },
+    #[cfg(feature = "aqua-module")]
     ClaimAqua,
     #[cfg(feature = "aqua-module")]
     AquaOpenShop,
@@ -157,8 +185,6 @@ pub enum TgCommand {
     FtNotificationsSubscriptionAttachmentPhoto(ChatId, AccountId, usize),
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsSubscriptionAttachmentAnimation(ChatId, AccountId, usize),
-    #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSetSubscriptionAttachment(ChatId, AccountId, NftBuybotMessageAttachment),
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsPreview(ChatId, AccountId),
     #[cfg(feature = "ft-buybot-module")]
@@ -532,6 +558,38 @@ pub enum AquaItem {
     Kazuma,
 }
 
+#[cfg(feature = "aqua-module")]
+impl AquaItem {
+    pub fn all_items() -> Vec<Self> {
+        vec![Self::Kazuma]
+    }
+
+    pub fn cost(&self) -> near_primitives::types::Balance {
+        const AQUA_DECIMALS: u32 = 24;
+
+        match self {
+            Self::Kazuma => 2 * 10u128.pow(AQUA_DECIMALS),
+        }
+    }
+
+    pub fn instructions(&self) -> &'static str {
+        match self {
+            Self::Kazuma => {
+                "[Click here](tg://resolve?domain=kazuma_axis_bot&start=Start) to start the chat\\."
+            }
+        }
+    }
+}
+
+#[cfg(feature = "aqua-module")]
+impl std::fmt::Display for AquaItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Kazuma => write!(f, "Kazuma"),
+        }
+    }
+}
+
 #[cfg(feature = "contract-logs-module")]
 #[derive(Debug, Clone)]
 pub struct WrappedVersionReq(pub semver::VersionReq);
@@ -564,6 +622,28 @@ impl<'de> Deserialize<'de> for WrappedVersionReq {
 pub enum EmojiDistribution {
     Sequential,
     Random,
+}
+
+#[cfg(feature = "ft-buybot-module")]
+impl EmojiDistribution {
+    pub fn get_distribution<'a>(
+        &self,
+        emojis: &'a [String],
+    ) -> Box<dyn Iterator<Item = String> + 'a> {
+        if emojis.is_empty() {
+            return Box::new(std::iter::repeat("👀".to_string()));
+        }
+        match self {
+            EmojiDistribution::Sequential => Box::new(emojis.iter().cloned().cycle()),
+            EmojiDistribution::Random => Box::new(
+                rand::Rng::sample_iter(
+                    rand::thread_rng(),
+                    rand::distributions::Slice::new(emojis).unwrap(),
+                )
+                .cloned(),
+            ),
+        }
+    }
 }
 
 #[cfg(feature = "ft-buybot-module")]
@@ -618,6 +698,31 @@ pub enum CollectionId {
 }
 
 #[cfg(feature = "nft-buybot-module")]
+impl std::fmt::Display for CollectionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CollectionId::Contract(account_id) => write!(f, "contract:{account_id}"),
+            CollectionId::Paras(name) => write!(f, "paras:{name}"),
+        }
+    }
+}
+
+#[cfg(feature = "nft-buybot-module")]
+impl std::str::FromStr for CollectionId {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(s) = s.strip_prefix("contract:") {
+            Ok(CollectionId::Contract(s.parse()?))
+        } else if let Some(s) = s.strip_prefix("paras:") {
+            Ok(CollectionId::Paras(s.to_string()))
+        } else {
+            Err(anyhow::anyhow!("Invalid collection ID prefix"))
+        }
+    }
+}
+
+#[cfg(feature = "nft-buybot-module")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum NftBuybotMessageAttachment {
     NoAttachment,
@@ -663,6 +768,89 @@ pub enum Threshold {
         percentage: f64,
         last_notified_price: f64,
     },
+}
+
+#[cfg(feature = "price-alerts-module")]
+impl Threshold {
+    pub fn get_thresholds_usd(&self, direction: PriceAlertDirection) -> Vec<f64> {
+        match self {
+            Threshold::Price(price) => vec![*price],
+            Threshold::Percentage {
+                percentage,
+                last_notified_price,
+            } => {
+                let price_low = last_notified_price * (1f64 - percentage);
+                let price_high = last_notified_price * (1f64 + percentage);
+                match direction {
+                    PriceAlertDirection::Up => vec![price_high],
+                    PriceAlertDirection::Down => vec![price_low],
+                    PriceAlertDirection::Cross => vec![price_low, price_high],
+                }
+            }
+        }
+    }
+}
+
+#[cfg(feature = "price-alerts-module")]
+impl PartialEq for Threshold {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Threshold::Price(price1), Threshold::Price(price2)) => close_enough(*price1, *price2),
+            (
+                Threshold::Percentage {
+                    percentage: percentage1,
+                    last_notified_price: last_notified_price1,
+                },
+                Threshold::Percentage {
+                    percentage: percentage2,
+                    last_notified_price: last_notified_price2,
+                },
+            ) => {
+                close_enough(*percentage1, *percentage2)
+                    && close_enough(*last_notified_price1, *last_notified_price2)
+            }
+            _ => false,
+        }
+    }
+}
+
+#[cfg(feature = "price-alerts-module")]
+fn close_enough(a: f64, b: f64) -> bool {
+    const EPSILON: f64 = 0.0000001;
+    if a == b {
+        return true;
+    }
+    if a == 0f64 || b == 0f64 {
+        return false;
+    }
+    let ratio = a / b;
+    (1f64 - ratio).abs() < EPSILON
+}
+
+#[cfg(feature = "price-alerts-module")]
+impl PartialOrd for Threshold {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let type_1 = match self {
+            Threshold::Price(_) => 1,
+            Threshold::Percentage { .. } => 0,
+        };
+        let type_2 = match other {
+            Threshold::Price(_) => 1,
+            Threshold::Percentage { .. } => 0,
+        };
+        let value_1 = match self {
+            Threshold::Price(price) => *price,
+            Threshold::Percentage { percentage, .. } => *percentage,
+        };
+        let value_2 = match other {
+            Threshold::Price(price) => *price,
+            Threshold::Percentage { percentage, .. } => *percentage,
+        };
+        match type_1.cmp(&type_2) {
+            std::cmp::Ordering::Equal => value_1.partial_cmp(&value_2),
+            other => Some(other),
+        }
+    }
 }
 
 #[cfg(feature = "socialdb-module")]

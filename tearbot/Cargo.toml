@@ -6,9 +6,18 @@ license = { workspace = true }
 
 [dependencies]
 tearbot-common = { path = "../tearbot-common" }
+aqua = { path = "../xeon-private-modules/aqua", optional = true }
 contract-logs = { path = "../contract-logs", optional = true }
-utilities = { path = "../utilities", optional = true }
+ft-buybot = { path = "../xeon-private-modules/ft-buybot", optional = true }
+new-liquidity-pools = { path = "../xeon-private-modules/new-liquidity-pools", optional = true }
+nft-buybot = { path = "../xeon-private-modules/nft-buybot", optional = true }
+potlock = { path = "../xeon-private-modules/potlock", optional = true }
+price-alerts = { path = "../xeon-private-modules/price-alerts", optional = true }
 socialdb = { path = "../xeon-private-modules/socialdb", optional = true }
+new-tokens = { path = "../xeon-private-modules/new-tokens", optional = true }
+utilities = { path = "../utilities", optional = true }
+honey = { path = "../xeon-private-modules/honey", optional = true }
+
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
 tokio = { workspace = true, features = [
@@ -24,7 +33,7 @@ itertools = { workspace = true }
 async-trait = { workspace = true }
 
 [features]
-default = [ "contract-logs-module", "utilities-module" ]
+default = ["contract-logs-module", "utilities-module"]
 private = [
     "aqua-module",
     "contract-logs-module",
@@ -38,14 +47,17 @@ private = [
     "utilities-module",
     "honey-module",
 ]
-aqua-module = [ "tearbot-common/aqua-module" ]
-contract-logs-module = [ "tearbot-common/contract-logs-module", "contract-logs" ]
-ft-buybot-module = [ "tearbot-common/ft-buybot-module" ]
-new-liquidity-pools-module = [ "tearbot-common/new-liquidity-pools-module" ]
-nft-buybot-module = [ "tearbot-common/nft-buybot-module" ]
-potlock-module = [ "tearbot-common/potlock-module" ]
-price-alerts-module = [ "tearbot-common/price-alerts-module" ]
-socialdb-module = [ "tearbot-common/socialdb-module", "socialdb" ]
-new-tokens-module = [ "tearbot-common/new-tokens-module" ]
-utilities-module = [ "tearbot-common/utilities-module", "utilities" ]
-honey-module = [ "tearbot-common/honey-module" ]
+aqua-module = ["tearbot-common/aqua-module", "aqua"]
+contract-logs-module = ["tearbot-common/contract-logs-module", "contract-logs"]
+ft-buybot-module = ["tearbot-common/ft-buybot-module", "ft-buybot"]
+new-liquidity-pools-module = [
+    "tearbot-common/new-liquidity-pools-module",
+    "new-liquidity-pools",
+]
+nft-buybot-module = ["tearbot-common/nft-buybot-module", "nft-buybot"]
+potlock-module = ["tearbot-common/potlock-module", "potlock"]
+price-alerts-module = ["tearbot-common/price-alerts-module", "price-alerts"]
+socialdb-module = ["tearbot-common/socialdb-module", "socialdb"]
+new-tokens-module = ["tearbot-common/new-tokens-module", "new-tokens"]
+utilities-module = ["tearbot-common/utilities-module", "utilities"]
+honey-module = ["tearbot-common/honey-module", "honey"]

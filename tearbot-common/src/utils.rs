@@ -7,7 +7,8 @@ pub mod tokens;
 
 use std::time::Duration;
 
-use near_primitives::types::AccountId;
+use near_primitives::{hash::CryptoHash, types::AccountId};
+use serde::Deserialize;
 
 pub async fn get_selected_badge(account_id: &AccountId) -> &str {
     if account_id == "slimedragon.near"
@@ -68,4 +69,39 @@ pub fn escape_markdownv2_code(text: impl Into<String>) -> String {
         text = text.replace(*char, format!("\\{}", char).as_str());
     }
     text
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NftToken {
+    pub token_id: String,
+    pub owner_id: AccountId,
+    pub metadata: Option<NftTokenMetadata>, // only NEP-177
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NftTokenMetadata {
+    pub title: Option<String>,
+    // pub description: Option<String>,
+    #[serde(flatten)]
+    pub media: Option<Media>,
+    // pub copies: Option<u64>,
+    // pub issued_at: Option<u64>,  // unix epoch in milliseconds timestamp
+    // pub expires_at: Option<u64>, // unix epoch in milliseconds timestamp
+    // pub starts_at: Option<u64>,  // unix epoch in milliseconds timestamp
+    // pub updated_at: Option<u64>, // unix epoch in milliseconds timestamp
+    // pub extra: Option<String>,
+    // #[serde(flatten)]
+    // pub reference: Option<Reference>,
+}
+
+// #[derive(Deserialize, Debug)]
+// pub struct Reference {
+//     reference: String,
+//     reference_hash: Option<CryptoHash>, // Most tokens don't follow the NEP
+// }
+
+#[derive(Deserialize, Debug)]
+pub struct Media {
+    pub media: String,
+    pub media_hash: Option<CryptoHash>, // Most tokens don't follow the NEP
 }
