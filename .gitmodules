@@ -1,0 +1,3 @@
+[submodule "xeon-private-modules"]
+	path = xeon-private-modules
+	url = git@github.com:INTEARnear/xeon-private-modules
