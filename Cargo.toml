@@ -2,6 +2,11 @@
 resolver = "2"
 members = ["contract-logs", "tearbot", "tearbot-common", "utilities"]
 
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+
 [workspace.dependencies]
 anyhow = "1.0.86"
 async-trait = "0.1.79"
