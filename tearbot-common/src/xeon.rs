@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     bot_commands::MessageCommand,
-    redis_event_reader::IndexerEventHandler,
+    indexer_events::IndexerEventHandler,
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
     utils::{requests::get_not_cached, tokens::WRAP_NEAR},
 };

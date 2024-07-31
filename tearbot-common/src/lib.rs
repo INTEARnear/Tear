@@ -1,5 +1,5 @@
 pub mod bot_commands;
-pub mod redis_event_reader;
+pub mod indexer_events;
 pub mod tgbot;
 pub mod utils;
 pub mod xeon;

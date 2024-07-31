@@ -36,11 +36,12 @@ inindexer = { workspace = true }
 redis = { workspace = true, features = [
     "tokio-rustls-comp",
     "connection-manager",
-] }
-inevents-redis = { workspace = true }
+], optional = true }
+inevents-redis = { workspace = true, optional = true }
 intear-events = { workspace = true }
 futures-util = { workspace = true }
 semver = { workspace = true, optional = true }
+tokio-tungstenite = { version = "0.23.1", features = [ "rustls-tls-native-roots" ] }
 
 [features]
 aqua-module = []
@@ -54,3 +55,4 @@ socialdb-module = []
 new-tokens-module = []
 utilities-module = []
 honey-module = []
+redis-events = [ "redis", "inevents-redis" ]

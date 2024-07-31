@@ -24,7 +24,7 @@ use tearbot_common::{
 
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
-    redis_event_reader::{IndexerEvent, IndexerEventHandler},
+    indexer_events::{IndexerEvent, IndexerEventHandler},
     tgbot::{BotData, BotType, MustAnswerCallbackQuery, TgCallbackContext},
     xeon::{XeonBotModule, XeonState},
 };

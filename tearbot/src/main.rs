@@ -32,9 +32,9 @@ use potlock::PotlockModule;
 use price_alerts::PriceAlertsModule;
 #[cfg(feature = "socialdb-module")]
 use socialdb::SocialDBModule;
+use tearbot_common::indexer_events::start_stream;
 use tearbot_common::mongodb::options::ClientOptions;
 use tearbot_common::mongodb::{Client, Database};
-use tearbot_common::redis_event_reader::start_stream;
 use tearbot_common::teloxide::adaptors::throttle::Limits;
 use tearbot_common::teloxide::adaptors::CacheMe;
 use tearbot_common::teloxide::prelude::{Bot, RequesterExt};
