@@ -46,8 +46,9 @@ private = [
     "new-tokens-module",
     "utilities-module",
     "honey-module",
-    "tearbot-common/redis-events"
+    "redis-events"
 ]
+redis-events = ["tearbot-common/redis-events"]
 aqua-module = ["tearbot-common/aqua-module", "aqua"]
 contract-logs-module = ["tearbot-common/contract-logs-module", "contract-logs"]
 ft-buybot-module = ["tearbot-common/ft-buybot-module", "ft-buybot"]
