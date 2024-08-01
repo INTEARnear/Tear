@@ -414,6 +414,14 @@ pub enum TgCommand {
     NewTokenNotificationsEnableMemeCooking(ChatId),
     #[cfg(feature = "new-tokens-module")]
     NewTokenNotificationsDisableMemeCooking(ChatId),
+    #[cfg(feature = "new-tokens-module")]
+    NewTokenNotificationsEnableParent(ChatId, AccountId),
+    #[cfg(feature = "new-tokens-module")]
+    NewTokenNotificationsDisableParent(ChatId, AccountId),
+    #[cfg(feature = "new-tokens-module")]
+    NewTokenNotificationsEnableOtherParents(ChatId),
+    #[cfg(feature = "new-tokens-module")]
+    NewTokenNotificationsDisableOtherParents(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
