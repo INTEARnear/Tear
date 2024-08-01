@@ -719,13 +719,13 @@ impl HubModule {
         let message = "
 Welcome to Xeon, a better and faster version of [IntearBot](tg://resolve?domain=intearbot) that can handle the next billion web3 users ⚡️
 
-Powered by [Intear](tg://resolve?domain=Dragon_Tech_Bot&start=verify_-1002168539857)
+Powered by [Intear](tg://resolve?domain=intearchat)
             ".trim().to_string();
         #[cfg(not(feature = "private"))]
         let message = "
 Welcome to Tear, an [open\\-source](https://github.com/inTEARnear/Tear) edition of [Xeon](tg://resolve?domain=Intear_Xeon_bot) 💚
 
-Powered by [Intear](tg://resolve?domain=Dragon_Tech_Bot&start=verify_-1002168539857)
+Powered by [Intear](tg://resolve?domain=intearchat)
             "
         .trim()
         .to_string();
@@ -767,7 +767,7 @@ Powered by [Intear](tg://resolve?domain=Dragon_Tech_Bot&start=verify_-1002168539
                 // ),
                 InlineKeyboardButton::url(
                     "🗯 Join our telegram group 🤖",
-                    "tg://resolve?domain=Dragon_Tech_Bot&start=verify_-1002168539857"
+                    "tg://resolve?domain=intearchat"
                         .parse()
                         .unwrap(),
                 ),
