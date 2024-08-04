@@ -767,9 +767,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
                 // ),
                 InlineKeyboardButton::url(
                     "🗯 Join our telegram group 🤖",
-                    "tg://resolve?domain=intearchat"
-                        .parse()
-                        .unwrap(),
+                    "tg://resolve?domain=intearchat".parse().unwrap(),
                 ),
             ],
             // vec![connection_button],

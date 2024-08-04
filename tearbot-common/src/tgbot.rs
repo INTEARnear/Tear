@@ -822,6 +822,13 @@ impl<'a> TgCallbackContext<'a> {
                 .bot()
                 .edit_message_text(self.chat_id, *message_id, text.clone())
                 .parse_mode(ParseMode::MarkdownV2)
+                .link_preview_options(LinkPreviewOptions {
+                    is_disabled: true,
+                    url: None,
+                    prefer_small_media: false,
+                    prefer_large_media: false,
+                    show_above_text: false,
+                })
                 .reply_markup(reply_markup.clone())
                 .await;
             match edit_result {
