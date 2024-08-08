@@ -297,10 +297,13 @@ impl XeonBotModule for NearTgiModule {
                                         );
                                         let error = format!("{err:?}");
                                         let error = if let Some((before, after)) = error.split_once("Location:\n    ") {
-                                            format!("{before}\nLocation:\n    {after}", after = after
+                                            #[cfg(debug_assertions)]
+                                            { format!("{before}\nLocation:\n    {after}") }
+                                            #[cfg(not(debug_assertions))]
+                                            { format!("{before}\nLocation:\n    {after}", after = after
                                                 .replace("near-tgi/near-cli-rs/src/", "https://github.com/INTEARnear/near-tgi-rs/tree/main/src/")
                                                 .replace("near-tgi/", "https://github.com/INTEARnear/Tear/tree/main/near-tgi/")
-                                                .replace(".rs:", ".rs#L"))
+                                                .replace(".rs:", ".rs#L")) }
                                         } else {
                                             error
                                         };
