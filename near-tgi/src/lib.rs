@@ -295,7 +295,16 @@ impl XeonBotModule for NearTgiModule {
                                         command_string = shell_words::join(
                                             std::iter::once("near".to_string()).chain(cli_cmd.to_cli_args())
                                         );
-                                        near_cli_rs::println!("{err:?}");
+                                        let error = format!("{err:?}");
+                                        let error = if let Some((before, after)) = error.split_once("Location:\n    ") {
+                                            format!("{before}\nLocation:\n    {after}", after = after
+                                                .replace("near-tgi/near-cli-rs/src/", "https://github.com/INTEARnear/near-tgi-rs/tree/main/src/")
+                                                .replace("near-tgi/", "https://github.com/INTEARnear/Tear/tree/main/near-tgi/")
+                                                .replace(".rs:", ".rs#L"))
+                                        } else {
+                                            error
+                                        };
+                                        near_cli_rs::println!("{error}");
                                     }
                                 } else if let Some(prompt) = CURRENT_PROMPT.with(|prompt| prompt.borrow_mut().take()) {
                                     if let Some(cli_cmd) = optional_cli_cmd {
