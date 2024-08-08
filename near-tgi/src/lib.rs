@@ -195,7 +195,7 @@ impl XeonBotModule for NearTgiModule {
         match context.parse_command().await? {
             TgCommand::NearTgiAnswer(command, answer) => {
                 let command = command.replace("—", "--");
-                let command = match dbg!(Cmd::try_parse_from(&command)) {
+                let command = match Cmd::try_parse_from(&command) {
                     Ok(cmd) => {
                         if cmd.offline || cmd.teach_me {
                             context
@@ -354,6 +354,11 @@ impl XeonBotModule for NearTgiModule {
                     }
                     ResponseOrPrompt::Prompt(prompt) => match prompt {
                         Prompt::Text { message } => {
+                            let message = if message.trim().is_empty() {
+                                "Enter something (near-cli-rs didn't provide a prompt)".to_string()
+                            } else {
+                                message
+                            };
                             context
                                 .bot()
                                 .set_dm_message_command(
@@ -369,6 +374,12 @@ impl XeonBotModule for NearTgiModule {
                                 .await?;
                         }
                         Prompt::MultiSelect { message, options } => {
+                            let message = if message.trim().is_empty() {
+                                "Select one or multiple options (near-cli-rs didn't provide a prompt)"
+                                    .to_string()
+                            } else {
+                                message
+                            };
                             let mut buttons = Vec::new();
                             for (i, option) in options.iter().enumerate() {
                                 buttons.push(vec![InlineKeyboardButton::callback(
@@ -388,6 +399,11 @@ impl XeonBotModule for NearTgiModule {
                                 .await?;
                         }
                         Prompt::Select { message, options } => {
+                            let message = if message.trim().is_empty() {
+                                "Select an option (near-cli-rs didn't provide a prompt)".to_string()
+                            } else {
+                                message
+                            };
                             let mut buttons = Vec::new();
                             for (i, option) in options.into_iter().enumerate() {
                                 buttons.push(vec![InlineKeyboardButton::callback(
@@ -412,6 +428,11 @@ impl XeonBotModule for NearTgiModule {
                             message,
                             starting_input,
                         } => {
+                            let message = if message.trim().is_empty() {
+                                "Enter something (near-cli-rs didn't provide a prompt)".to_string()
+                            } else {
+                                message
+                            };
                             context
                                 .bot()
                                 .set_dm_message_command(
