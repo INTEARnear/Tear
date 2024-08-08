@@ -7,6 +7,7 @@ use inquire::{Prompt, PromptAnswer, CURRENT_PROMPT, CURRENT_PROMPT_ANSWER};
 use interactive_clap::{FromCli, ResultFromCli, ToCliArgs};
 use near_cli_rs::commands::account::storage_management::CliStorageActions;
 use near_cli_rs::commands::account::CliAccountActions;
+use near_cli_rs::commands::contract::call_function::call_function_args_type::FunctionArgsType;
 use near_cli_rs::commands::contract::call_function::CliCallFunctionActions;
 use near_cli_rs::commands::contract::CliContractActions;
 use near_cli_rs::commands::staking::delegate::CliStakeDelegationCommand;
@@ -251,7 +252,7 @@ impl XeonBotModule for NearTgiModule {
                 if !is_allowed(&command) {
                     context
                         .send(
-                            "Only read\\-only commands are allowed in telegram bot",
+                            "This command is not available in telegram bot environment",
                             InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
                             Attachment::None,
                         )
@@ -567,7 +568,18 @@ fn is_allowed(command: &CliCmd) -> bool {
                     CliContractActions::CallFunction(call) => match &call.function_call_actions {
                         None => true,
                         Some(function_call) => match function_call {
-                            CliCallFunctionActions::AsReadOnly(_) => true,
+                            CliCallFunctionActions::AsReadOnly(f) => match &f.function {
+                                None => true,
+                                Some(f) => match &f.function_args_type {
+                                    None => true,
+                                    Some(args_type) => match args_type {
+                                        FunctionArgsType::TextArgs => true,
+                                        FunctionArgsType::JsonArgs => true,
+                                        FunctionArgsType::Base64Args => true,
+                                        FunctionArgsType::FileArgs => false,
+                                    },
+                                },
+                            },
                             CliCallFunctionActions::AsTransaction(_) => false,
                         },
                     },
