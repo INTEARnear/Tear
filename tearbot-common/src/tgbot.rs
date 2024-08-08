@@ -792,7 +792,7 @@ impl BotData {
         Ok(())
     }
 
-    pub fn xeon(&self) -> &XeonState {
+    pub fn xeon(&self) -> &Arc<XeonState> {
         &self.xeon
     }
 }

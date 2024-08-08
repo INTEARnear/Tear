@@ -240,7 +240,6 @@ where
             let mut prompt_answer = prompt_answer.borrow_mut();
             if let Some(prompt_answer) = prompt_answer.take() {
                 if let PromptAnswer::Select(answer) = prompt_answer {
-                    println!("Answering with {answer}");
                     SingleAnswerOrOptions::Answer(self.options.into_iter().nth(answer))
                 } else {
                     panic!("Prompt answer is not a select: {prompt_answer:?}");
@@ -273,7 +272,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Prompt {
     Text {
         message: String,
