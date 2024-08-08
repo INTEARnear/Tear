@@ -341,8 +341,6 @@ impl XeonBotModule for NearTgiModule {
                     return Ok(());
                 }
 
-                println!("Command: {command_string}");
-                println!("Response: {response:?}");
                 match response {
                     ResponseOrPrompt::Response(response) => {
                         let response = response + &format!(
@@ -374,7 +372,7 @@ impl XeonBotModule for NearTgiModule {
                             let mut buttons = Vec::new();
                             for (i, option) in options.iter().enumerate() {
                                 buttons.push(vec![InlineKeyboardButton::callback(
-                                    option,
+                                    button_length_limit(option),
                                     context
                                         .bot()
                                         .to_callback_data(&TgCommand::NearTgiMultiSelect(
@@ -393,7 +391,9 @@ impl XeonBotModule for NearTgiModule {
                             let mut buttons = Vec::new();
                             for (i, option) in options.into_iter().enumerate() {
                                 buttons.push(vec![InlineKeyboardButton::callback(
-                                    option.split_whitespace().collect::<Vec<_>>().join(" "),
+                                    button_length_limit(
+                                        option.split_whitespace().collect::<Vec<_>>().join(" "),
+                                    ),
                                     context
                                         .bot()
                                         .to_callback_data(&TgCommand::NearTgiSelect(
@@ -607,5 +607,14 @@ fn is_allowed(command: &CliCmd) -> bool {
             CliTopLevelCommand::Config(_) => false,
             CliTopLevelCommand::Extensions(_) => false,
         },
+    }
+}
+
+fn button_length_limit(text: impl Into<String>) -> String {
+    let text = text.into();
+    if text.len() > 64 {
+        text.chars().take(61).collect::<String>() + "..."
+    } else {
+        text
     }
 }
