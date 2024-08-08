@@ -195,7 +195,7 @@ impl XeonBotModule for NearTgiModule {
         match context.parse_command().await? {
             TgCommand::NearTgiAnswer(command, answer) => {
                 let command = command.replace("—", "--");
-                let command = match Cmd::try_parse_from(&command) {
+                let command = match Cmd::try_parse_from(shell_words::split(&command)?) {
                     Ok(cmd) => {
                         if cmd.offline || cmd.teach_me {
                             context
@@ -341,7 +341,7 @@ impl XeonBotModule for NearTgiModule {
                     }
                 }).await?;
 
-                let command = Cmd::try_parse_from(&command_string)?;
+                let command = Cmd::try_parse_from(shell_words::split(&command_string)?)?;
                 if !is_allowed(&command) {
                     context
                         .send(
