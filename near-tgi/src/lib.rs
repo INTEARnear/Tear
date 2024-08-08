@@ -119,7 +119,7 @@ impl XeonBotModule for NearTgiModule {
                 }
             }
             MessageCommand::Start(data) => {
-                if data.starts_with("near") {
+                if data == "near-tgi" {
                     self.handle_callback(
                         TgCallbackContext::new(
                             bot,
@@ -128,6 +128,12 @@ impl XeonBotModule for NearTgiModule {
                             None,
                             &bot.to_callback_data(&TgCommand::NearTgi(data)).await?,
                         ),
+                        &mut None,
+                    )
+                    .await?;
+                } else if let Some(hash) = data.strip_prefix("near-tgi-") {
+                    self.handle_callback(
+                        TgCallbackContext::new(bot, user_id, chat_id, None, hash),
                         &mut None,
                     )
                     .await?;
@@ -275,10 +281,6 @@ impl XeonBotModule for NearTgiModule {
                                 command_string = shell_words::join(
                                     std::iter::once("near".to_string()).chain(cli_cmd.to_cli_args())
                                 );
-                                near_cli_rs::println_escaped!(
-                                    "\n\nHere is your console command if you need to script it or re\\-run:\n`{}`\n",
-                                    markdown::escape_code(&command_string)
-                                );
                             }
                             ResultFromCli::Cancel(None) => {
                                 near_cli_rs::eprintln!("\nGoodbye!");
@@ -293,10 +295,6 @@ impl XeonBotModule for NearTgiModule {
                                             std::iter::once("near".to_string()).chain(cli_cmd.to_cli_args())
                                         );
                                         near_cli_rs::println!("{err:?}");
-                                        near_cli_rs::println_escaped!(
-                                            "\nHere is your console command if you need to script it or re\\-run:\n`{}`\n",
-                                            markdown::escape_code(&command_string)
-                                        );
                                     }
                                 } else if let Some(prompt) = CURRENT_PROMPT.with(|prompt| prompt.borrow_mut().take()) {
                                     if let Some(cli_cmd) = optional_cli_cmd {
@@ -325,9 +323,7 @@ impl XeonBotModule for NearTgiModule {
                             CURRENT_PROMPT_ANSWER.with(|prompt_answer| {
                                 *prompt_answer.borrow_mut() = None;
                             });
-                            let mut message = "near\\-cli\\-rs backend has panicked, you probably did something wrong".to_string();
-                            message += &format!("\n\nHere is your console command if you need to script it or re\\-run:\n`{previous_command_string}`");
-                            (previous_command_string, ResponseOrPrompt::Response(message))
+                            (previous_command_string, ResponseOrPrompt::Response("near\\-cli\\-rs backend has panicked, you probably did something wrong".to_string()))
                         }
                     }
                 }).await?;
@@ -348,6 +344,11 @@ impl XeonBotModule for NearTgiModule {
                 println!("Response: {response:?}");
                 match response {
                     ResponseOrPrompt::Response(response) => {
+                        let response = response + &format!(
+                            "\nHere is your console command if you need to script it or re\\-run:\n`{}`\nOr share this link: `https://t.me/Intear_Xeon_bot?start=near-tgi-{}`",
+                            markdown::escape_code(&command_string),
+                            context.bot().to_callback_data(&TgCommand::NearTgi(command_string)).await?
+                        );
                         context
                             .edit_or_send(response, InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()))
                             .await?;
