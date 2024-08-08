@@ -26,10 +26,7 @@ teloxide = { git = "https://github.com/syrtcevvi/teloxide", rev = "fe8d9f80e4353
     "throttle",
     "cache-me",
 ] }
-tokio = { workspace = true, features = [
-    "sync",
-    "time",
-] }
+tokio = { workspace = true, features = ["sync", "time"] }
 tokio-stream = { workspace = true }
 near-primitives = { workspace = true }
 inindexer = { workspace = true }
@@ -41,7 +38,10 @@ inevents-redis = { workspace = true, optional = true }
 intear-events = { workspace = true }
 futures-util = { workspace = true }
 semver = { workspace = true, optional = true }
-tokio-tungstenite = { version = "0.23.1", features = [ "rustls-tls-native-roots" ] }
+tokio-tungstenite = { version = "0.23.1", features = [
+    "rustls-tls-native-roots",
+] }
+inquire = { version = "0.7.5", optional = true }
 
 [features]
 aqua-module = []
@@ -55,4 +55,5 @@ socialdb-module = []
 new-tokens-module = []
 utilities-module = []
 honey-module = []
-redis-events = [ "redis", "inevents-redis" ]
+near-tgi-module = ["inquire"]
+redis-events = ["redis", "inevents-redis"]

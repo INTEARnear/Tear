@@ -17,6 +17,7 @@ socialdb = { path = "../xeon-private-modules/socialdb", optional = true }
 new-tokens = { path = "../xeon-private-modules/new-tokens", optional = true }
 utilities = { path = "../utilities", optional = true }
 honey = { path = "../xeon-private-modules/honey", optional = true }
+near-tgi = { path = "../near-tgi", optional = true }
 
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
@@ -33,7 +34,7 @@ itertools = { workspace = true }
 async-trait = { workspace = true }
 
 [features]
-default = ["contract-logs-module", "utilities-module"]
+default = ["contract-logs-module", "utilities-module", "near-tgi-module"]
 private = [
     "aqua-module",
     "contract-logs-module",
@@ -46,7 +47,8 @@ private = [
     "new-tokens-module",
     "utilities-module",
     "honey-module",
-    "redis-events"
+    "near-tgi-module",
+    "redis-events",
 ]
 redis-events = ["tearbot-common/redis-events"]
 aqua-module = ["tearbot-common/aqua-module", "aqua"]
@@ -63,3 +65,4 @@ socialdb-module = ["tearbot-common/socialdb-module", "socialdb"]
 new-tokens-module = ["tearbot-common/new-tokens-module", "new-tokens"]
 utilities-module = ["tearbot-common/utilities-module", "utilities"]
 honey-module = ["tearbot-common/honey-module", "honey"]
+near-tgi-module = ["tearbot-common/near-tgi-module", "near-tgi"]

@@ -9,7 +9,6 @@ use mongodb::bson::Bson;
 use near_primitives::hash::CryptoHash;
 use near_primitives::types::AccountId;
 use reqwest::Url;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use teloxide::adaptors::CacheMe;
 use teloxide::dispatching::UpdateFilterExt;
@@ -28,15 +27,16 @@ use teloxide::prelude::UserId;
 use teloxide::types::{
     InlineKeyboardMarkup, InputFile, LinkPreviewOptions, MessageId, ParseMode, ReplyMarkup,
 };
+use teloxide::utils::markdown;
 use teloxide::{adaptors::throttle::Throttle, prelude::ChatId};
 use teloxide::{ApiError, Bot, RequestError};
 use tokio::sync::RwLock;
 
 use crate::bot_commands::{MessageCommand, TgCommand};
 use crate::utils::chat::ChatPermissionLevel;
+use crate::utils::format_duration;
 use crate::utils::requests::fetch_file_cached_1d;
 use crate::utils::store::PersistentCachedStore;
-use crate::utils::{escape_markdownv2, format_duration};
 use crate::xeon::XeonState;
 
 pub type TgBot = CacheMe<Throttle<Bot>>;
@@ -243,7 +243,17 @@ impl BotData {
                                     )
                                     .await
                             } else {
-                                Ok(())
+                                log::debug!("DM message: {text}, module: {}", module.name());
+                                module
+                                    .handle_message(
+                                        &bot,
+                                        Some(from_id),
+                                        msg.chat.id,
+                                        MessageCommand::None,
+                                        text,
+                                        &msg,
+                                    )
+                                    .await
                             }
                         } else {
                             Ok(())
@@ -511,7 +521,7 @@ impl BotData {
         Ok(b58)
     }
 
-    pub async fn to_callback_data<T: Serialize>(&self, data: &T) -> Result<String, anyhow::Error> {
+    pub async fn to_callback_data(&self, data: &TgCommand) -> Result<String, anyhow::Error> {
         let data = serde_json::to_string(data).unwrap();
         self.create_callback_data(data).await
     }
@@ -521,10 +531,7 @@ impl BotData {
         self.callback_data_cache.get(&hash.to_string()).await
     }
 
-    pub async fn parse_callback_data<T: DeserializeOwned>(
-        &self,
-        b58: &str,
-    ) -> Result<T, anyhow::Error> {
+    pub async fn parse_callback_data(&self, b58: &str) -> Result<TgCommand, anyhow::Error> {
         let data = self
             .get_callback_data(b58)
             .await
@@ -583,20 +590,45 @@ impl BotData {
         reply_markup: impl Into<ReplyMarkup>,
         attachment: Attachment,
     ) -> Result<Message, anyhow::Error> {
+        let text = text.into();
         Ok(match attachment {
             Attachment::None => {
-                self.bot
-                    .send_message(chat_id, text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .link_preview_options(LinkPreviewOptions {
-                        is_disabled: true,
-                        url: None,
-                        prefer_small_media: false,
-                        prefer_large_media: false,
-                        show_above_text: false,
-                    })
-                    .await?
+                if text.len() < 4096 {
+                    self.bot
+                        .send_message(chat_id, text)
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .reply_markup(reply_markup)
+                        .link_preview_options(LinkPreviewOptions {
+                            is_disabled: true,
+                            url: None,
+                            prefer_small_media: false,
+                            prefer_large_media: false,
+                            show_above_text: false,
+                        })
+                        .await?
+                } else {
+                    self.bot
+                        .send_document(
+                            chat_id,
+                            InputFile::memory({
+                                const CHARS: [char; 19] = [
+                                    '\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+',
+                                    '-', '=', '|', '{', '}', '.', '!',
+                                ];
+
+                                let mut text = text;
+                                for c in CHARS {
+                                    text = text.replace(&format!("\\{c}"), &c.to_string());
+                                }
+                                text
+                            })
+                            .file_name("message.txt"),
+                        )
+                        .caption("The response was too long, so it was sent as a file\\.")
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .reply_markup(reply_markup)
+                        .await?
+                }
             }
             Attachment::PhotoUrl(url) => {
                 self.bot
@@ -726,7 +758,7 @@ impl BotData {
             if let Err(err) = bot
                 .send_message(chat_id, &format!(
                     "You have reached the notification limit of {messages}/{limit} messages in {}\\.\nPlease fix your settings\\.",
-                    escape_markdownv2(format_duration(duration))
+                    markdown::escape(&format_duration(duration))
                 ))
                 .parse_mode(ParseMode::MarkdownV2)
                 .link_preview_options(LinkPreviewOptions {
@@ -758,6 +790,10 @@ impl BotData {
             .insert_or_update(chat_id, permission_level)
             .await?;
         Ok(())
+    }
+
+    pub fn xeon(&self) -> &XeonState {
+        &self.xeon
     }
 }
 
@@ -807,7 +843,7 @@ impl<'a> TgCallbackContext<'a> {
     }
 
     pub async fn parse_command(&self) -> Result<TgCommand, anyhow::Error> {
-        self.bot.parse_callback_data::<TgCommand>(self.data).await
+        self.bot.parse_callback_data(self.data).await
     }
 
     pub async fn edit_or_send(
@@ -816,6 +852,11 @@ impl<'a> TgCallbackContext<'a> {
         reply_markup: InlineKeyboardMarkup,
     ) -> Result<(), anyhow::Error> {
         let text = text.into();
+        if text.len() >= 4096 {
+            let message = self.send(text, reply_markup, Attachment::None).await?;
+            self.last_message.write().await.replace(message.id);
+            return Ok(());
+        }
         if let Some(message_id) = self.last_message.read().await.as_ref() {
             let edit_result = self
                 .bot

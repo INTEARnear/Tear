@@ -13,10 +13,10 @@ use tearbot_common::{
     teloxide::{
         prelude::{ChatId, Message, Requester, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
+        utils::markdown,
     },
     utils::{
         chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, DM_CHAT},
-        escape_markdownv2, escape_markdownv2_code,
         store::PersistentCachedStore,
         tokens::format_account_id,
     },
@@ -92,11 +92,11 @@ impl ContractLogsNep297Module {
                             }
                             let message = format!(
                                 "{standard} {version} {event} event from {account_id}:\n```\n{log}\n```\n[Tx](https://pikespeak.ai/transaction-viewer/{tx_id}/detailed)",
-                                standard = escape_markdownv2(&standard),
-                                version = escape_markdownv2(&version),
-                                event = escape_markdownv2(&event),
+                                standard = markdown::escape(&&standard),
+                                version = markdown::escape(&&version),
+                                event = markdown::escape(&&event),
                                 account_id = format_account_id(&account_id).await,
-                                log = escape_markdownv2_code(&log_serialized),
+                                log = markdown::escape_code(&&log_serialized),
                                 tx_id = transaction_id,
                             );
                             let buttons = if chat_id.is_user() {
@@ -366,8 +366,8 @@ impl XeonBotModule for ContractLogsNep297Module {
                 } else {
                     format!(
                         " for *{}*",
-                        escape_markdownv2(
-                            get_chat_title_cached_5m(context.bot().bot(), target_chat_id)
+                        markdown::escape(
+                            &get_chat_title_cached_5m(context.bot().bot(), target_chat_id)
                                 .await?
                                 .unwrap_or(DM_CHAT.to_string()),
                         )
@@ -413,19 +413,19 @@ impl XeonBotModule for ContractLogsNep297Module {
                             if let Some(standard) = &filter.standard {
                                 components.push(format!(
                                     "standard `{standard}`",
-                                    standard = escape_markdownv2_code(standard)
+                                    standard = markdown::escape_code(&standard)
                                 ));
                             }
                             if let Some(version) = &filter.version {
                                 components.push(format!(
                                     "version `{version}`",
-                                    version = escape_markdownv2_code(version.0.to_string())
+                                    version = markdown::escape_code(&version.0.to_string())
                                 ));
                             }
                             if let Some(event) = &filter.event {
                                 components.push(format!(
                                     "event `{event}`",
-                                    event = escape_markdownv2_code(event)
+                                    event = markdown::escape_code(&event)
                                 ));
                             }
                             if let Some(is_testnet) = filter.is_testnet {
@@ -536,19 +536,19 @@ impl XeonBotModule for ContractLogsNep297Module {
                         if let Some(standard) = &filter.standard {
                             components.push(format!(
                                 "*Standard:* `{standard}`",
-                                standard = escape_markdownv2_code(standard)
+                                standard = markdown::escape_code(&standard)
                             ));
                         }
                         if let Some(version) = &filter.version {
                             components.push(format!(
                                 "*Version:* `{version}`",
-                                version = escape_markdownv2_code(version.0.to_string())
+                                version = markdown::escape_code(&version.0.to_string())
                             ));
                         }
                         if let Some(event) = &filter.event {
                             components.push(format!(
                                 "*Event:* `{event}`",
-                                event = escape_markdownv2_code(event)
+                                event = markdown::escape_code(&event)
                             ));
                         }
                         if let Some(is_testnet) = filter.is_testnet {

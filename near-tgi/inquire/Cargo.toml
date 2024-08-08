@@ -1,0 +1,8 @@
+[package]
+name = "inquire"
+version = "0.7.5"
+edition = "2021"
+
+[dependencies]
+inquire = { git = "https://github.com/mikaelmello/inquire" }
+serde = { workspace = true, features = ["derive"] }

@@ -1,0 +1,25 @@
+[package]
+name = "near-tgi"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+tearbot-common = { path = "../tearbot-common", features = ["near-tgi-module"] }
+async-trait = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+itertools = { workspace = true }
+near-cli-rs = { path = "./near-cli-rs" }
+clap = { version = "4.0.18", features = ["derive"] }
+interactive-clap = "0.2.10"
+interactive-clap-derive = { version = "0.2.10", features = ["try-parse-from"] }
+color-eyre = "0.6.3"
+shell-words = "1.1.0"
+inquire = "0.7.5"
+tokio = { workspace = true }
+
+[build-dependencies]
+toml = "0.8.19"
+serde = { workspace = true, features = ["derive"] }

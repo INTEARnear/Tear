@@ -4,18 +4,18 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use serde::Deserialize;
 use tearbot_common::near_utils::dec_format;
+use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::teloxide::{
     prelude::{ChatId, Message, UserId},
     types::{InlineKeyboardButton, InlineKeyboardMarkup},
 };
-use tearbot_common::tgbot::BotData;
+use tearbot_common::tgbot::{BotData, BotType};
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     near_primitives::types::{AccountId, Balance, BlockHeight},
     tgbot::{MustAnswerCallbackQuery, TgCallbackContext},
     utils::{
         apis::search_token,
-        escape_markdownv2,
         requests::get_cached_30s,
         rpc::{view_account_cached_30s, view_cached_30s},
         tokens::{
@@ -57,6 +57,9 @@ impl XeonBotModule for UtilitiesModule {
             return Ok(());
         };
         if !chat_id.is_user() {
+            return Ok(());
+        }
+        if bot.bot_type() != BotType::Main {
             return Ok(());
         }
         match command {
@@ -155,6 +158,12 @@ impl XeonBotModule for UtilitiesModule {
         context: TgCallbackContext<'a>,
         _query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error> {
+        if context.bot().bot_type() != BotType::Main {
+            return Ok(());
+        }
+        if !context.chat_id().is_user() {
+            return Ok(());
+        }
         let xeon = Arc::clone(&self.xeon);
         match context.parse_command().await? {
             TgCommand::UtilitiesFtHolders => {
@@ -201,7 +210,7 @@ impl XeonBotModule for UtilitiesModule {
                         i = i + 1,
                         account_id = format_account_id(&account_id).await,
                         balance = if let Some(balance) = balance {
-                            escape_markdownv2(format_tokens(balance, &token_id, Some(&xeon)).await)
+                            markdown::escape(&format_tokens(balance, &token_id, Some(&xeon)).await)
                         } else {
                             "Unknown".to_string()
                         }
@@ -216,7 +225,7 @@ Top 10 holders of *${}*
 
 Data provided by [FASTNEAR](https://fastnear.com) 💚
                 ",
-                    escape_markdownv2(metadata.symbol),
+                    markdown::escape(&metadata.symbol),
                 );
                 let buttons = InlineKeyboardMarkup::new(vec![
                     vec![
@@ -278,7 +287,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                 }
                 let message = format!(
                     "Top 100 holders of *${}*\n\nData provided by [FASTNEAR](https://fastnear.com) 💚",
-                    escape_markdownv2(metadata.symbol)
+                    markdown::escape(&metadata.symbol)
                 );
                 let buttons = InlineKeyboardMarkup::new(vec![
                     vec![
@@ -355,8 +364,8 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             staked_near_str.push_str(&format!(
                                 "\n\\- {pool_id} : *{staked_amount}*{unstaked}",
                                 pool_id = format_account_id(&pool_id).await,
-                                staked_amount = escape_markdownv2(
-                                    format_near_amount(staked_amount, Some(&xeon)).await
+                                staked_amount = markdown::escape(
+                                    &format_near_amount(staked_amount, Some(&xeon)).await
                                 ),
                                 // For some reason, unstaked amount always goes +1 yoctonear every time you stake
                                 unstaked = if unstaked_amount <= 1_000 {
@@ -369,8 +378,8 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                                         } else {
                                             "Currently unstaking"
                                         },
-                                        unstaked = escape_markdownv2(
-                                            format_near_amount(unstaked_amount, Some(&xeon)).await
+                                        unstaked = markdown::escape(
+                                            &format_near_amount(unstaked_amount, Some(&xeon)).await
                                         ),
                                     )
                                 }
@@ -417,7 +426,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                 for (i, (token_id, balance, _)) in tokens.into_iter().enumerate() {
                     tokens_balance.push_str(&format!(
                         "[{i}\\.](https://nearblocks.io/token/{token_id}) {}\n",
-                        escape_markdownv2(format_tokens(balance, &token_id, Some(&xeon)).await),
+                        markdown::escape(&format_tokens(balance, &token_id, Some(&xeon)).await),
                         i = i + 1,
                     ));
                 }
@@ -436,7 +445,7 @@ Tokens:
 Tokens and staking data provided by [FASTNEAR](https://fastnear.com) 💚
                     ",
                     format_account_id(&account_id).await,
-                    escape_markdownv2(format_near_amount(near_balance, Some(&xeon)).await),
+                    markdown::escape(&format_near_amount(near_balance, Some(&xeon)).await),
                 );
                 let buttons = InlineKeyboardMarkup::new(vec![
                     vec![InlineKeyboardButton::callback(

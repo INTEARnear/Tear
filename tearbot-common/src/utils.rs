@@ -52,25 +52,6 @@ pub fn format_duration(duration: Duration) -> String {
     result.trim_end().to_string()
 }
 
-pub fn escape_markdownv2(text: impl Into<String>) -> String {
-    let mut text = text.into();
-    for char in &[
-        '\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '=', '|', '{', '}', '.', '!',
-        '-',
-    ] {
-        text = text.replace(*char, format!("\\{}", char).as_str());
-    }
-    text
-}
-
-pub fn escape_markdownv2_code(text: impl Into<String>) -> String {
-    let mut text = text.into();
-    for char in &['\\', '`'] {
-        text = text.replace(*char, format!("\\{}", char).as_str());
-    }
-    text
-}
-
 #[derive(Deserialize, Debug)]
 pub struct NftToken {
     pub token_id: String,

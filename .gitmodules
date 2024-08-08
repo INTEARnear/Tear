@@ -1,3 +1,10 @@
 [submodule "xeon-private-modules"]
 	path = xeon-private-modules
 	url = git@github.com:INTEARnear/xeon-private-modules
+[submodule "near-tgi/near-cli-rs"]
+	path = near-tgi/near-cli-rs
+	url = https://github.com/INTEARnear/near-tgi-rs
+[submodule "near-tgi/interactive-clap"]
+	path = near-tgi/interactive-clap
+	url = https://github.com/Sliman4/interactive-clap
+        branch = fix-try-parse-from

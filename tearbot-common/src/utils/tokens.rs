@@ -1,9 +1,10 @@
 use inindexer::near_utils::dec_format;
 use near_primitives::types::{AccountId, Balance};
 use serde::{Deserialize, Serialize};
+use teloxide::utils::markdown;
 
 use crate::{
-    utils::{apis::get_near_social_details, escape_markdownv2, get_selected_badge},
+    utils::{apis::get_near_social_details, get_selected_badge},
     xeon::XeonState,
 };
 
@@ -149,7 +150,7 @@ pub async fn format_account_id(account_id: &AccountId) -> String {
         .ok()
         .and_then(|profile| profile.name)
         .unwrap_or(account_id.to_string());
-    let name = escape_markdownv2(if name.chars().all(|c| !c.is_alphanumeric()) {
+    let name = markdown::escape(&if name.chars().all(|c| !c.is_alphanumeric()) {
         account_id.to_string()
     } else {
         name

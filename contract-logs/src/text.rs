@@ -11,10 +11,10 @@ use tearbot_common::{
     teloxide::{
         prelude::{ChatId, Message, Requester, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
+        utils::markdown,
     },
     utils::{
         chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, DM_CHAT},
-        escape_markdownv2, escape_markdownv2_code,
         store::PersistentCachedStore,
         tokens::format_account_id,
     },
@@ -83,7 +83,7 @@ impl ContractLogsTextModule {
                             let message = format!(
                                 "Text log from {account_id}:\n```\n{log}\n```\n[Tx](https://pikespeak.ai/transaction-viewer/{tx_id}/detailed)",
                                 account_id = format_account_id(&account_id).await,
-                                log = escape_markdownv2_code(&log_text),
+                                log = markdown::escape_code(&&log_text),
                                 tx_id = transaction_id,
                             );
                             let buttons = vec![vec![InlineKeyboardButton::callback(
@@ -400,8 +400,8 @@ impl XeonBotModule for ContractLogsTextModule {
                 } else {
                     format!(
                         " for *{}*",
-                        escape_markdownv2(
-                            get_chat_title_cached_5m(context.bot().bot(), target_chat_id)
+                        markdown::escape(
+                            &get_chat_title_cached_5m(context.bot().bot(), target_chat_id)
                                 .await?
                                 .unwrap_or(DM_CHAT.to_string()),
                         )
@@ -444,25 +444,25 @@ impl XeonBotModule for ContractLogsTextModule {
                             if let Some(exact_match) = &filter.exact_match {
                                 components.push(format!(
                                     "exact match `{exact_match}`",
-                                    exact_match = escape_markdownv2_code(exact_match)
+                                    exact_match = markdown::escape_code(&exact_match)
                                 ));
                             }
                             if let Some(text_starts_with) = &filter.text_starts_with {
                                 components.push(format!(
                                     "starts with `{text_starts_with}`",
-                                    text_starts_with = escape_markdownv2_code(text_starts_with)
+                                    text_starts_with = markdown::escape_code(&text_starts_with)
                                 ));
                             }
                             if let Some(text_ends_with) = &filter.text_ends_with {
                                 components.push(format!(
                                     "ends with `{text_ends_with}`",
-                                    text_ends_with = escape_markdownv2_code(text_ends_with)
+                                    text_ends_with = markdown::escape_code(&text_ends_with)
                                 ));
                             }
                             if let Some(text_contains) = &filter.text_contains {
                                 components.push(format!(
                                     "contains `{text_contains}`",
-                                    text_contains = escape_markdownv2_code(text_contains)
+                                    text_contains = markdown::escape_code(&text_contains)
                                 ));
                             }
                             if let Some(is_testnet) = filter.is_testnet {
@@ -566,25 +566,25 @@ impl XeonBotModule for ContractLogsTextModule {
                         if let Some(exact_match) = &filter.exact_match {
                             components.push(format!(
                                 "*Exact match:* `{exact_match}`",
-                                exact_match = escape_markdownv2_code(exact_match)
+                                exact_match = markdown::escape_code(&exact_match)
                             ));
                         }
                         if let Some(text_starts_with) = &filter.text_starts_with {
                             components.push(format!(
                                 "*Starts with:* `{text_starts_with}`",
-                                text_starts_with = escape_markdownv2_code(text_starts_with)
+                                text_starts_with = markdown::escape_code(&text_starts_with)
                             ));
                         }
                         if let Some(text_ends_with) = &filter.text_ends_with {
                             components.push(format!(
                                 "*Ends with:* `{text_ends_with}`",
-                                text_ends_with = escape_markdownv2_code(text_ends_with)
+                                text_ends_with = markdown::escape_code(&text_ends_with)
                             ));
                         }
                         if let Some(text_contains) = &filter.text_contains {
                             components.push(format!(
                                 "*Contains:* `{text_contains}`",
-                                text_contains = escape_markdownv2_code(text_contains)
+                                text_contains = markdown::escape_code(&text_contains)
                             ));
                         }
                         if let Some(is_testnet) = filter.is_testnet {

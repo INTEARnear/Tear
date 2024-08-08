@@ -12,11 +12,11 @@ use tearbot_common::{
             InlineKeyboardMarkup, KeyboardButton, KeyboardButtonRequestChat,
             KeyboardButtonRequestUsers, ReplyMarkup, UsersShared,
         },
+        utils::markdown,
     },
     tgbot::{Attachment, BotData, BotType, MustAnswerCallbackQuery, TgCallbackContext},
     utils::{
         chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, ChatPermissionLevel},
-        escape_markdownv2,
         store::PersistentCachedStore,
     },
     xeon::{XeonBotModule, XeonState},
@@ -66,18 +66,20 @@ impl XeonBotModule for HubModule {
             return Ok(());
         };
         match command {
-            MessageCommand::Start(_data) => {
+            MessageCommand::Start(data) => {
                 self.users_first_interaction
                     .insert_if_not_exists(user_id, DateTime::now())
                     .await?;
-                self.open_main_menu(bot, user_id, None).await?;
+                if data.is_empty() {
+                    self.open_main_menu(bot, user_id, None).await?;
+                }
             }
             // MessageCommand::ConnectAccountAnonymously => {
             //     if let Ok(account_id) = text.parse::<AccountId>() {
             //         self.connect_account_anonymously(bot, user_id, chat_id, account_id)
             //             .await?;
             //     } else {
-            //         let message = format!("Invalid NEAR account ID: {}", escape_markdownv2(text));
+            //         let message = format!("Invalid NEAR account ID: {}", markdown::escape(&text));
             //         let reply_markup =
             //             InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
             //                 "⬅️ Back",
@@ -109,8 +111,8 @@ impl XeonBotModule for HubModule {
                     if !check_admin_permission_in_chat(bot, *target_chat_id, user_id).await {
                         return Ok(());
                     }
-                    let chat_name = escape_markdownv2(
-                        get_chat_title_cached_5m(bot.bot(), *target_chat_id)
+                    let chat_name = markdown::escape(
+                        &get_chat_title_cached_5m(bot.bot(), *target_chat_id)
                             .await?
                             .unwrap_or("DM".to_string()),
                     );
@@ -328,7 +330,7 @@ impl XeonBotModule for HubModule {
                                 } else {
                                     "Unknown".to_string()
                                 };
-                                let first_name = escape_markdownv2(first_name);
+                                let first_name = markdown::escape(&first_name);
                                 names.push(format!("[{first_name}](tg://user?id={member_id})"));
                             }
                             let mut s = names.join(", ");
@@ -824,7 +826,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
     //     if let Some(account) = bot.get_connected_account(&user_id).await {
     //         let message = format!(
     //             "You already have an account connected: {}",
-    //             escape_markdownv2(account.account_id)
+    //             markdown::escape(&account.account_id)
     //         );
     //         let reply_markup = InlineKeyboardMarkup::new(vec![
     //             vec![InlineKeyboardButton::callback(
@@ -844,7 +846,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
     //     // TODO a check if the account is valid (has some NEAR)
 
     //     bot.connect_account(user_id, account_id.clone()).await?;
-    //     let message = format!("Connected account: {}", escape_markdownv2(account_id));
+    //     let message = format!("Connected account: {}", markdown::escape(&account_id));
     //     let reply_markup = InlineKeyboardMarkup::new(vec![
     //         vec![InlineKeyboardButton::callback(
     //             "🗑 Disconnect",
@@ -878,7 +880,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
     //         context.bot().disconnect_account(&context.user_id()).await?;
     //         let message = format!(
     //             "Disconnected account: {}",
-    //             escape_markdownv2(account.account_id)
+    //             markdown::escape(&account.account_id)
     //         );
     //         let reply_markup = InlineKeyboardMarkup::new(vec![
     //             vec![InlineKeyboardButton::callback(
@@ -1038,8 +1040,8 @@ Powered by [Intear](tg://resolve?domain=intearchat)
             self.open_main_menu(bot, user_id, context).await?;
             return Ok(());
         }
-        let chat_name = escape_markdownv2(
-            get_chat_title_cached_5m(bot.bot(), target_chat_id)
+        let chat_name = markdown::escape(
+            &get_chat_title_cached_5m(bot.bot(), target_chat_id)
                 .await?
                 .unwrap_or("DM".to_string()),
         );
@@ -1120,6 +1122,12 @@ async fn create_notificatons_buttons(
             target_chat_id,
         ))
         .await?,
+    ));
+    #[cfg(feature = "near-tgi-module")]
+    buttons.push(InlineKeyboardButton::callback(
+        "💻 Near TGI",
+        bot.to_callback_data(&TgCommand::NearTgi("near".to_string()))
+            .await?,
     ));
     let buttons = buttons
         .into_iter()

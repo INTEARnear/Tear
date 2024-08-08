@@ -422,10 +422,21 @@ pub enum TgCommand {
     NewTokenNotificationsEnableOtherParents(ChatId),
     #[cfg(feature = "new-tokens-module")]
     NewTokenNotificationsDisableOtherParents(ChatId),
+    #[cfg(feature = "near-tgi-module")]
+    NearTgi(String),
+    #[cfg(feature = "near-tgi-module")]
+    NearTgiAnswer(String, Option<inquire::PromptAnswer>),
+    #[cfg(feature = "near-tgi-module")]
+    NearTgiSelect(String, usize),
+    #[cfg(feature = "near-tgi-module")]
+    NearTgiMultiSelect(String, std::collections::HashSet<usize>),
+    #[cfg(feature = "near-tgi-module")]
+    NearTgiMultiSelectConfirm(String, std::collections::HashSet<usize>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum MessageCommand {
+    None,
     Start(String),
     #[cfg(feature = "aqua-module")]
     AquaEnterAccountId {
@@ -552,6 +563,12 @@ pub enum MessageCommand {
     ChatPermissionsAddToWhitelist(ChatId),
     #[cfg(feature = "contract-logs-module")]
     SocialDBNotificationsAddKey(ChatId),
+    #[cfg(feature = "near-tgi-module")]
+    NearTgi(String),
+    #[cfg(feature = "near-tgi-module")]
+    NearTgiText(String),
+    #[cfg(feature = "near-tgi-module")]
+    NearTgiCustomType(String),
 }
 
 impl From<MessageCommand> for Bson {

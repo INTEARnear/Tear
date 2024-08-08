@@ -6,11 +6,9 @@ use tearbot_common::{
     teloxide::{
         prelude::{ChatId, Message, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
+        utils::markdown,
     },
-    utils::{
-        chat::{get_chat_title_cached_5m, DM_CHAT},
-        escape_markdownv2,
-    },
+    utils::chat::{get_chat_title_cached_5m, DM_CHAT},
 };
 
 use tearbot_common::{
@@ -63,8 +61,8 @@ impl XeonBotModule for ContractLogsModule {
                 } else {
                     format!(
                         " in *{}*",
-                        escape_markdownv2(
-                            get_chat_title_cached_5m(context.bot().bot(), target_chat_id)
+                        markdown::escape(
+                            &get_chat_title_cached_5m(context.bot().bot(), target_chat_id)
                                 .await?
                                 .unwrap_or(DM_CHAT.to_string()),
                         )

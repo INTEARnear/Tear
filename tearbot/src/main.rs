@@ -20,6 +20,8 @@ use ft_buybot::FtBuybotModule;
 use honey::HoneyModule;
 use log::info;
 use modules::hub::HubModule;
+#[cfg(feature = "near-tgi-module")]
+use near_tgi::NearTgiModule;
 #[cfg(feature = "new-liquidity-pools-module")]
 use new_liquidity_pools::NewLiquidityPoolsModule;
 #[cfg(feature = "new-tokens-module")]
@@ -48,6 +50,7 @@ async fn main() -> Result<(), anyhow::Error> {
     dotenvy::dotenv().ok();
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Info)
+        .with_module_level("near_teach_me", log::LevelFilter::Off)
         .env()
         .init()?;
 
@@ -186,6 +189,10 @@ async fn main() -> Result<(), anyhow::Error> {
             xeon.state()
                 .add_indexer_event_handler::<SocialDBModule>(Arc::clone(&socialdb_module))
                 .await;
+        }
+        #[cfg(feature = "near-tgi-module")]
+        {
+            xeon.state().add_bot_module(NearTgiModule).await;
         }
     }
 
