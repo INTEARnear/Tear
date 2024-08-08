@@ -257,7 +257,7 @@ impl XeonBotModule for NearTgiModule {
                 );
 
                 let (command_string, response) = tokio::task::spawn_blocking(move || {
-                    match std::panic::catch_unwind(|| {
+                    let result = std::panic::catch_unwind(|| {
                         if let Some(answer) = answer {
                             CURRENT_PROMPT_ANSWER.with(|prompt_answer| {
                                 let mut prompt_answer = prompt_answer.borrow_mut();
@@ -315,7 +315,8 @@ impl XeonBotModule for NearTgiModule {
                         }
 
                         (command_string, ResponseOrPrompt::Response(LOG_COLLECTOR.with(|logger| logger.borrow_mut().drain_logs()).join("\n")))
-                    }) {
+                    });
+                    match result {
                         Ok((command_string, response)) => (command_string, response),
                         Err(_) => {
                             CURRENT_PROMPT.with(|prompt| {

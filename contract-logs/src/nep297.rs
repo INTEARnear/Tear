@@ -92,11 +92,11 @@ impl ContractLogsNep297Module {
                             }
                             let message = format!(
                                 "{standard} {version} {event} event from {account_id}:\n```\n{log}\n```\n[Tx](https://pikespeak.ai/transaction-viewer/{tx_id}/detailed)",
-                                standard = markdown::escape(&&standard),
-                                version = markdown::escape(&&version),
-                                event = markdown::escape(&&event),
+                                standard = markdown::escape(&standard),
+                                version = markdown::escape(&version),
+                                event = markdown::escape(&event),
                                 account_id = format_account_id(&account_id).await,
-                                log = markdown::escape_code(&&log_serialized),
+                                log = markdown::escape_code(&log_serialized),
                                 tx_id = transaction_id,
                             );
                             let buttons = if chat_id.is_user() {
@@ -413,7 +413,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             if let Some(standard) = &filter.standard {
                                 components.push(format!(
                                     "standard `{standard}`",
-                                    standard = markdown::escape_code(&standard)
+                                    standard = markdown::escape_code(standard)
                                 ));
                             }
                             if let Some(version) = &filter.version {
@@ -425,7 +425,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             if let Some(event) = &filter.event {
                                 components.push(format!(
                                     "event `{event}`",
-                                    event = markdown::escape_code(&event)
+                                    event = markdown::escape_code(event)
                                 ));
                             }
                             if let Some(is_testnet) = filter.is_testnet {
@@ -536,7 +536,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         if let Some(standard) = &filter.standard {
                             components.push(format!(
                                 "*Standard:* `{standard}`",
-                                standard = markdown::escape_code(&standard)
+                                standard = markdown::escape_code(standard)
                             ));
                         }
                         if let Some(version) = &filter.version {
@@ -548,7 +548,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         if let Some(event) = &filter.event {
                             components.push(format!(
                                 "*Event:* `{event}`",
-                                event = markdown::escape_code(&event)
+                                event = markdown::escape_code(event)
                             ));
                         }
                         if let Some(is_testnet) = filter.is_testnet {
