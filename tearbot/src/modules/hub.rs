@@ -760,6 +760,12 @@ Powered by [Intear](tg://resolve?domain=intearchat)
                     .await?,
             ),
         ]);
+        #[cfg(feature = "near-tgi-module")]
+        buttons.push(vec![InlineKeyboardButton::callback(
+            "💻 Near TGI",
+            bot.to_callback_data(&TgCommand::NearTgi("near".to_string()))
+                .await?,
+        )]);
         buttons.extend(vec![
             vec![
                 // InlineKeyboardButton::callback(
@@ -1122,12 +1128,6 @@ async fn create_notificatons_buttons(
             target_chat_id,
         ))
         .await?,
-    ));
-    #[cfg(feature = "near-tgi-module")]
-    buttons.push(InlineKeyboardButton::callback(
-        "💻 Near TGI",
-        bot.to_callback_data(&TgCommand::NearTgi("near".to_string()))
-            .await?,
     ));
     let buttons = buttons
         .into_iter()
