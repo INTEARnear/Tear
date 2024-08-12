@@ -756,7 +756,7 @@ impl BotData {
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_secs(10)).await; // Make sure this is the last message after all notifications are sent
             if let Err(err) = bot
-                .send_message(chat_id, &format!(
+                .send_message(chat_id, format!(
                     "You have reached the notification limit of {messages}/{limit} messages in {}\\.\nPlease fix your settings\\.",
                     markdown::escape(&format_duration(duration))
                 ))
