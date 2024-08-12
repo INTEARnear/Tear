@@ -74,6 +74,7 @@ pub struct TokenInfo {
     pub price_usd_raw: f64,
     #[serde(deserialize_with = "float_as_string")]
     pub price_usd_hardcoded: f64,
+    pub main_pool: Option<String>,
     pub metadata: TokenPartialMetadata,
     #[serde(with = "dec_format")]
     pub total_supply: Balance,

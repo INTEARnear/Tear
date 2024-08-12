@@ -751,11 +751,11 @@ Powered by [Intear](tg://resolve?domain=intearchat)
         #[cfg(feature = "utilities-module")]
         buttons.push(vec![
             InlineKeyboardButton::callback(
-                "🐳 Top holders",
+                "🐳 Token Info",
                 bot.to_callback_data(&TgCommand::UtilitiesFtHolders).await?,
             ),
             InlineKeyboardButton::callback(
-                "👤 Account info",
+                "👤 Account Info",
                 bot.to_callback_data(&TgCommand::UtilitiesAccountInfo)
                     .await?,
             ),

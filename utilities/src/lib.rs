@@ -1,8 +1,10 @@
+use std::str::FromStr;
 use std::{cmp::Reverse, sync::Arc};
 
 use async_trait::async_trait;
 use itertools::Itertools;
 use serde::Deserialize;
+use tearbot_common::bot_commands::PoolId;
 use tearbot_common::near_utils::dec_format;
 use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::teloxide::{
@@ -10,6 +12,7 @@ use tearbot_common::teloxide::{
     types::{InlineKeyboardButton, InlineKeyboardMarkup},
 };
 use tearbot_common::tgbot::{BotData, BotType};
+use tearbot_common::utils::tokens::format_usd_amount;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     near_primitives::types::{AccountId, Balance, BlockHeight},
@@ -63,7 +66,7 @@ impl XeonBotModule for UtilitiesModule {
             return Ok(());
         }
         match command {
-            MessageCommand::UtilitiesFtHolders => {
+            MessageCommand::UtilitiesFtInfo => {
                 let search = if text == WRAP_NEAR { "near" } else { text };
                 if search == "near" {
                     let token_id = WRAP_NEAR.parse::<AccountId>().unwrap();
@@ -73,7 +76,7 @@ impl XeonBotModule for UtilitiesModule {
                             user_id,
                             chat_id,
                             None,
-                            &bot.to_callback_data(&TgCommand::UtilitiesFt10Holders(token_id))
+                            &bot.to_callback_data(&TgCommand::UtilitiesFtInfoSelected(token_id))
                                 .await?,
                         ),
                         &mut None,
@@ -108,7 +111,7 @@ impl XeonBotModule for UtilitiesModule {
                                 token.account_id.to_string()
                             }
                         ),
-                        bot.to_callback_data(&TgCommand::UtilitiesFt10Holders(token.account_id))
+                        bot.to_callback_data(&TgCommand::UtilitiesFtInfoSelected(token.account_id))
                             .await?,
                     )]);
                 }
@@ -178,11 +181,11 @@ impl XeonBotModule for UtilitiesModule {
                     )]]);
                 context
                     .bot()
-                    .set_dm_message_command(context.user_id(), MessageCommand::UtilitiesFtHolders)
+                    .set_dm_message_command(context.user_id(), MessageCommand::UtilitiesFtInfo)
                     .await?;
                 context.edit_or_send(message, buttons).await?;
             }
-            TgCommand::UtilitiesFt10Holders(token_id) => {
+            TgCommand::UtilitiesFtInfoSelected(token_id) => {
                 context
                     .bot()
                     .remove_dm_message_command(&context.user_id())
@@ -219,6 +222,15 @@ impl XeonBotModule for UtilitiesModule {
 
                 let message = format!(
                     "
+*Name*: {name}
+*Ticker*: {symbol}
+*Price*: {price}
+*Total supply*: {total_supply} {symbol}
+*Circulating supply*: {circulating_supply} {symbol}
+*FDV*: {fdv}
+*Market Cap*: {market_cap}
+*Chart*: {chart_urls}
+
 Top 10 holders of *${}*
 
 {holders_str}
@@ -226,6 +238,66 @@ Top 10 holders of *${}*
 Data provided by [FASTNEAR](https://fastnear.com) 💚
                 ",
                     markdown::escape(&metadata.symbol),
+                    name = markdown::escape(&metadata.name),
+                    symbol = markdown::escape(&metadata.symbol),
+                    price =
+                        markdown::escape(&format_usd_amount(self.xeon.get_price(&token_id).await)),
+                    total_supply = markdown::escape(
+                        &(self
+                            .xeon
+                            .get_token_info(&token_id)
+                            .await
+                            .map(|info| info.total_supply)
+                            .unwrap_or_default()
+                            / 10u128.pow(metadata.decimals as u32))
+                        .to_string()
+                    ),
+                    fdv = markdown::escape(&format_usd_amount(
+                        (self
+                            .xeon
+                            .get_token_info(&token_id)
+                            .await
+                            .map(|info| info.total_supply)
+                            .unwrap_or_default()
+                            / 10u128.pow(metadata.decimals as u32)) as f64
+                            * self.xeon.get_price(&token_id).await
+                    )),
+                    circulating_supply = markdown::escape(
+                        &(self
+                            .xeon
+                            .get_token_info(&token_id)
+                            .await
+                            .map(|info| info.circulating_supply)
+                            .unwrap_or_default()
+                            / 10u128.pow(metadata.decimals as u32))
+                        .to_string()
+                    ),
+                    market_cap = markdown::escape(&format_usd_amount(
+                        (self
+                            .xeon
+                            .get_token_info(&token_id)
+                            .await
+                            .map(|info| info.circulating_supply)
+                            .unwrap_or_default()
+                            / 10u128.pow(metadata.decimals as u32)) as f64
+                            * self.xeon.get_price(&token_id).await
+                    )),
+                    chart_urls = if let Some(main_pool) = self
+                        .xeon
+                        .get_token_info(&token_id)
+                        .await
+                        .map(|info| info.main_pool)
+                        .flatten()
+                    {
+                        match PoolId::from_str(&main_pool) {
+                            Ok(PoolId::Ref(pool_id)) => format!(
+                                "[DexScreener](https://dexscreener.com/near/refv1-{pool_id}) \\| [DexTools](https://www.dextools.io/app/en/near/pair-explorer/{pool_id})",
+                            ),
+                            Err(_) => "No chart available".to_string(),
+                        }
+                    } else {
+                        "No chart available".to_string()
+                    },
                 );
                 let buttons = InlineKeyboardMarkup::new(vec![
                     vec![
@@ -233,7 +305,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             "🔄 Refresh",
                             context
                                 .bot()
-                                .to_callback_data(&TgCommand::UtilitiesFt10Holders(
+                                .to_callback_data(&TgCommand::UtilitiesFtInfoSelected(
                                     token_id.clone(),
                                 ))
                                 .await?,
@@ -304,7 +376,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             "⤴️ Show top 10",
                             context
                                 .bot()
-                                .to_callback_data(&TgCommand::UtilitiesFt10Holders(token_id))
+                                .to_callback_data(&TgCommand::UtilitiesFtInfoSelected(token_id))
                                 .await?,
                         ),
                     ],

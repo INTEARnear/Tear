@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use mongodb::bson::Bson;
 #[allow(unused_imports)]
 use near_primitives::types::AccountId;
@@ -138,13 +140,13 @@ pub enum TgCommand {
     #[cfg(feature = "utilities-module")]
     UtilitiesFtHolders,
     #[cfg(feature = "utilities-module")]
-    UtilitiesFt10Holders(AccountId),
+    UtilitiesTokenInfo(AccountId),
     #[cfg(feature = "utilities-module")]
     UtilitiesFt100Holders(AccountId),
     #[cfg(feature = "utilities-module")]
     UtilitiesFtInfo,
     #[cfg(feature = "utilities-module")]
-    UtilitiesFtInfoToken(AccountId),
+    UtilitiesFtInfoSelected(AccountId),
     // #[cfg(feature = "utilities-module")]
     // UtilitiesPoolInfo,
     // #[cfg(feature = "utilities-module")]
@@ -486,8 +488,6 @@ pub enum MessageCommand {
     #[cfg(feature = "potlock-module")]
     PotlockNotificationsSetProjectMinAmountUsd(ChatId, AccountId),
     #[cfg(feature = "utilities-module")]
-    UtilitiesFtHolders,
-    #[cfg(feature = "utilities-module")]
     UtilitiesFtInfo,
     // #[cfg(feature = "utilities-module")]
     // UtilitiesPoolInfo,
@@ -697,6 +697,29 @@ impl PoolId {
         match self {
             PoolId::Ref(_) => Exchange::RefFinance,
         }
+    }
+}
+
+impl FromStr for PoolId {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let Some((exchange_id, exchange_pool_id)) = s.split_once('-') else {
+            return Err(anyhow::anyhow!("Invalid pool id format: {s}"));
+        };
+        let pool_id = match exchange_id {
+            "REF" => {
+                if let Ok(n) = exchange_pool_id.parse::<u64>() {
+                    PoolId::Ref(n)
+                } else {
+                    return Err(anyhow::anyhow!("Invalid Ref pool id: {exchange_pool_id}"));
+                }
+            }
+            _ => {
+                return Err(anyhow::anyhow!("Unknown exchange: {exchange_id}"));
+            }
+        };
+        Ok(pool_id)
     }
 }
 
