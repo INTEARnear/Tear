@@ -21,10 +21,14 @@ else
     cd $SUBMODULE_PATH || exit
 
     for package in "${SHIM_PACKAGES[@]}"; do
-        cargo new "$package"
+        cargo new --lib "$package"
     done
 
     git init
+
+    cd ..
+
+    git checkout Cargo.toml
 
     echo "Shim crates installed in $SUBMODULE_PATH, the project is ready to be built using 'cargo build'. You may have seen some warnings like 'failed to load manifest for workspace member $PWD/tearbot', 'failed to load manifest for dependency', 'failed to read $PWD/xeon-private-modules/something/Cargo.toml', you can safely ignore them."
 fi
