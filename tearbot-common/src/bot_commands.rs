@@ -678,14 +678,13 @@ pub enum ReorderMode {
     MoveAfter,
 }
 
-// #[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
-#[cfg(feature = "new-liquidity-pools-module")]
+#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PoolId {
     Ref(u64),
 }
 
-#[cfg(feature = "new-liquidity-pools-module")]
+#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
 impl PoolId {
     pub fn get_link(&self) -> String {
         match self {
@@ -700,6 +699,7 @@ impl PoolId {
     }
 }
 
+#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
 impl FromStr for PoolId {
     type Err = anyhow::Error;
 
@@ -723,13 +723,13 @@ impl FromStr for PoolId {
     }
 }
 
-#[cfg(feature = "new-liquidity-pools-module")]
+#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Exchange {
     RefFinance,
 }
 
-#[cfg(feature = "new-liquidity-pools-module")]
+#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
 impl Exchange {
     pub fn get_name(&self) -> &'static str {
         match self {
