@@ -1,0 +1,10 @@
+[profile.dev]
+codegen-backend = "cranelift"
+package = { "*" = { codegen-backend = "llvm" } }
+
+[target.'cfg(all(debug_assertions, target_os="linux"))']
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold", "-Z", "share-generics=y", "-Z", "threads=8"]
+
+[unstable]
+codegen-backend = true
