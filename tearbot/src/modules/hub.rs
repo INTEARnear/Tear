@@ -751,7 +751,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
         #[cfg(feature = "utilities-module")]
         buttons.push(vec![
             InlineKeyboardButton::callback(
-                "🐳 Token Info",
+                "💷 Token Info",
                 bot.to_callback_data(&TgCommand::UtilitiesFtHolders).await?,
             ),
             InlineKeyboardButton::callback(

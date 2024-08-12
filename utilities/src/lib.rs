@@ -222,16 +222,16 @@ impl XeonBotModule for UtilitiesModule {
 
                 let message = format!(
                     "
-*Name*: {name}
-*Ticker*: {symbol}
-*Price*: {price}
-*Total supply*: {total_supply} {symbol}
-*Circulating supply*: {circulating_supply} {symbol}
-*FDV*: {fdv}
-*Market Cap*: {market_cap}
-*Chart*: {chart_urls}
+📝 *Name*: {name}
+💲 *Ticker*: {symbol}
+💶 *Price*: {price}
+🌕 *Total supply*: {total_supply} {symbol}
+🔃 *Circulating supply*: {circulating_supply} {symbol}
+🏛 *FDV*: {fdv}
+🏦 *Market Cap*: {market_cap}
+📈 *Chart*: {chart_urls}
 
-Top 10 holders of *${}*
+🐳 Top 10 holders of *${}*
 
 {holders_str}
 
@@ -286,8 +286,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                         .xeon
                         .get_token_info(&token_id)
                         .await
-                        .map(|info| info.main_pool)
-                        .flatten()
+                        .and_then(|info| info.main_pool)
                     {
                         match PoolId::from_str(&main_pool) {
                             Ok(PoolId::Ref(pool_id)) => format!(
