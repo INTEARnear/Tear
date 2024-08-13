@@ -10,7 +10,6 @@ use near_primitives::hash::CryptoHash;
 use near_primitives::types::AccountId;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use teloxide::adaptors::CacheMe;
 use teloxide::dispatching::UpdateFilterExt;
 use teloxide::payloads::SendAnimationSetters;
 use teloxide::payloads::SendAudioSetters;
@@ -29,6 +28,7 @@ use teloxide::types::{
 };
 use teloxide::utils::markdown;
 use teloxide::{adaptors::throttle::Throttle, prelude::ChatId};
+use teloxide::{adaptors::CacheMe, payloads::SendVideoSetters};
 use teloxide::{ApiError, Bot, RequestError};
 use tokio::sync::RwLock;
 
@@ -678,6 +678,46 @@ impl BotData {
                     .reply_markup(reply_markup)
                     .await?
             }
+            Attachment::VideoUrl(url) => {
+                self.bot
+                    .send_video(chat_id, InputFile::url(url))
+                    .caption(text)
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .reply_markup(reply_markup)
+                    .await?
+            }
+            Attachment::VideoFileId(file_id) => {
+                self.bot
+                    .send_video(chat_id, InputFile::file_id(file_id))
+                    .caption(text)
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .reply_markup(reply_markup)
+                    .await?
+            }
+            Attachment::DocumentUrl(url) => {
+                self.bot
+                    .send_document(chat_id, InputFile::url(url))
+                    .caption(text)
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .reply_markup(reply_markup)
+                    .await?
+            }
+            Attachment::DocumentText(content) => {
+                self.bot
+                    .send_document(chat_id, InputFile::memory(content).file_name("message.txt"))
+                    .caption(text)
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .reply_markup(reply_markup)
+                    .await?
+            }
+            Attachment::DocumentFileId(file_id) => {
+                self.bot
+                    .send_document(chat_id, InputFile::file_id(file_id))
+                    .caption(text)
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .reply_markup(reply_markup)
+                    .await?
+            }
         })
     }
 
@@ -928,6 +968,11 @@ pub enum Attachment {
     AnimationFileId(Cow<'static, str>),
     AudioUrl(Url),
     AudioFileId(Cow<'static, str>),
+    VideoUrl(Url),
+    VideoFileId(Cow<'static, str>),
+    DocumentUrl(Url),
+    DocumentText(String),
+    DocumentFileId(Cow<'static, str>),
 }
 
 pub struct MustAnswerCallbackQuery {

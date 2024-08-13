@@ -93,7 +93,7 @@ impl XeonBotModule for ContractLogsModule {
                         "⬅️ Back",
                         context
                             .bot()
-                            .to_callback_data(&TgCommand::NotificationsSettings(target_chat_id))
+                            .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
                             .await?,
                     )],
                 ];

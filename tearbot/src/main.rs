@@ -4,6 +4,7 @@ mod modules;
 use std::sync::Arc;
 use std::time::Duration;
 
+use ai_moderator::AiModeratorModule;
 // #[cfg(feature = "airdrops")]
 // use airdrops::AirdropsModule;
 #[cfg(feature = "aqua-module")]
@@ -53,6 +54,9 @@ async fn main() -> Result<(), anyhow::Error> {
         .with_module_level("near_teach_me", log::LevelFilter::Off)
         .env()
         .init()?;
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("Failed to install AWS LC provider");
 
     let db = get_db().await?;
     let xeon = Xeon::new(db.clone()).await?;
@@ -193,6 +197,12 @@ async fn main() -> Result<(), anyhow::Error> {
         #[cfg(feature = "near-tgi-module")]
         {
             xeon.state().add_bot_module(NearTgiModule).await;
+        }
+        #[cfg(feature = "ai-moderator-module")]
+        {
+            xeon.state()
+                .add_bot_module(AiModeratorModule::new(xeon.arc_clone_state()).await?)
+                .await;
         }
     }
 

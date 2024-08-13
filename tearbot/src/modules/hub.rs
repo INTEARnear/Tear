@@ -91,7 +91,7 @@ impl XeonBotModule for HubModule {
             //             .await?;
             //     }
             // }
-            MessageCommand::NotificationsChooseGroup => {
+            MessageCommand::ChooseChat => {
                 if text == CANCEL_TEXT {
                     bot.remove_dm_message_command(&user_id).await?;
                     bot.send_text_message(
@@ -108,6 +108,7 @@ impl XeonBotModule for HubModule {
                     ..
                 }) = message.shared_chat()
                 {
+                    bot.remove_dm_message_command(&user_id).await?;
                     if !check_admin_permission_in_chat(bot, *target_chat_id, user_id).await {
                         return Ok(());
                     }
@@ -120,14 +121,13 @@ impl XeonBotModule for HubModule {
                     let reply_markup = ReplyMarkup::kb_remove();
                     bot.send_text_message(chat_id, message, reply_markup)
                         .await?;
-                    self.open_notifications_settings(bot, user_id, *target_chat_id, None)
+                    self.open_chat_settings(bot, user_id, *target_chat_id, None)
                         .await?;
                 } else {
                     let message = "Please use the 'Choose a chat' button".to_string();
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "Cancel",
-                        bot.to_callback_data(&TgCommand::CancelNotificationsGroup)
-                            .await?,
+                        bot.to_callback_data(&TgCommand::CancelChat).await?,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -230,19 +230,14 @@ impl XeonBotModule for HubModule {
             // TgCommand::DisconnectAccount => {
             //     self.disconnect_account(context).await?;
             // }
-            TgCommand::ChooseGroup => {
-                self.open_notifications_group_selector(context).await?;
+            TgCommand::ChooseChat => {
+                self.open_chat_selector(context).await?;
             }
-            TgCommand::NotificationsSettings(chat_id) => {
-                self.open_notifications_settings(
-                    context.bot(),
-                    context.user_id(),
-                    chat_id,
-                    Some(&context),
-                )
-                .await?;
+            TgCommand::ChatSettings(chat_id) => {
+                self.open_chat_settings(context.bot(), context.user_id(), chat_id, Some(&context))
+                    .await?;
             }
-            TgCommand::CancelNotificationsGroup => {
+            TgCommand::CancelChat => {
                 context
                     .bot()
                     .remove_dm_message_command(&context.user_id())
@@ -287,9 +282,8 @@ impl XeonBotModule for HubModule {
                     .get_chat_member(target_chat_id, context.user_id())
                     .await?;
                 if !member.is_owner() {
-                    let message =
-                        "You must be the owner of the group / channel to edit permissions"
-                            .to_string();
+                    let message = "You must be the owner of the chat / channel to edit permissions"
+                        .to_string();
                     context
                         .send(
                             message,
@@ -307,10 +301,10 @@ impl XeonBotModule for HubModule {
 
                 let description = match &permission_level {
                     ChatPermissionLevel::Owner => {
-                        "Only the owner of the chat can manage notification settings".to_owned()
+                        "Only the owner of the chat can manage chat settings".to_owned()
                     }
                     ChatPermissionLevel::Whitelist(members) => {
-                        format!("Only you and these people can manage notification settings: {}", {
+                        format!("Only you and these people can manage chat settings: {}", {
                             let mut names = Vec::new();
                             for member_id in members.iter().take(10) {
                                 let first_name = if let Ok(member) = context
@@ -340,10 +334,10 @@ impl XeonBotModule for HubModule {
                             s
                         })
                     }
-                    ChatPermissionLevel::CanPromoteMembers => "Only admins who can promote members to admins can manage notification settings".to_owned(),
-                    ChatPermissionLevel::CanChangeInfo => "Only admins who can change chat info can manage notification settings".to_owned(),
-                    ChatPermissionLevel::CanRestrictMembers => "Only admins who can restrict members can manage notification settings".to_owned(),
-                    ChatPermissionLevel::Admin => "All admins can manage notification settings\\. *NOTE: If you give someone an empty administrator title with no permission for a custom 'tag', they will also be able to manage notification settings*".to_owned(),
+                    ChatPermissionLevel::CanPromoteMembers => "Only admins who can promote members to admins can manage chat settings".to_owned(),
+                    ChatPermissionLevel::CanChangeInfo => "Only admins who can change chat info can manage chat settings".to_owned(),
+                    ChatPermissionLevel::CanRestrictMembers => "Only admins who can restrict members can manage chat settings".to_owned(),
+                    ChatPermissionLevel::Admin => "All admins can manage chat settings\\. *NOTE: If you give someone an empty administrator title with no permission for a custom 'tag', they will also be able to manage chat settings*".to_owned(),
                 };
                 let switch_button = InlineKeyboardButton::callback(
                     match &permission_level {
@@ -406,10 +400,10 @@ impl XeonBotModule for HubModule {
                     "⬅️ Back",
                     context
                         .bot()
-                        .to_callback_data(&TgCommand::NotificationsSettings(target_chat_id))
+                        .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
                         .await?,
                 )]);
-                let message = format!("Choose who can manage notification settings of this chat\\. These people will be able to add, remove, or change alerts in this chat\\.\n\nSelected option:\n{description}");
+                let message = format!("Choose who can manage chat settings\\. These people will be able to add, remove, or change alerts in this chat\\.\n\nSelected option:\n{description}");
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
             }
@@ -746,7 +740,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
         let mut buttons = create_notificatons_buttons(chat_id, bot).await?;
         buttons.extend(vec![vec![InlineKeyboardButton::callback(
             "📣 Set up for a group or channel 💬",
-            bot.to_callback_data(&TgCommand::ChooseGroup).await?,
+            bot.to_callback_data(&TgCommand::ChooseChat).await?,
         )]]);
         #[cfg(feature = "utilities-module")]
         buttons.push(vec![
@@ -928,7 +922,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
     //     Ok(())
     // }
 
-    async fn open_notifications_group_selector(
+    async fn open_chat_selector(
         &self,
         context: TgCallbackContext<'_>,
     ) -> Result<(), anyhow::Error> {
@@ -940,10 +934,10 @@ Powered by [Intear](tg://resolve?domain=intearchat)
         }
         context
             .bot()
-            .set_dm_message_command(context.user_id(), MessageCommand::NotificationsChooseGroup)
+            .set_dm_message_command(context.user_id(), MessageCommand::ChooseChat)
             .await?;
         context.delete_last_message().await?;
-        let message = "Where do you want to receive notifications?".to_string();
+        let message = "What chat do you want to set up?".to_string();
         let reply_markup = ReplyMarkup::keyboard(vec![
             vec![
                 KeyboardButton {
@@ -963,7 +957,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
                             can_promote_members: false,
                             can_change_info: false,
                             can_invite_users: false,
-                            can_post_messages: Some(true),
+                            can_post_messages: None,
                             can_edit_messages: None,
                             can_pin_messages: None,
                             can_manage_topics: None,
@@ -1032,7 +1026,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
         Ok(())
     }
 
-    async fn open_notifications_settings(
+    async fn open_chat_settings(
         &self,
         bot: &BotData,
         user_id: UserId,
@@ -1051,8 +1045,25 @@ Powered by [Intear](tg://resolve?domain=intearchat)
                 .await?
                 .unwrap_or("DM".to_string()),
         );
-        let message = format!("Notifications settings for *{chat_name}*");
+        let message = format!("Settings for *{chat_name}*");
         let mut buttons = create_notificatons_buttons(target_chat_id, bot).await?;
+        #[cfg(feature = "ai-moderator-module")]
+        {
+            let chat = bot.bot().get_chat(target_chat_id).await?;
+            if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
+                if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
+                | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
+                {
+                    if user_id.0 == 7091308405 {
+                        buttons.push(vec![InlineKeyboardButton::callback(
+                            "🤖 AI Moderator",
+                            bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                                .await?,
+                        )]);
+                    }
+                }
+            }
+        }
         buttons.push(vec![InlineKeyboardButton::callback(
             "👤 Permissions",
             bot.to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))

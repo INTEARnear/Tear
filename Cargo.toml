@@ -1,7 +1,12 @@
 [workspace]
 resolver = "2"
 members = ["tearbot"]
-exclude = ["near-tgi/near-cli-rs", "near-tgi/interactive-clap", "near-tgi/interactive-clap-derive", "near-tgi/tearbot-common", "near-tgi/tearbot"]
+exclude = [
+    "near-tgi/near-cli-rs",
+    "near-tgi/interactive-clap",
+    "near-tgi/interactive-clap-derive",
+    "ai-moderator/async-openai-patched",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -44,3 +49,4 @@ inquire = { path = "./near-tgi/inquire" }
 interactive-clap = { path = "./near-tgi/interactive-clap" }
 interactive-clap-derive = { path = "./near-tgi/interactive-clap/interactive-clap-derive" }
 keyring = { path = "./near-tgi/keyring" }
+async-openai = { path = "./ai-moderator/async-openai-patched/async-openai" }

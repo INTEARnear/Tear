@@ -1,0 +1,17 @@
+[package]
+name = "ai-moderator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tearbot-common = { path = "../tearbot-common", features = ["ai-moderator-module"] }
+async-trait = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+dashmap = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+async-openai = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+serde_json = { workspace = true }
+chrono = { workspace = true }

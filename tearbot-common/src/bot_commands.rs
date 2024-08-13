@@ -1,4 +1,3 @@
-use std::str::FromStr;
 
 use mongodb::bson::Bson;
 #[allow(unused_imports)]
@@ -11,9 +10,9 @@ use crate::utils::chat::ChatPermissionLevel;
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TgCommand {
     OpenMainMenu,
-    ChooseGroup,
-    NotificationsSettings(ChatId),
-    CancelNotificationsGroup,
+    ChooseChat,
+    ChatSettings(ChatId),
+    CancelChat,
     #[cfg(feature = "nft-buybot-module")]
     NftNotificationsSettings(ChatId),
     #[cfg(feature = "nft-buybot-module")]
@@ -434,6 +433,24 @@ pub enum TgCommand {
     NearTgiMultiSelect(String, std::collections::HashSet<usize>),
     #[cfg(feature = "near-tgi-module")]
     NearTgiMultiSelectConfirm(String, std::collections::HashSet<usize>),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModerator(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorFirstMessages(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorFirstMessagesConfirm(ChatId, usize),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorRequestModeratorChat(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorEditPrompt(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorEditPromptConfirm(ChatId, String),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetDebugMode(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetAction(ChatId, ModerationJudgement, ModerationAction),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetEnabled(ChatId, bool),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -470,7 +487,7 @@ pub enum MessageCommand {
         age: String,
         contact_details: String,
     },
-    NotificationsChooseGroup,
+    ChooseChat,
     #[cfg(feature = "nft-buybot-module")]
     NftNotificationsAddCollection(ChatId),
     #[cfg(feature = "nft-buybot-module")]
@@ -569,6 +586,12 @@ pub enum MessageCommand {
     NearTgiText(String),
     #[cfg(feature = "near-tgi-module")]
     NearTgiCustomType(String),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorFirstMessages(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetModeratorChat(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetPrompt(ChatId),
 }
 
 impl From<MessageCommand> for Bson {
@@ -700,7 +723,7 @@ impl PoolId {
 }
 
 #[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
-impl FromStr for PoolId {
+impl std::str::FromStr for PoolId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -942,6 +965,51 @@ impl NearSocialEvent {
             Self::Dao => "DAO",
             Self::Star => "Star",
             Self::Other => "Other",
+        }
+    }
+}
+
+#[cfg(feature = "ai-moderator-module")]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum ModerationJudgement {
+    Good,
+    Acceptable,
+    Suspicious,
+    Spam,
+}
+
+#[cfg(feature = "ai-moderator-module")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ModerationAction {
+    Ban,
+    Mute,
+    TempMute,
+    Delete,
+    WarnMods,
+    Ok,
+}
+
+#[cfg(feature = "ai-moderator-module")]
+impl ModerationAction {
+    pub fn name(&self) -> &'static str {
+        match self {
+            ModerationAction::Ban => "Ban",
+            ModerationAction::Mute => "Mute",
+            ModerationAction::TempMute => "Mute 15min",
+            ModerationAction::Delete => "Delete",
+            ModerationAction::WarnMods => "Warn Mods",
+            ModerationAction::Ok => "Nothing",
+        }
+    }
+
+    pub fn next(&self) -> Self {
+        match self {
+            ModerationAction::Ban => ModerationAction::Mute,
+            ModerationAction::Mute => ModerationAction::TempMute,
+            ModerationAction::TempMute => ModerationAction::Delete,
+            ModerationAction::Delete => ModerationAction::WarnMods,
+            ModerationAction::WarnMods => ModerationAction::Ok,
+            ModerationAction::Ok => ModerationAction::Ban,
         }
     }
 }
