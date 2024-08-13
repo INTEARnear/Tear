@@ -118,56 +118,70 @@ impl AiModeratorModule {
         let Some(from) = message.from.as_ref() else {
             return Ok(());
         };
-        let attachment = if let Some(photo) = message.photo() {
-            Attachment::PhotoFileId(photo.last().unwrap().file.id.clone().into())
+        let (attachment, note) = if let Some(photo) = message.photo() {
+            (
+                Attachment::PhotoFileId(photo.last().unwrap().file.id.clone().into()),
+                None,
+            )
         } else if let Some(video) = message.video() {
-            Attachment::VideoFileId(video.file.id.clone().into())
+            // TODO moderate random frame of video
+            (Attachment::VideoFileId(video.file.id.clone().into()), None)
         } else if let Some(audio) = message.audio() {
-            Attachment::AudioFileId(audio.file.id.clone().into())
+            // TODO transcribe and moderate
+            (Attachment::AudioFileId(audio.file.id.clone().into()), None)
         } else if let Some(document) = message.document() {
-            Attachment::DocumentFileId(document.file.id.clone().into())
-        } else if message.voice().is_some() {
-            // TODO
-            Attachment::None
-        } else if message.sticker().is_some() {
-            // TODO
-            Attachment::None
-        } else if message.video_note().is_some() {
-            // TODO
-            Attachment::None
+            // TODO moderate document
+            (
+                Attachment::DocumentFileId(document.file.id.clone().into()),
+                None,
+            )
         } else if let Some(animation) = message.animation() {
-            Attachment::AnimationFileId(animation.file.id.clone().into())
+            // TODO moderate random frame of animation
+            (
+                Attachment::AnimationFileId(animation.file.id.clone().into()),
+                None,
+            )
+        } else if message.voice().is_some() {
+            // TODO transcribe and moderate
+            (Attachment::None, Some("+ Voice message"))
+        } else if message.sticker().is_some() {
+            // TODO moderate sticker image. If animated, get random frame
+            (Attachment::None, Some("+ Sticker"))
+        } else if message.video_note().is_some() {
+            // TODO moderate random frame of video note
+            (Attachment::None, Some("+ Video circle"))
         } else {
-            Attachment::None
+            (Attachment::None, None)
         };
+        let note = note
+            .map(|note| format!("\n{note}", note = markdown::escape(note)))
+            .unwrap_or_default();
 
         match action {
             ModerationAction::Ban => {
                 if !chat_config.debug_mode {
-                    if let Err(err) = bot
+                    if let Err(RequestError::Api(err)) = bot
                         .bot()
                         .kick_chat_member(chat_id, user_id)
                         .revoke_messages(true)
                         .await
                     {
-                        if let RequestError::Api(err) = &err {
-                            let err = match err {
-                                ApiError::Unknown(err) => {
-                                    err.trim_start_matches("Bad Request: ").to_owned()
-                                }
-                                other => other.to_string(),
-                            };
-                            let message = format!("Failed to ban user: {err}");
-                            let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                            let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            bot.send_text_message(chat_id, message, reply_markup)
-                                .await?;
-                        }
+                        let err = match err {
+                            ApiError::Unknown(err) => {
+                                err.trim_start_matches("Bad Request: ").to_owned()
+                            }
+                            other => other.to_string(),
+                        };
+                        let message = format!("Failed to ban user: {err}");
+                        let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        bot.send_text_message(chat_id, message, reply_markup)
+                            .await?;
                     }
                 }
                 let message = format!(
-                    "User {user} sent a message and it was flagged as spam, was banned:\n\n{text}",
-                    user = format!("[{name}](tg://user?id={user_id})", name = from.full_name()),
+                    "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was banned:\n\n{text}{note}",
+                    name = markdown::escape(&from.full_name()),
                     text = message.text().or(message.caption()).unwrap_or_default()
                 );
                 let buttons = Vec::<Vec<_>>::new();
@@ -178,30 +192,28 @@ impl AiModeratorModule {
             }
             ModerationAction::Mute => {
                 if !chat_config.debug_mode {
-                    if let Err(err) = bot
+                    if let Err(RequestError::Api(err)) = bot
                         .bot()
                         .restrict_chat_member(chat_id, user_id, ChatPermissions::SEND_MESSAGES)
                         .until_date(chrono::Utc::now() + chrono::Duration::minutes(5))
                         .await
                     {
-                        if let RequestError::Api(err) = &err {
-                            let err = match err {
-                                ApiError::Unknown(err) => {
-                                    err.trim_start_matches("Bad Request: ").to_owned()
-                                }
-                                other => other.to_string(),
-                            };
-                            let message = format!("Failed to mute user: {err}");
-                            let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                            let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            bot.send_text_message(chat_id, message, reply_markup)
-                                .await?;
-                        }
+                        let err = match err {
+                            ApiError::Unknown(err) => {
+                                err.trim_start_matches("Bad Request: ").to_owned()
+                            }
+                            other => other.to_string(),
+                        };
+                        let message = format!("Failed to mute user: {err}");
+                        let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        bot.send_text_message(chat_id, message, reply_markup)
+                            .await?;
                     }
                 }
                 let message = format!(
-                    "User {user} sent a message and it was flagged as spam, was muted:\n\n{text}",
-                    user = format!("[{name}](tg://user?id={user_id})", name = from.full_name()),
+                    "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was muted:\n\n{text}{note}",
+                    name = markdown::escape(&from.full_name()),
                     text = message.text().or(message.caption()).unwrap_or_default()
                 );
                 let buttons = Vec::<Vec<_>>::new();
@@ -212,30 +224,28 @@ impl AiModeratorModule {
             }
             ModerationAction::TempMute => {
                 if !chat_config.debug_mode {
-                    if let Err(err) = bot
+                    if let Err(RequestError::Api(err)) = bot
                         .bot()
                         .restrict_chat_member(chat_id, user_id, ChatPermissions::SEND_MESSAGES)
                         .until_date(chrono::Utc::now() + chrono::Duration::minutes(15))
                         .await
                     {
-                        if let RequestError::Api(err) = &err {
-                            let err = match err {
-                                ApiError::Unknown(err) => {
-                                    err.trim_start_matches("Bad Request: ").to_owned()
-                                }
-                                other => other.to_string(),
-                            };
-                            let message = format!("Failed to mute user: {err}");
-                            let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                            let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            bot.send_text_message(chat_id, message, reply_markup)
-                                .await?;
-                        }
+                        let err = match err {
+                            ApiError::Unknown(err) => {
+                                err.trim_start_matches("Bad Request: ").to_owned()
+                            }
+                            other => other.to_string(),
+                        };
+                        let message = format!("Failed to mute user: {err}");
+                        let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        bot.send_text_message(chat_id, message, reply_markup)
+                            .await?;
                     }
                 }
                 let message = format!(
-                    "User {user} sent a message and it was flagged as spam, was muted for 15 minutes:\n\n{text}",
-                    user = format!("[{name}](tg://user?id={user_id})", name = from.full_name()),
+                    "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was muted for 15 minutes:\n\n{text}{note}",
+                    name = markdown::escape(&from.full_name()),
                     text = message.text().or(message.caption()).unwrap_or_default()
                 );
                 let buttons = Vec::<Vec<_>>::new();
@@ -246,25 +256,25 @@ impl AiModeratorModule {
             }
             ModerationAction::Delete => {
                 if !chat_config.debug_mode {
-                    if let Err(err) = bot.bot().delete_message(chat_id, message.id).await {
-                        if let RequestError::Api(err) = &err {
-                            let err = match err {
-                                ApiError::Unknown(err) => {
-                                    err.trim_start_matches("Bad Request: ").to_owned()
-                                }
-                                other => other.to_string(),
-                            };
-                            let message = format!("Failed to delete message: {err}");
-                            let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                            let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            bot.send_text_message(chat_id, message, reply_markup)
-                                .await?;
-                        }
+                    if let Err(RequestError::Api(err)) =
+                        bot.bot().delete_message(chat_id, message.id).await
+                    {
+                        let err = match err {
+                            ApiError::Unknown(err) => {
+                                err.trim_start_matches("Bad Request: ").to_owned()
+                            }
+                            other => other.to_string(),
+                        };
+                        let message = format!("Failed to delete message: {err}");
+                        let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        bot.send_text_message(chat_id, message, reply_markup)
+                            .await?;
                     }
                 }
                 let message = format!(
-                    "User {user} sent a message and it was flagged as spam, was deleted:\n\n{text}",
-                    user = format!("[{name}](tg://user?id={user_id})", name = from.full_name()),
+                    "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was deleted:\n\n{text}{note}",
+                    name = markdown::escape(&from.full_name()),
                     text = message.text().or(message.caption()).unwrap_or_default()
                 );
                 let buttons = Vec::<Vec<_>>::new();
@@ -275,8 +285,8 @@ impl AiModeratorModule {
             }
             ModerationAction::WarnMods => {
                 let message = format!(
-                    "User {user} sent a message and it was flagged as spam, was not moderated \\(you requested it to be a warning\\):\n\n{text}",
-                    user = format!("[{name}](tg://user?id={user_id})", name = from.full_name()),
+                    "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was not moderated \\(you requested it to be a warning\\):\n\n{text}{note}",
+                    name = markdown::escape(&from.full_name()),
                     text = message.text().or(message.caption()).unwrap_or_default()
                 );
                 let buttons = Vec::<Vec<_>>::new();
@@ -537,7 +547,8 @@ impl XeonBotModule for AiModeratorModule {
                         return Ok(());
                     }
                     if let Some(bot_config) = self.bot_configs.get(&bot.bot().get_me().await?.id) {
-                        let mut chat_config = (bot_config.chat_configs.get(target_chat_id).await).unwrap_or_default();
+                        let mut chat_config =
+                            (bot_config.chat_configs.get(target_chat_id).await).unwrap_or_default();
                         chat_config.moderator_chat = Some(*target_chat_id);
                         bot_config
                             .chat_configs
@@ -582,7 +593,8 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 let prompt = text.to_string();
                 if let Some(bot_config) = self.bot_configs.get(&bot.bot().get_me().await?.id) {
-                    let mut chat_config = (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
+                    let mut chat_config =
+                        (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
                     chat_config.prompt = prompt;
                     bot_config
                         .chat_configs
@@ -1002,7 +1014,8 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 if let Some(bot_config) = self.bot_configs.get(&ctx.bot().bot().get_me().await?.id)
                 {
-                    let mut chat_config = (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
+                    let mut chat_config =
+                        (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
                     chat_config.first_messages = first_messages;
                     bot_config
                         .chat_configs
@@ -1098,7 +1111,8 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 if let Some(bot_config) = self.bot_configs.get(&ctx.bot().bot().get_me().await?.id)
                 {
-                    let mut chat_config = (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
+                    let mut chat_config =
+                        (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
                     chat_config.prompt = prompt;
                     bot_config
                         .chat_configs
@@ -1125,18 +1139,17 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 if let Some(bot_config) = self.bot_configs.get(&ctx.bot().bot().get_me().await?.id)
                 {
-                    let mut chat_config = (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
+                    let mut chat_config =
+                        (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
                     if !debug_mode && chat_config.moderator_chat.is_none() {
                         let message = "Please set the moderator chat first";
                         let buttons = vec![
                             vec![InlineKeyboardButton::callback(
                                 "👤 Set Moderator Chat",
                                 ctx.bot()
-                                    .to_callback_data(
-                                        &TgCommand::AiModeratorRequestModeratorChat(
-                                            target_chat_id,
-                                        ),
-                                    )
+                                    .to_callback_data(&TgCommand::AiModeratorRequestModeratorChat(
+                                        target_chat_id,
+                                    ))
                                     .await?,
                             )],
                             vec![InlineKeyboardButton::callback(
@@ -1176,7 +1189,8 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 if let Some(bot_config) = self.bot_configs.get(&ctx.bot().bot().get_me().await?.id)
                 {
-                    let mut chat_config = (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
+                    let mut chat_config =
+                        (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
                     chat_config.actions.insert(judgement, action);
                     bot_config
                         .chat_configs
@@ -1203,7 +1217,8 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 if let Some(bot_config) = self.bot_configs.get(&ctx.bot().bot().get_me().await?.id)
                 {
-                    let mut chat_config = (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
+                    let mut chat_config =
+                        (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
                     chat_config.enabled = enabled;
                     bot_config
                         .chat_configs
@@ -1325,9 +1340,7 @@ pub async fn await_execution(
             };
             Ok(content)
         }
-        _ => {
-            Err(anyhow::anyhow!("Unexpected status: {:?}", run.status))
-        }
+        _ => Err(anyhow::anyhow!("Unexpected status: {:?}", run.status)),
     }
 }
 

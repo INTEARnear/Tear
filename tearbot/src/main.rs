@@ -7,8 +7,6 @@ use std::time::Duration;
 use ai_moderator::AiModeratorModule;
 // #[cfg(feature = "airdrops")]
 // use airdrops::AirdropsModule;
-#[cfg(feature = "aqua-module")]
-use aqua::AquaModule;
 #[cfg(feature = "contract-logs-module")]
 use contract_logs::nep297::ContractLogsNep297Module;
 #[cfg(feature = "contract-logs-module")]
@@ -204,35 +202,6 @@ async fn main() -> Result<(), anyhow::Error> {
                 .add_bot_module(AiModeratorModule::new(xeon.arc_clone_state()).await?)
                 .await;
         }
-    }
-
-    #[cfg(feature = "aqua-module")]
-    if let Ok(axis_token) = std::env::var("AXIS_TOKEN") {
-        let axis_bot = BotData::new(
-            CacheMe::new(Bot::new(axis_token).throttle(Limits::default())),
-            BotType::Aqua,
-            xeon.arc_clone_state(),
-        )
-        .await?;
-        xeon.state().add_bot(axis_bot).await?;
-        xeon.state()
-            .add_bot_module(AquaModule::new(db.clone()).await?)
-            .await;
-    } else {
-        log::warn!("AXIS_TOKEN not set");
-    }
-
-    #[cfg(feature = "aqua-module")]
-    if let Ok(axis_token) = std::env::var("KAZUMA_TOKEN") {
-        let axis_bot = BotData::new(
-            CacheMe::new(Bot::new(axis_token).throttle(Limits::default())),
-            BotType::Kazuma,
-            xeon.arc_clone_state(),
-        )
-        .await?;
-        xeon.state().add_bot(axis_bot).await?;
-    } else {
-        log::warn!("KAZUMA_TOKEN not set");
     }
 
     #[cfg(feature = "honey-module")]

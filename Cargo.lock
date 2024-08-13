@@ -199,10 +199,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 
 [[package]]
-name = "aqua"
-version = "0.1.0"
-
-[[package]]
 name = "aquamarine"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1702,6 +1698,18 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 [[package]]
 name = "ft-buybot"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
 
 [[package]]
 name = "funty"
@@ -2022,6 +2030,19 @@ dependencies = [
 [[package]]
 name = "honey"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+ "urlencoding",
+]
 
 [[package]]
 name = "hostname"
@@ -3381,10 +3402,33 @@ dependencies = [
 [[package]]
 name = "new-liquidity-pools"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
 
 [[package]]
 name = "new-tokens"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
 
 [[package]]
 name = "newline-converter"
@@ -3398,6 +3442,18 @@ dependencies = [
 [[package]]
 name = "nft-buybot"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
 
 [[package]]
 name = "no-std-compat"
@@ -3866,6 +3922,17 @@ checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 [[package]]
 name = "potlock"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
 
 [[package]]
 name = "powerfmt"
@@ -3909,6 +3976,17 @@ dependencies = [
 [[package]]
 name = "price-alerts"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
 
 [[package]]
 name = "primitive-types"
@@ -5239,6 +5317,17 @@ dependencies = [
 [[package]]
 name = "socialdb"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "itertools 0.13.0",
+ "log",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
 
 [[package]]
 name = "socket2"
@@ -5643,7 +5732,6 @@ version = "0.1.0"
 dependencies = [
  "ai-moderator",
  "anyhow",
- "aqua",
  "async-trait",
  "contract-logs",
  "dotenvy",

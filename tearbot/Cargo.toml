@@ -6,7 +6,6 @@ license = { workspace = true }
 
 [dependencies]
 tearbot-common = { path = "../tearbot-common" }
-aqua = { path = "../xeon-private-modules/aqua", optional = true }
 contract-logs = { path = "../contract-logs", optional = true }
 ft-buybot = { path = "../xeon-private-modules/ft-buybot", optional = true }
 new-liquidity-pools = { path = "../xeon-private-modules/new-liquidity-pools", optional = true }
@@ -43,7 +42,6 @@ default = [
     "ai-moderator-module",
 ]
 private = [
-    "aqua-module",
     "contract-logs-module",
     "ft-buybot-module",
     "new-liquidity-pools-module",
@@ -58,7 +56,6 @@ private = [
     "redis-events",
 ]
 redis-events = ["tearbot-common/redis-events"]
-aqua-module = ["tearbot-common/aqua-module", "aqua"]
 contract-logs-module = ["tearbot-common/contract-logs-module", "contract-logs"]
 ft-buybot-module = ["tearbot-common/ft-buybot-module", "ft-buybot"]
 new-liquidity-pools-module = [

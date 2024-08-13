@@ -1,4 +1,3 @@
-
 use mongodb::bson::Bson;
 #[allow(unused_imports)]
 use near_primitives::types::AccountId;
@@ -59,59 +58,6 @@ pub enum TgCommand {
     CancelNftNotificationsEditButtons(ChatId, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
     CancelNftNotificationsEditLinks(ChatId, CollectionId),
-    #[cfg(feature = "aqua-module")]
-    AquaOpenMenu {
-        referrer_id: Option<AccountId>,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaBecomeFollowerMenu {
-        referrer_id: AccountId,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaConfirm {
-        referrer_id: AccountId,
-        account_id: AccountId,
-        gender: String,
-        age: String,
-        contact_details: String,
-        profession: String,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaMinted {
-        account_id: AccountId,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaGetReferralLink,
-    #[cfg(feature = "aqua-module")]
-    AquaKazumaResetCooldown {
-        thread_id: String,
-        next_message: String,
-    },
-    #[cfg(feature = "aqua-module")]
-    ClaimAqua,
-    #[cfg(feature = "aqua-module")]
-    AquaOpenShop,
-    #[cfg(feature = "aqua-module")]
-    AquaBuyItem(AquaItem),
-    #[cfg(feature = "aqua-module")]
-    AquaOpenUpgrades,
-    #[cfg(feature = "aqua-module")]
-    AquaUpgradeStorage,
-    #[cfg(feature = "aqua-module")]
-    AquaUpgradeSpeed,
-    #[cfg(feature = "aqua-module")]
-    AquaKazumaPay {
-        thread_id: String,
-        amount: f64,
-        tool_call_id: String,
-        run_id: String,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaKazumaDecline {
-        thread_id: String,
-        tool_call_id: String,
-        run_id: String,
-    },
     #[cfg(feature = "nft-buybot-module")]
     NftNotificationsDisableSubscriptionTransfer(ChatId, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
@@ -457,36 +403,6 @@ pub enum TgCommand {
 pub enum MessageCommand {
     None,
     Start(String),
-    #[cfg(feature = "aqua-module")]
-    AquaEnterAccountId {
-        referrer_id: AccountId,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaEnterGender {
-        referrer_id: AccountId,
-        account_id: AccountId,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaEnterAge {
-        referrer_id: AccountId,
-        account_id: AccountId,
-        gender: String,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaEnterContactDetails {
-        referrer_id: AccountId,
-        account_id: AccountId,
-        gender: String,
-        age: String,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaEnterProfession {
-        referrer_id: AccountId,
-        account_id: AccountId,
-        gender: String,
-        age: String,
-        contact_details: String,
-    },
     ChooseChat,
     #[cfg(feature = "nft-buybot-module")]
     NftNotificationsAddCollection(ChatId),
@@ -510,12 +426,6 @@ pub enum MessageCommand {
     // UtilitiesPoolInfo,
     #[cfg(feature = "utilities-module")]
     UtilitiesAccountInfo,
-    #[cfg(feature = "aqua-module")]
-    AquaKazuma {
-        thread_id: String,
-    },
-    #[cfg(feature = "aqua-module")]
-    AquaKazumaAwaitingPayment,
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsAddToken(ChatId),
     #[cfg(feature = "ft-buybot-module")]
@@ -597,44 +507,6 @@ pub enum MessageCommand {
 impl From<MessageCommand> for Bson {
     fn from(command: MessageCommand) -> Self {
         mongodb::bson::to_bson(&command).unwrap()
-    }
-}
-
-#[cfg(feature = "aqua-module")]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum AquaItem {
-    Kazuma,
-}
-
-#[cfg(feature = "aqua-module")]
-impl AquaItem {
-    pub fn all_items() -> Vec<Self> {
-        vec![Self::Kazuma]
-    }
-
-    pub fn cost(&self) -> near_primitives::types::Balance {
-        const AQUA_DECIMALS: u32 = 24;
-
-        match self {
-            Self::Kazuma => 2 * 10u128.pow(AQUA_DECIMALS),
-        }
-    }
-
-    pub fn instructions(&self) -> &'static str {
-        match self {
-            Self::Kazuma => {
-                "[Click here](tg://resolve?domain=kazuma_axis_bot&start=Start) to start the chat\\."
-            }
-        }
-    }
-}
-
-#[cfg(feature = "aqua-module")]
-impl std::fmt::Display for AquaItem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Kazuma => write!(f, "Kazuma"),
-        }
     }
 }
 

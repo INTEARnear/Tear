@@ -44,7 +44,6 @@ tokio-tungstenite = { version = "0.23.1", features = [
 inquire = { version = "0.7.5", optional = true }
 
 [features]
-aqua-module = []
 contract-logs-module = ["semver"]
 ft-buybot-module = []
 new-liquidity-pools-module = []
