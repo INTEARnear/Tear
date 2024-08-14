@@ -739,7 +739,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
         // };
         let mut buttons = create_notificatons_buttons(chat_id, bot).await?;
         buttons.extend(vec![vec![InlineKeyboardButton::callback(
-            "📣 Set up for a group or channel 💬",
+            "📣 Tools for chats and communities 💬",
             bot.to_callback_data(&TgCommand::ChooseChat).await?,
         )]]);
         #[cfg(feature = "utilities-module")]

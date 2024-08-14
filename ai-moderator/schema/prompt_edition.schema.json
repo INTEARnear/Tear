@@ -1,0 +1,28 @@
+{
+    "type": "object",
+    "properties": {
+        "options": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "short_button": {
+                        "type": "string"
+                    },
+                    "rewritten_prompt": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "short_button",
+                    "rewritten_prompt"
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [
+        "options"
+    ],
+    "additionalProperties": false
+}

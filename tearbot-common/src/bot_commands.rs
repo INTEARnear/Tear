@@ -390,13 +390,33 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorEditPrompt(ChatId),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorEditPromptConfirm(ChatId, String),
+    AiModeratorEditPromptConfirm(ChatId, String, bool),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetDebugMode(ChatId, bool),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetAction(ChatId, ModerationJudgement, ModerationAction),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetEnabled(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorAddException(ChatId, String, Option<String>, Vec<String>),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorCancelAddException,
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSeeReason(Vec<String>),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorUnban(ChatId, UserId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorUnmute(ChatId, UserId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorBan(ChatId, UserId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorDelete(ChatId, teloxide::types::MessageId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorAddAsAdmin(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorCancelEditPrompt,
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetSilent(ChatId, bool),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -502,6 +522,8 @@ pub enum MessageCommand {
     AiModeratorSetModeratorChat(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetPrompt(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorAddAsAdminConfirm(ChatId),
 }
 
 impl From<MessageCommand> for Bson {

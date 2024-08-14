@@ -10,7 +10,6 @@ use near_primitives::hash::CryptoHash;
 use near_primitives::types::AccountId;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use teloxide::dispatching::UpdateFilterExt;
 use teloxide::payloads::SendAnimationSetters;
 use teloxide::payloads::SendAudioSetters;
 use teloxide::payloads::SendMessageSetters;
@@ -29,6 +28,7 @@ use teloxide::types::{
 use teloxide::utils::markdown;
 use teloxide::{adaptors::throttle::Throttle, prelude::ChatId};
 use teloxide::{adaptors::CacheMe, payloads::SendVideoSetters};
+use teloxide::{dispatching::UpdateFilterExt, types::ReplyParameters};
 use teloxide::{ApiError, Bot, RequestError};
 use tokio::sync::RwLock;
 
@@ -44,6 +44,7 @@ pub type TgBot = CacheMe<Throttle<Bot>>;
 pub struct BotData {
     bot: TgBot,
     bot_type: BotType,
+    bot_id: UserId,
     xeon: Arc<XeonState>,
     photo_file_id_cache: PersistentCachedStore<String, String>,
     animation_file_id_cache: PersistentCachedStore<String, String>,
@@ -120,6 +121,7 @@ impl BotData {
         Ok(Self {
             bot,
             bot_type,
+            bot_id,
             xeon,
             photo_file_id_cache: PersistentCachedStore::new(
                 db.clone(),
@@ -341,7 +343,8 @@ impl BotData {
             .caption(&caption)
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
-            .await?;
+            .await
+            .inspect_err(log_parse_error(caption))?;
         if let Some(photo) = message.photo().and_then(|p| p.last()) {
             let file_id = photo.file.id.clone();
             self.photo_file_id_cache
@@ -370,7 +373,8 @@ impl BotData {
             .caption(&caption)
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
-            .await?;
+            .await
+            .inspect_err(log_parse_error(caption))?;
         if let Some(file_id) = message.animation().map(|a| a.file.id.clone()) {
             self.animation_file_id_cache
                 .insert_if_not_exists(url.to_string(), file_id)
@@ -398,7 +402,8 @@ impl BotData {
             .caption(&caption)
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
-            .await?;
+            .await
+            .inspect_err(log_parse_error(caption))?;
         if let Some(file_id) = message.audio().map(|a| a.file.id.clone()) {
             self.audio_file_id_cache
                 .insert_if_not_exists(url.to_string(), file_id)
@@ -419,7 +424,8 @@ impl BotData {
             .caption(&caption)
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
-            .await?;
+            .await
+            .inspect_err(log_parse_error(caption))?;
         Ok(())
     }
 
@@ -435,7 +441,8 @@ impl BotData {
             .caption(&caption)
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
-            .await?;
+            .await
+            .inspect_err(log_parse_error(caption))?;
         Ok(())
     }
 
@@ -468,7 +475,8 @@ impl BotData {
             .caption(&caption)
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
-            .await?;
+            .await
+            .inspect_err(log_parse_error(caption))?;
         Ok(())
     }
 
@@ -477,8 +485,9 @@ impl BotData {
         chat_id: ChatId,
         message: String,
         reply_markup: impl Into<ReplyMarkup>,
-    ) -> Result<(), anyhow::Error> {
-        self.bot
+    ) -> Result<Message, anyhow::Error> {
+        Ok(self
+            .bot
             .send_message(chat_id, &message)
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
@@ -489,8 +498,8 @@ impl BotData {
                 prefer_large_media: false,
                 show_above_text: false,
             })
-            .await?;
-        Ok(())
+            .await
+            .inspect_err(log_parse_error(message))?)
     }
 
     pub async fn send_text_message_without_reply_markup(
@@ -508,7 +517,8 @@ impl BotData {
                 prefer_large_media: false,
                 show_above_text: false,
             })
-            .await?;
+            .await
+            .inspect_err(log_parse_error(message))?;
         Ok(())
     }
 
@@ -595,7 +605,7 @@ impl BotData {
             Attachment::None => {
                 if text.len() < 4096 {
                     self.bot
-                        .send_message(chat_id, text)
+                        .send_message(chat_id, text.clone())
                         .parse_mode(ParseMode::MarkdownV2)
                         .reply_markup(reply_markup)
                         .link_preview_options(LinkPreviewOptions {
@@ -605,7 +615,8 @@ impl BotData {
                             prefer_large_media: false,
                             show_above_text: false,
                         })
-                        .await?
+                        .await
+                        .inspect_err(log_parse_error(text))?
                 } else {
                     self.bot
                         .send_document(
@@ -630,94 +641,94 @@ impl BotData {
                         .await?
                 }
             }
-            Attachment::PhotoUrl(url) => {
-                self.bot
-                    .send_photo(chat_id, InputFile::url(url))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::PhotoFileId(file_id) => {
-                self.bot
-                    .send_photo(chat_id, InputFile::file_id(file_id))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::AnimationUrl(url) => {
-                self.bot
-                    .send_animation(chat_id, InputFile::url(url))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::AnimationFileId(file_id) => {
-                self.bot
-                    .send_animation(chat_id, InputFile::file_id(file_id))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::AudioUrl(url) => {
-                self.bot
-                    .send_audio(chat_id, InputFile::url(url))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::AudioFileId(file_id) => {
-                self.bot
-                    .send_audio(chat_id, InputFile::file_id(file_id))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::VideoUrl(url) => {
-                self.bot
-                    .send_video(chat_id, InputFile::url(url))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::VideoFileId(file_id) => {
-                self.bot
-                    .send_video(chat_id, InputFile::file_id(file_id))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::DocumentUrl(url) => {
-                self.bot
-                    .send_document(chat_id, InputFile::url(url))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::DocumentText(content) => {
-                self.bot
-                    .send_document(chat_id, InputFile::memory(content).file_name("message.txt"))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
-            Attachment::DocumentFileId(file_id) => {
-                self.bot
-                    .send_document(chat_id, InputFile::file_id(file_id))
-                    .caption(text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
-            }
+            Attachment::PhotoUrl(url) => self
+                .bot
+                .send_photo(chat_id, InputFile::url(url))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::PhotoFileId(file_id) => self
+                .bot
+                .send_photo(chat_id, InputFile::file_id(file_id))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::AnimationUrl(url) => self
+                .bot
+                .send_animation(chat_id, InputFile::url(url))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::AnimationFileId(file_id) => self
+                .bot
+                .send_animation(chat_id, InputFile::file_id(file_id))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::AudioUrl(url) => self
+                .bot
+                .send_audio(chat_id, InputFile::url(url))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::AudioFileId(file_id) => self
+                .bot
+                .send_audio(chat_id, InputFile::file_id(file_id))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::VideoUrl(url) => self
+                .bot
+                .send_video(chat_id, InputFile::url(url))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::VideoFileId(file_id) => self
+                .bot
+                .send_video(chat_id, InputFile::file_id(file_id))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::DocumentUrl(url) => self
+                .bot
+                .send_document(chat_id, InputFile::url(url))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::DocumentText(content) => self
+                .bot
+                .send_document(chat_id, InputFile::memory(content).file_name("message.txt"))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
+            Attachment::DocumentFileId(file_id) => self
+                .bot
+                .send_document(chat_id, InputFile::file_id(file_id))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
         })
     }
 
@@ -808,9 +819,9 @@ impl BotData {
                     prefer_large_media: false,
                     show_above_text: false,
                 })
-            .await {
-                warn!("Error sending message limit notification: {:?}", err);
-            }
+                .await {
+                    warn!("Error sending message limit notification: {:?}", err);
+                }
         });
     }
 
@@ -834,6 +845,10 @@ impl BotData {
 
     pub fn xeon(&self) -> &Arc<XeonState> {
         &self.xeon
+    }
+
+    pub fn id(&self) -> UserId {
+        self.bot_id
     }
 }
 
@@ -948,6 +963,16 @@ impl<'a> TgCallbackContext<'a> {
             .await
     }
 
+    pub async fn send_and_set(
+        &self,
+        text: impl Into<String>,
+        reply_markup: impl Into<ReplyMarkup>,
+    ) -> Result<(), anyhow::Error> {
+        let message = self.send(text, reply_markup, Attachment::None).await?;
+        self.last_message.write().await.replace(message.id);
+        Ok(())
+    }
+
     pub async fn delete_last_message(&self) -> Result<(), anyhow::Error> {
         if let Some(message_id) = self.last_message.read().await.as_ref() {
             self.bot
@@ -956,6 +981,38 @@ impl<'a> TgCallbackContext<'a> {
                 .await?;
         }
         Ok(())
+    }
+
+    pub async fn reply(
+        &self,
+        text: impl Into<String>,
+        reply_markup: impl Into<ReplyMarkup>,
+    ) -> Result<Message, anyhow::Error> {
+        let text = text.into();
+        let message = self
+            .bot
+            .bot()
+            .send_message(self.chat_id, text.clone())
+            .reply_parameters(ReplyParameters {
+                message_id: self
+                    .message_id()
+                    .await
+                    .ok_or_else(|| anyhow::anyhow!("No message to reply to"))?,
+                allow_sending_without_reply: Some(true),
+                ..Default::default()
+            })
+            .parse_mode(ParseMode::MarkdownV2)
+            .reply_markup(reply_markup)
+            .link_preview_options(LinkPreviewOptions {
+                is_disabled: true,
+                url: None,
+                prefer_small_media: false,
+                prefer_large_media: false,
+                show_above_text: false,
+            })
+            .await
+            .inspect_err(log_parse_error(text))?;
+        Ok(message)
     }
 }
 
@@ -1000,6 +1057,15 @@ impl Drop for MustAnswerCallbackQuery {
     fn drop(&mut self) {
         if !self.callback_query_answered {
             panic!("Callback query {} was not answered", self.callback_query);
+        }
+    }
+}
+
+fn log_parse_error(text: impl Into<String>) -> impl FnOnce(&RequestError) {
+    let text = text.into();
+    move |err| {
+        if let RequestError::Api(ApiError::CantParseEntities(s)) = err {
+            log::warn!("Can't parse entities in message: {s}\n{text:?}");
         }
     }
 }

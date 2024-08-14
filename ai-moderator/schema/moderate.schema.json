@@ -1,0 +1,25 @@
+{
+    "type": "object",
+    "properties": {
+        "reasoning_steps": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "judgement": {
+            "type": "string",
+            "enum": [
+                "Good",
+                "Acceptable",
+                "Suspicious",
+                "Spam"
+            ]
+        }
+    },
+    "required": [
+        "reasoning_steps",
+        "judgement"
+    ],
+    "additionalProperties": false
+}

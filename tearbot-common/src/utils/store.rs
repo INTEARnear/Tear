@@ -184,6 +184,22 @@ where
                 .is_some())
         }
     }
+
+    pub async fn delete_many(
+        &self,
+        keys: impl IntoIterator<Item = K>,
+    ) -> Result<(), anyhow::Error> {
+        let keys: Vec<K> = keys.into_iter().collect();
+        for key in keys.iter() {
+            self.cache.remove(key);
+        }
+        let keys_bson: Vec<bson::Bson> =
+            keys.iter().map(|key| bson::to_bson(key).unwrap()).collect();
+        self.db
+            .delete_many(bson::doc! { "key": { "$in": keys_bson } })
+            .await?;
+        Ok(())
+    }
 }
 
 pub struct PersistentUncachedStore<
