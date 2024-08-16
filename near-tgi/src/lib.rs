@@ -113,7 +113,7 @@ impl XeonBotModule for NearTgiModule {
                                 text.trim_start_matches('/').to_string(),
                                 None,
                             ))
-                            .await?,
+                            .await,
                         ),
                         &mut None,
                     )
@@ -128,7 +128,7 @@ impl XeonBotModule for NearTgiModule {
                             user_id,
                             chat_id,
                             None,
-                            &bot.to_callback_data(&TgCommand::NearTgi(data)).await?,
+                            &bot.to_callback_data(&TgCommand::NearTgi(data)).await,
                         ),
                         &mut None,
                     )
@@ -153,7 +153,7 @@ impl XeonBotModule for NearTgiModule {
                             command,
                             Some(PromptAnswer::Text(text.to_string())),
                         ))
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -171,7 +171,7 @@ impl XeonBotModule for NearTgiModule {
                             command,
                             Some(PromptAnswer::CustomType(text.to_string())),
                         ))
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -399,7 +399,7 @@ impl XeonBotModule for NearTgiModule {
                                     let response = response + &format!(
                                         "\nHere is your console command if you need to script it or re\\-run:\n`{}`\nOr share this link: `https://t.me/Intear_Xeon_bot?start=near-tgi-{}`",
                                         markdown::escape_code(&command_string),
-                                        context.bot().to_callback_data(&TgCommand::NearTgi(command_string)).await?
+                                        context.bot().to_callback_data(&TgCommand::NearTgi(command_string)).await
                                     );
                                     context
                                         .edit_or_send(response, InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()))
@@ -443,7 +443,7 @@ impl XeonBotModule for NearTgiModule {
                                                         command_string.clone(),
                                                         HashSet::from_iter([i]),
                                                     ))
-                                                    .await?,
+                                                    .await,
                                             )]);
                                         }
                                         let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -469,7 +469,7 @@ impl XeonBotModule for NearTgiModule {
                                                         command_string.clone(),
                                                         i,
                                                     ))
-                                                    .await?,
+                                                    .await,
                                             )]);
                                         }
                                         let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -533,7 +533,7 @@ impl XeonBotModule for NearTgiModule {
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::NearTgiAnswer(command, None))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -552,7 +552,7 @@ impl XeonBotModule for NearTgiModule {
                                 command,
                                 Some(PromptAnswer::Select(index)),
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -571,7 +571,7 @@ impl XeonBotModule for NearTgiModule {
                                 command,
                                 Some(PromptAnswer::MultiSelect(indexes)),
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )

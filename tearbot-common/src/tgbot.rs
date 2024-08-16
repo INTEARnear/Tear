@@ -531,9 +531,11 @@ impl BotData {
         Ok(b58)
     }
 
-    pub async fn to_callback_data(&self, data: &TgCommand) -> Result<String, anyhow::Error> {
+    pub async fn to_callback_data(&self, data: &TgCommand) -> String {
         let data = serde_json::to_string(data).unwrap();
-        self.create_callback_data(data).await
+        self.create_callback_data(data)
+            .await
+            .expect("Error creating callback data")
     }
 
     pub async fn get_callback_data(&self, b58: &str) -> Option<String> {

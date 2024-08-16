@@ -388,9 +388,11 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorRequestModeratorChat(ChatId),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorEditPrompt(ChatId),
+    AiModeratorSetPrompt(ChatId),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorEditPromptConfirm(ChatId, String, bool),
+    AiModeratorSetPromptConfirmAndReturn(ChatId, String),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetPromptConfirm(ChatId, String),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetDebugMode(ChatId, bool),
     #[cfg(feature = "ai-moderator-module")]
@@ -417,6 +419,8 @@ pub enum TgCommand {
     AiModeratorCancelEditPrompt,
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetSilent(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorEditPrompt(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -524,6 +528,8 @@ pub enum MessageCommand {
     AiModeratorSetPrompt(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorAddAsAdminConfirm(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorEditPrompt(ChatId),
 }
 
 impl From<MessageCommand> for Bson {
@@ -864,7 +870,7 @@ impl NearSocialEvent {
 }
 
 #[cfg(feature = "ai-moderator-module")]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ModerationJudgement {
     Good,
     Acceptable,
@@ -873,7 +879,7 @@ pub enum ModerationJudgement {
 }
 
 #[cfg(feature = "ai-moderator-module")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum ModerationAction {
     Ban,
     Mute,

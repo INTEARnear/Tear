@@ -77,7 +77,7 @@ impl XeonBotModule for UtilitiesModule {
                             chat_id,
                             None,
                             &bot.to_callback_data(&TgCommand::UtilitiesFtInfoSelected(token_id))
-                                .await?,
+                                .await,
                         ),
                         &mut None,
                     )
@@ -89,7 +89,7 @@ impl XeonBotModule for UtilitiesModule {
                         "No tokens found\\. Try entering the token contract address".to_string();
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
-                        bot.to_callback_data(&TgCommand::OpenMainMenu).await?,
+                        bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -112,12 +112,12 @@ impl XeonBotModule for UtilitiesModule {
                             }
                         ),
                         bot.to_callback_data(&TgCommand::UtilitiesFtInfoSelected(token.account_id))
-                            .await?,
+                            .await,
                     )]);
                 }
                 buttons.push(vec![InlineKeyboardButton::callback(
                     "⬅️ Cancel",
-                    bot.to_callback_data(&TgCommand::OpenMainMenu).await?,
+                    bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                 )]);
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 let message = "Choose the token you want, or enter the token again".to_string();
@@ -136,7 +136,7 @@ impl XeonBotModule for UtilitiesModule {
                             &bot.to_callback_data(&TgCommand::UtilitiesAccountInfoAccount(
                                 account_id,
                             ))
-                            .await?,
+                            .await,
                         ),
                         &mut None,
                     )
@@ -146,7 +146,7 @@ impl XeonBotModule for UtilitiesModule {
                     let buttons =
                         InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
                             "⬅️ Cancel",
-                            bot.to_callback_data(&TgCommand::OpenMainMenu).await?,
+                            bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                         )]]);
                     bot.send_text_message(chat_id, message, buttons).await?;
                 }
@@ -177,7 +177,7 @@ impl XeonBotModule for UtilitiesModule {
                         context
                             .bot()
                             .to_callback_data(&TgCommand::OpenMainMenu)
-                            .await?,
+                            .await,
                     )]]);
                 context
                     .bot()
@@ -200,7 +200,7 @@ impl XeonBotModule for UtilitiesModule {
                             context
                                 .bot()
                                 .to_callback_data(&TgCommand::OpenMainMenu)
-                                .await?,
+                                .await,
                         )]]);
                     context.edit_or_send(message, buttons).await?;
                     return Ok(());
@@ -307,14 +307,14 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                                 .to_callback_data(&TgCommand::UtilitiesFtInfoSelected(
                                     token_id.clone(),
                                 ))
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "⤵️ Show top 100",
                             context
                                 .bot()
                                 .to_callback_data(&TgCommand::UtilitiesFt100Holders(token_id))
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![InlineKeyboardButton::callback(
@@ -322,7 +322,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                         context
                             .bot()
                             .to_callback_data(&TgCommand::OpenMainMenu)
-                            .await?,
+                            .await,
                     )],
                 ]);
                 context.edit_or_send(message, buttons).await?;
@@ -338,7 +338,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             context
                                 .bot()
                                 .to_callback_data(&TgCommand::OpenMainMenu)
-                                .await?,
+                                .await,
                         )]]);
                     context.edit_or_send(message, buttons).await?;
                     return Ok(());
@@ -369,14 +369,14 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                                 .to_callback_data(&TgCommand::UtilitiesFt100Holders(
                                     token_id.clone(),
                                 ))
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "⤴️ Show top 10",
                             context
                                 .bot()
                                 .to_callback_data(&TgCommand::UtilitiesFtInfoSelected(token_id))
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![InlineKeyboardButton::callback(
@@ -384,7 +384,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                         context
                             .bot()
                             .to_callback_data(&TgCommand::OpenMainMenu)
-                            .await?,
+                            .await,
                     )],
                 ]);
                 context
@@ -407,7 +407,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                         context
                             .bot()
                             .to_callback_data(&TgCommand::OpenMainMenu)
-                            .await?,
+                            .await,
                     )]]);
                 context
                     .bot()
@@ -524,14 +524,14 @@ Tokens and staking data provided by [FASTNEAR](https://fastnear.com) 💚
                         context
                             .bot()
                             .to_callback_data(&TgCommand::UtilitiesAccountInfoAccount(account_id))
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Back",
                         context
                             .bot()
                             .to_callback_data(&TgCommand::OpenMainMenu)
-                            .await?,
+                            .await,
                     )],
                 ]);
                 context.edit_or_send(message, buttons).await?;

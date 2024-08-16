@@ -78,7 +78,7 @@ impl XeonBotModule for ContractLogsModule {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsText(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "🔍 NEP-297 events",
@@ -87,14 +87,14 @@ impl XeonBotModule for ContractLogsModule {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Back",
                         context
                             .bot()
                             .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);

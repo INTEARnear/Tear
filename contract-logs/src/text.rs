@@ -88,18 +88,10 @@ impl ContractLogsTextModule {
                             );
                             let buttons = vec![vec![InlineKeyboardButton::callback(
                                 "✏️ Edit log filters",
-                                match bot
-                                    .to_callback_data(&TgCommand::CustomLogsNotificationsText(
-                                        chat_id,
-                                    ))
-                                    .await
-                                {
-                                    Ok(button) => button,
-                                    Err(err) => {
-                                        log::warn!("Failed to create callback data for CustomLogsNotificationsText: {err:?}");
-                                        return;
-                                    }
-                                },
+                                bot.to_callback_data(&TgCommand::CustomLogsNotificationsText(
+                                    chat_id,
+                                ))
+                                .await,
                             )]];
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                             if let Err(err) =
@@ -152,7 +144,7 @@ impl XeonBotModule for ContractLogsTextModule {
                         bot.to_callback_data(&TgCommand::CustomLogsNotificationsText(
                             target_chat_id,
                         ))
-                        .await?,
+                        .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -171,7 +163,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 account_id,
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -192,7 +184,7 @@ impl XeonBotModule for ContractLogsTextModule {
                             target_chat_id,
                             filter_index,
                         ))
-                        .await?,
+                        .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -212,7 +204,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 account_id,
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -234,7 +226,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                         )]]
                     } else {
                         Vec::new()
@@ -257,7 +249,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 Some(predecessor_id),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -283,7 +275,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 Some(text.to_string()),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -309,7 +301,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 Some(text.to_string()),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -335,7 +327,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 Some(text.to_string()),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -361,7 +353,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 Some(text.to_string()),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -423,7 +415,7 @@ impl XeonBotModule for ContractLogsTextModule {
                         .to_callback_data(&TgCommand::CustomLogsNotificationsTextRemoveAll(
                             target_chat_id,
                         ))
-                        .await?,
+                        .await,
                 )]];
                 let mut filters = Vec::new();
                 for (i, filter) in subscriber.filters.iter().enumerate() {
@@ -482,7 +474,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 i,
                             ))
-                            .await?,
+                            .await,
                     ));
                 }
                 for chunk in filters.into_iter().chunks(2).into_iter() {
@@ -499,7 +491,7 @@ impl XeonBotModule for ContractLogsTextModule {
                         .to_callback_data(&TgCommand::CustomLogsNotificationsTextAddFilter(
                             target_chat_id,
                         ))
-                        .await?,
+                        .await,
                 )]);
                 buttons.push(vec![InlineKeyboardButton::callback(
                     "⬅️ Back",
@@ -508,7 +500,7 @@ impl XeonBotModule for ContractLogsTextModule {
                         .to_callback_data(&TgCommand::ContractLogsNotificationsSettings(
                             target_chat_id,
                         ))
-                        .await?,
+                        .await,
                 )]);
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -543,7 +535,7 @@ impl XeonBotModule for ContractLogsTextModule {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsText(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     context.edit_or_send(message, reply_markup).await?;
@@ -608,7 +600,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "✏️ Predecessor ID",
@@ -620,7 +612,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![
@@ -634,7 +626,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "✏️ Text: Ends With",
@@ -646,7 +638,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![
@@ -660,7 +652,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "✏️ Text: Contains",
@@ -672,7 +664,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![InlineKeyboardButton::callback(
@@ -683,7 +675,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                     vec![
                         InlineKeyboardButton::callback(
@@ -694,7 +686,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                     target_chat_id,
                                     filter_index,
                                 ))
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "⬅️ Back",
@@ -703,7 +695,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 .to_callback_data(&TgCommand::CustomLogsNotificationsText(
                                     target_chat_id,
                                 ))
-                                .await?,
+                                .await,
                         ),
                     ],
                 ];
@@ -744,7 +736,7 @@ impl XeonBotModule for ContractLogsTextModule {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsText(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -777,7 +769,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                     .to_callback_data(&TgCommand::CustomLogsNotificationsText(
                                         target_chat_id,
                                     ))
-                                    .await?,
+                                    .await,
                             )]];
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                             context.edit_or_send(message, reply_markup).await?;
@@ -803,7 +795,7 @@ impl XeonBotModule for ContractLogsTextModule {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsText(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -828,7 +820,7 @@ impl XeonBotModule for ContractLogsTextModule {
                     context
                         .bot()
                         .to_callback_data(&TgCommand::CustomLogsNotificationsText(target_chat_id))
-                        .await?,
+                        .await,
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -858,7 +850,7 @@ impl XeonBotModule for ContractLogsTextModule {
                             target_chat_id,
                             filter_index,
                         ))
-                        .await?,
+                        .await,
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -895,7 +887,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
@@ -905,7 +897,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -940,7 +932,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
@@ -950,7 +942,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -985,7 +977,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
@@ -995,7 +987,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -1030,7 +1022,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
@@ -1040,7 +1032,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -1075,7 +1067,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
@@ -1085,7 +1077,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -1143,7 +1135,7 @@ impl XeonBotModule for ContractLogsTextModule {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsText(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1192,7 +1184,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1241,7 +1233,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1290,7 +1282,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1339,7 +1331,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1388,7 +1380,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1437,7 +1429,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1461,7 +1453,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![
                         InlineKeyboardButton::callback(
@@ -1475,7 +1467,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                         Some(false),
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "🧑‍💻 Testnet",
@@ -1488,7 +1480,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                         Some(true),
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![InlineKeyboardButton::callback(
@@ -1499,7 +1491,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -1553,7 +1545,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )

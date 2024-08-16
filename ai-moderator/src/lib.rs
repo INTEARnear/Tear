@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,
-    io::Write,
     sync::Arc,
     time::Duration,
 };
@@ -27,12 +26,12 @@ use tearbot_common::{
     mongodb::Database,
     teloxide::{
         net::Download,
-        payloads::{KickChatMemberSetters, RestrictChatMemberSetters},
+        payloads::{EditMessageTextSetters, KickChatMemberSetters, RestrictChatMemberSetters},
         prelude::{ChatId, Message, Requester, UserId},
         types::{
             ButtonRequest, ChatAdministratorRights, ChatKind, ChatPermissions, ChatShared,
             InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, KeyboardButtonRequestChat,
-            MessageId, MessageKind, PublicChatKind, ReplyMarkup,
+            MessageId, MessageKind, ParseMode, PublicChatKind, ReplyMarkup,
         },
         utils::markdown,
         ApiError, RequestError,
@@ -185,8 +184,8 @@ impl AiModeratorModule {
                 let mut note = note
                     .map(|note| format!("\n{note}", note = markdown::escape(note)))
                     .unwrap_or_default();
-                if chat_config.debug_mode {
-                    note += "\n\\(debug mode is enabled, so nothing was actually done\\)";
+                if chat_config.debug_mode && *action != ModerationAction::Ok {
+                    note += "\n\\(testing mode is enabled, so nothing was actually done\\)";
                 }
 
                 match action {
@@ -212,7 +211,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was banned:\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was banned:\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -225,21 +224,21 @@ impl AiModeratorModule {
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "Unban User",
                                 bot.to_callback_data(&TgCommand::AiModeratorUnban(
                                     chat_id, user_id,
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
                                     reasoning.unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                         ];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -273,7 +272,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was muted:\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was muted:\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -286,21 +285,21 @@ impl AiModeratorModule {
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "Unmute User",
                                 bot.to_callback_data(&TgCommand::AiModeratorUnmute(
                                     chat_id, user_id,
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
                                     reasoning.unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                         ];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -330,7 +329,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was muted for 15 minutes:\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was muted for 15 minutes:\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -343,21 +342,21 @@ impl AiModeratorModule {
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "Unmute User",
                                 bot.to_callback_data(&TgCommand::AiModeratorUnmute(
                                     chat_id, user_id,
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
                                     reasoning.unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                         ];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -383,7 +382,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was deleted:\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was deleted:\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -396,19 +395,19 @@ impl AiModeratorModule {
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "Ban User",
                                 bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, user_id))
-                                    .await?,
+                                    .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
                                     reasoning.unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                         ];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -417,7 +416,7 @@ impl AiModeratorModule {
                     }
                     ModerationAction::WarnMods => {
                         let message_to_send = format!(
-                            "User [{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -430,26 +429,26 @@ impl AiModeratorModule {
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "Delete Message",
                                 bot.to_callback_data(&TgCommand::AiModeratorDelete(
                                     chat_id, message.id,
                                 ))
-                                .await?,
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "Ban User",
                                 bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, user_id))
-                                    .await?,
+                                    .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
                                     reasoning.unwrap(),
                                 ))
-                                .await?,
+                                .await,
                             )],
                         ];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -459,24 +458,24 @@ impl AiModeratorModule {
                     ModerationAction::Ok => {
                         if chat_config.debug_mode {
                             let message_to_send = format!(
-                                "User [{name}](tg://user?id={user_id}) sent a message and it was *NOT* flagged as spam \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
+                                "[{name}](tg://user?id={user_id}) sent a message and it was *NOT* flagged as spam \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
                                 name = markdown::escape(&from.full_name()),
                                 text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                             );
                             let buttons = vec![
                                 vec![InlineKeyboardButton::callback(
                                     "Edit Prompt",
-                                    bot.to_callback_data(&TgCommand::AiModeratorEditPrompt(
+                                    bot.to_callback_data(&TgCommand::AiModeratorSetPrompt(
                                         chat_id,
                                     ))
-                                    .await?,
+                                    .await,
                                 )],
                                 vec![InlineKeyboardButton::callback(
                                     "See Reason",
                                     bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
                                         reasoning.unwrap(),
                                     ))
-                                    .await?,
+                                    .await,
                                 )],
                             ];
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -619,7 +618,7 @@ impl AiModeratorModule {
                         .additional_instructions(format!(
                             "{}Admins have set these rules:\n\n{}",
                             if message_image.is_some() {
-                                concat!("Reply in json format with the following schema, without formatting, ready to parse:\n{}", include_str!("../schema/moderate.schema.json"))
+                                concat!("Reply in json format with the following schema, without formatting, ready to parse:\n", include_str!("../schema/moderate.schema.json"))
                             } else {
                                 ""
                             },
@@ -704,8 +703,10 @@ impl XeonBotModule for AiModeratorModule {
                     let bot_id = *bot_config.key();
                     let bot = xeon.bot(&bot_id).expect("Bot not found");
                     let bot_config = bot_config.value_mut();
-                    for MessageToDelete(chat_id, message_id) in
-                        bot_config.get_pending_autodelete_messages().await
+                    for MessageToDelete {
+                        chat_id,
+                        message_id,
+                    } in bot_config.get_pending_autodelete_messages().await
                     {
                         if let Err(err) = bot.bot().delete_message(chat_id, message_id).await {
                             log::warn!(
@@ -751,7 +752,7 @@ impl XeonBotModule for AiModeratorModule {
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "⬅️ Back",
                         bot.to_callback_data(&TgCommand::AiModeratorFirstMessages(target_chat_id))
-                            .await?,
+                            .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -768,7 +769,7 @@ impl XeonBotModule for AiModeratorModule {
                             target_chat_id,
                             first_messages,
                         ))
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -790,7 +791,7 @@ impl XeonBotModule for AiModeratorModule {
                             chat_id,
                             None,
                             &bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
+                                .await,
                         ),
                         &mut None,
                     )
@@ -842,7 +843,7 @@ impl XeonBotModule for AiModeratorModule {
                             chat_id,
                             None,
                             &bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
+                                .await,
                         ),
                         &mut None,
                     )
@@ -851,7 +852,7 @@ impl XeonBotModule for AiModeratorModule {
                     let message = "Please use the 'Choose a chat' button".to_string();
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "Cancel",
-                        bot.to_callback_data(&TgCommand::CancelChat).await?,
+                        bot.to_callback_data(&TgCommand::CancelChat).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -869,12 +870,11 @@ impl XeonBotModule for AiModeratorModule {
                         user_id,
                         chat_id,
                         None,
-                        &bot.to_callback_data(&TgCommand::AiModeratorEditPromptConfirm(
+                        &bot.to_callback_data(&TgCommand::AiModeratorSetPromptConfirmAndReturn(
                             target_chat_id,
                             prompt,
-                            true,
                         ))
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -896,7 +896,7 @@ impl XeonBotModule for AiModeratorModule {
                             chat_id,
                             None,
                             &bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
+                                .await,
                         ),
                         &mut None,
                     )
@@ -923,7 +923,7 @@ impl XeonBotModule for AiModeratorModule {
                                 chat_id,
                                 None,
                                 &bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                    .await?,
+                                    .await,
                             ),
                             &mut None,
                         )
@@ -937,7 +937,7 @@ impl XeonBotModule for AiModeratorModule {
                         );
                         let buttons = vec![vec![InlineKeyboardButton::callback(
                             "Cancel",
-                            bot.to_callback_data(&TgCommand::CancelChat).await?,
+                            bot.to_callback_data(&TgCommand::CancelChat).await,
                         )]];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
                         bot.send_text_message(chat_id, message, reply_markup)
@@ -947,12 +947,167 @@ impl XeonBotModule for AiModeratorModule {
                     let message = "Please use the 'Find the chat' button".to_string();
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "Cancel",
-                        bot.to_callback_data(&TgCommand::CancelChat).await?,
+                        bot.to_callback_data(&TgCommand::CancelChat).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
                         .await?;
                 }
+            }
+            MessageCommand::AiModeratorEditPrompt(target_chat_id) => {
+                if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
+                    return Ok(());
+                }
+                let enhancement_prompt = text.to_string();
+
+                let message = "Please wait while I generate a new prompt for you".to_string();
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                let message_id = bot
+                    .send_text_message(chat_id, message, reply_markup)
+                    .await?
+                    .id;
+
+                let bot_configs = Arc::clone(&self.bot_configs);
+                let openai_client = self.openai_client.clone();
+                let bot_id = bot.id();
+                let xeon = Arc::clone(&self.xeon);
+                tokio::spawn(async move {
+                    let bot = xeon.bot(&bot_id).unwrap();
+                    let result: Result<(), anyhow::Error> = async {
+                        let chat_config = if let Some(bot_config) =
+                            bot_configs.get(&bot.bot().get_me().await?.id)
+                        {
+                            if let Some(chat_config) =
+                                bot_config.chat_configs.get(&target_chat_id).await
+                            {
+                                chat_config
+                            } else {
+                                return Ok(());
+                            }
+                        } else {
+                            return Ok(());
+                        };
+                        let new_thread = openai_client
+                            .threads()
+                            .create(CreateThreadRequestArgs::default().build().unwrap())
+                            .await?;
+                        let run = openai_client
+                            .threads()
+                            .runs(&new_thread.id)
+                            .create(
+                                CreateRunRequestArgs::default()
+                                    .assistant_id(
+                                        std::env::var("OPENAI_PROMPT_EDITOR_ASSISTANT_ID")
+                                            .expect("OPENAI_PROMPT_EDITOR_ASSISTANT_ID not set"),
+                                    )
+                                    .additional_messages(vec![CreateMessageRequest {
+                                        role: MessageRole::User,
+                                        content: CreateMessageRequestContent::ContentArray(vec![
+                                            MessageContentInput::Text(MessageRequestContentTextObject {
+                                                text: format!(
+                                                    "Old Prompt: {}\n\nUser's message: {enhancement_prompt}",
+                                                    chat_config.prompt
+                                                )
+                                            }),
+                                        ]),
+                                        ..Default::default()
+                                    }])
+                                    .build()
+                                    .expect("Failed to build CreateRunRequestArgs"),
+                            )
+                            .await;
+                        match run {
+                            Ok(run) => {
+                                let result = await_execution(&openai_client, run, new_thread.id).await;
+                                if let Ok(MessageContent::Text(text)) = result {
+                                    if let Ok(response) =
+                                        serde_json::from_str::<PromptEditorResponse>(&text.text.value)
+                                    {
+                                        log::info!("Response for prompt editor: {response:?}");
+                                        let buttons = vec![
+                                            vec![InlineKeyboardButton::callback(
+                                                "Yes",
+                                                bot.to_callback_data(
+                                                    &TgCommand::AiModeratorSetPromptConfirmAndReturn(
+                                                        target_chat_id,
+                                                        response.rewritten_prompt.clone(),
+                                                    ),
+                                                )
+                                                .await,
+                                            )],
+                                            vec![InlineKeyboardButton::callback(
+                                                "No, enter manually",
+                                                bot.to_callback_data(&TgCommand::AiModeratorSetPrompt(
+                                                    target_chat_id,
+                                                ))
+                                                .await,
+                                            )],
+                                        ];
+                                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                        let message = format!(
+                                            "AI has generated this prompt based on your request:\n{}\n\nDo you want to use this prompt?",
+                                            expandable_blockquote(&response.rewritten_prompt)
+                                        );
+                                        bot.bot().edit_message_text(chat_id, message_id, message)
+                                            .parse_mode(ParseMode::MarkdownV2)
+                                            .reply_markup(reply_markup)
+                                            .await?;
+                                    } else {
+                                        return Err(anyhow::anyhow!(
+                                            "Failed to parse prompt editor response: {}",
+                                            text.text.value
+                                        ));
+                                    }
+                                } else {
+                                    return Err(anyhow::anyhow!(
+                                        "Prompt editor response is not a text"
+                                    ));
+                                }
+                            }
+                            Err(err) => {
+                                return Err(anyhow::anyhow!(
+                                    "Failed to create a prompt editor run: {err:?}"
+                                ));
+                            }
+                        }
+                        Ok(())
+                    }.await;
+                    if let Err(err) = result {
+                        log::warn!("Failed to edit prompt: {err:?}");
+                        let message = "Something went wrong while generating a new prompt\\. Please try again, use 'Set Prompt' instead, or ask for support in @intearchat".to_string();
+                        let buttons = vec![
+                            vec![
+                                InlineKeyboardButton::callback(
+                                    "🗯 Set Prompt",
+                                    bot.to_callback_data(&TgCommand::AiModeratorSetPrompt(
+                                        target_chat_id,
+                                    ))
+                                    .await,
+                                ),
+                                InlineKeyboardButton::url(
+                                    "🤙 Support",
+                                    "tg://resolve?domain=intearchat".parse().unwrap(),
+                                ),
+                            ],
+                            vec![InlineKeyboardButton::callback(
+                                "⬅️ Cancel",
+                                bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                                    .await,
+                            )],
+                        ];
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        if let Err(err) = bot
+                            .bot()
+                            .edit_message_text(chat_id, message_id, message)
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_markup(reply_markup)
+                            .await
+                        {
+                            log::warn!("Failed to send error message: {err:?}");
+                        }
+                    }
+                });
             }
             _ => {}
         }
@@ -1001,7 +1156,7 @@ impl XeonBotModule for AiModeratorModule {
                             "Cancel",
                             ctx.bot()
                                 .to_callback_data(&TgCommand::AiModeratorCancelAddException)
-                                .await?,
+                                .await,
                         )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     ctx.bot()
@@ -1028,141 +1183,140 @@ impl XeonBotModule for AiModeratorModule {
                             "doesn't matter",
                         );
                         let result: Result<(), anyhow::Error> = async {
-                        let edition_prompt = format!(
-                            "Old Prompt: {}\n\nMessage: {}\n\nReasoning:{}",
-                            chat_config.prompt,
-                            message_text,
-                            reasoning
-                                .iter()
-                                .map(|reason| format!("\n- {reason}"))
-                                .collect::<Vec<_>>()
-                                .join("")
-                        );
-                        let new_thread = openai_client
-                            .threads()
-                            .create(CreateThreadRequestArgs::default().build().unwrap())
-                            .await?;
-                        let mut create_run = &mut CreateRunRequestArgs::default();
-                        if message_image_openai_file_id.is_some() {
-                            // Json schema doesn't work with images
-                            create_run = create_run.response_format(AssistantsApiResponseFormatOption::Format(AssistantsApiResponseFormat {
-                                r#type: AssistantsApiResponseFormatType::JsonObject,
-                                json_schema: None,
-                            })).additional_instructions(concat!("Reply in json format with the following schema, without formatting, ready to parse:\n{}", include_str!("../schema/prompt_edition.schema.json")))
-                        }
-                        let run = openai_client
-                            .threads()
-                            .runs(&new_thread.id)
-                            .create(
-                                create_run
-                                    .assistant_id(
-                                        std::env::var("OPENAI_PROMPT_EDITION_ASSISTANT_ID")
-                                            .expect("OPENAI_PROMPT_EDITION_ASSISTANT_ID not set"),
-                                    )
-                                    .additional_messages(vec![CreateMessageRequest {
-                                        role: MessageRole::User,
-                                        content: if let Some(file_id) = message_image_openai_file_id
-                                        {
-                                            CreateMessageRequestContent::ContentArray(vec![
-                                                MessageContentInput::Text(
-                                                    MessageRequestContentTextObject {
-                                                        text: edition_prompt,
-                                                    },
-                                                ),
-                                                MessageContentInput::ImageFile(
-                                                    MessageContentImageFileObject {
-                                                        image_file: ImageFile {
-                                                            file_id,
-                                                            detail: Some(ImageDetail::Low),
-                                                        },
-                                                    },
-                                                ),
-                                            ])
-                                        } else {
-                                            CreateMessageRequestContent::Content(edition_prompt)
-                                        },
-                                        ..Default::default()
-                                    }])
-                                    .build()
-                                    .expect("Failed to build CreateRunRequestArgs"),
-                            )
-                            .await;
-                        match run {
-                            Ok(run) => {
-                                let result =
-                                    await_execution(&openai_client, run, new_thread.id).await;
-                                if let Ok(MessageContent::Text(text)) = result {
-                                    if let Ok(response) =
-                                        serde_json::from_str::<PromptEditionResponse>(
-                                            &text.text.value,
+                            let edition_prompt = format!(
+                                "Old Prompt: {}\n\nMessage: {}\n\nReasoning:{}",
+                                chat_config.prompt,
+                                message_text,
+                                reasoning
+                                    .iter()
+                                    .map(|reason| format!("\n- {reason}"))
+                                    .collect::<Vec<_>>()
+                                    .join("")
+                            );
+                            let new_thread = openai_client
+                                .threads()
+                                .create(CreateThreadRequestArgs::default().build().unwrap())
+                                .await?;
+                            let mut create_run = &mut CreateRunRequestArgs::default();
+                            if message_image_openai_file_id.is_some() {
+                                // Json schema doesn't work with images
+                                create_run = create_run.response_format(AssistantsApiResponseFormatOption::Format(AssistantsApiResponseFormat {
+                                    r#type: AssistantsApiResponseFormatType::JsonObject,
+                                    json_schema: None,
+                                })).additional_instructions(concat!("Reply in json format with the following schema, without formatting, ready to parse:\n", include_str!("../schema/prompt_edition.schema.json")))
+                            }
+                            let run = openai_client
+                                .threads()
+                                .runs(&new_thread.id)
+                                .create(
+                                    create_run
+                                        .assistant_id(
+                                            std::env::var("OPENAI_PROMPT_EDITION_ASSISTANT_ID")
+                                                .expect("OPENAI_PROMPT_EDITION_ASSISTANT_ID not set"),
                                         )
-                                    {
-                                        log::info!("Response for prompt edition: {response:?}");
-                                        let mut buttons = Vec::new();
-                                        for option in response.options.iter() {
+                                        .additional_messages(vec![CreateMessageRequest {
+                                            role: MessageRole::User,
+                                            content: if let Some(file_id) = message_image_openai_file_id
+                                            {
+                                                CreateMessageRequestContent::ContentArray(vec![
+                                                    MessageContentInput::Text(
+                                                        MessageRequestContentTextObject {
+                                                            text: edition_prompt,
+                                                        },
+                                                    ),
+                                                    MessageContentInput::ImageFile(
+                                                        MessageContentImageFileObject {
+                                                            image_file: ImageFile {
+                                                                file_id,
+                                                                detail: Some(ImageDetail::Low),
+                                                            },
+                                                        },
+                                                    ),
+                                                ])
+                                            } else {
+                                                CreateMessageRequestContent::Content(edition_prompt)
+                                            },
+                                            ..Default::default()
+                                        }])
+                                        .build()
+                                        .expect("Failed to build CreateRunRequestArgs"),
+                                )
+                                .await;
+                            match run {
+                                Ok(run) => {
+                                    let result =
+                                        await_execution(&openai_client, run, new_thread.id).await;
+                                    if let Ok(MessageContent::Text(text)) = result {
+                                        if let Ok(response) =
+                                            serde_json::from_str::<PromptEditionResponse>(
+                                                &text.text.value,
+                                            )
+                                        {
+                                            log::info!("Response for prompt edition: {response:?}");
+                                            let mut buttons = Vec::new();
+                                            for option in response.options.iter() {
+                                                buttons.push(vec![InlineKeyboardButton::callback(
+                                                    option.short_button.clone(),
+                                                    ctx.bot()
+                                                        .to_callback_data(
+                                                            &TgCommand::AiModeratorSetPromptConfirm(
+                                                                target_chat_id,
+                                                                option.rewritten_prompt.clone(),
+                                                            ),
+                                                        )
+                                                        .await,
+                                                )]);
+                                            }
                                             buttons.push(vec![InlineKeyboardButton::callback(
-                                                option.short_button.clone(),
+                                                "Cancel",
                                                 ctx.bot()
                                                     .to_callback_data(
-                                                        &TgCommand::AiModeratorEditPromptConfirm(
-                                                            target_chat_id,
-                                                            option.rewritten_prompt.clone(),
-                                                            false,
-                                                        ),
+                                                        &TgCommand::AiModeratorCancelAddException,
                                                     )
-                                                    .await?,
+                                                    .await,
                                             )]);
-                                        }
-                                        buttons.push(vec![InlineKeyboardButton::callback(
-                                            "Cancel",
-                                            ctx.bot()
-                                                .to_callback_data(
-                                                    &TgCommand::AiModeratorCancelAddException,
-                                                )
-                                                .await?,
-                                        )]);
-                                        let suggestions = response.options.iter().fold(
-                                            String::new(),
-                                            |mut s, option| {
-                                                use std::fmt::Write;
-                                                write!(
-                                                    s,
-                                                    "\n\n*{button}:*\n{quote}",
-                                                    button = markdown::escape(&option.short_button),
-                                                    quote = expandable_blockquote(
-                                                        &option.rewritten_prompt
+                                            let suggestions = response.options.iter().fold(
+                                                String::new(),
+                                                |mut s, option| {
+                                                    use std::fmt::Write;
+                                                    write!(
+                                                        s,
+                                                        "\n\n*{button}:*\n{quote}",
+                                                        button = markdown::escape(&option.short_button),
+                                                        quote = expandable_blockquote(
+                                                            &option.rewritten_prompt
+                                                        )
                                                     )
-                                                )
-                                                .unwrap();
-                                                s
-                                            },
-                                        );
-                                        let message =
-                                        format!("{message}\n\nOr choose one of the AI\\-generated options:{suggestions}");
-                                        let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                        ctx.edit_or_send(message, reply_markup).await?;
+                                                    .unwrap();
+                                                    s
+                                                },
+                                            );
+                                            let message =
+                                            format!("{message}\n\nOr choose one of the AI\\-generated options:{suggestions}");
+                                            let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                            ctx.edit_or_send(message, reply_markup).await?;
+                                        } else {
+                                            return Err(anyhow::anyhow!(
+                                                "Failed to parse prompt edition response: {}",
+                                                text.text.value
+                                            ));
+                                        }
                                     } else {
-                                        log::warn!(
-                                            "Failed to parse prompt edition response: {}",
-                                            text.text.value
-                                        );
+                                        return Err(anyhow::anyhow!("Prompt edition response is not a text"));
                                     }
-                                } else {
-                                    log::warn!("Prompt edition response is not a text");
+                                }
+                                Err(err) => {
+                                    return Err(anyhow::anyhow!("Failed to create a prompt edition run: {err:?}"));
                                 }
                             }
-                            Err(err) => {
-                                log::warn!("Failed to create a prompt edition run: {err:?}");
-                            }
-                        }
-                        Ok(())
-                    }.await;
+                            Ok(())
+                        }.await;
                         if let Err(err) = result {
                             log::warn!("Failed to edit prompt: {err:?}");
                         }
                     });
                 }
-                TgCommand::AiModeratorEditPromptConfirm(target_chat_id, prompt, false) => {
+                TgCommand::AiModeratorSetPromptConfirm(target_chat_id, prompt) => {
                     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id())
                         .await
                     {
@@ -1219,7 +1373,7 @@ impl XeonBotModule for AiModeratorModule {
                             "⬅️ Back",
                             ctx.bot()
                                 .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
+                                .await,
                         )]];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
                         ctx.send(message, reply_markup, Attachment::None).await?;
@@ -1227,7 +1381,7 @@ impl XeonBotModule for AiModeratorModule {
                     }
                     let message = format!(
                         "[{name}](tg://user?id={user_id}) has unbanned the user",
-                        name = admin.first_name.unwrap_or("Someone".to_string()),
+                        name = markdown::escape(&admin.first_name.unwrap_or("Admin".to_string())),
                         user_id = ctx.user_id().0,
                     );
                     let buttons = Vec::<Vec<_>>::new();
@@ -1282,7 +1436,7 @@ impl XeonBotModule for AiModeratorModule {
                             "⬅️ Back",
                             ctx.bot()
                                 .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
+                                .await,
                         )]];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
                         ctx.send(message, reply_markup, Attachment::None).await?;
@@ -1290,7 +1444,7 @@ impl XeonBotModule for AiModeratorModule {
                     }
                     let message = format!(
                         "[{name}](tg://user?id={user_id}) has unmuted the user",
-                        name = admin.first_name.unwrap_or("Someone".to_string()),
+                        name = markdown::escape(&admin.first_name.unwrap_or("Admin".to_string())),
                         user_id = ctx.user_id().0,
                     );
                     let buttons = Vec::<Vec<_>>::new();
@@ -1326,7 +1480,7 @@ impl XeonBotModule for AiModeratorModule {
                             "⬅️ Back",
                             ctx.bot()
                                 .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
+                                .await,
                         )]];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
                         ctx.send(message, reply_markup, Attachment::None).await?;
@@ -1334,7 +1488,7 @@ impl XeonBotModule for AiModeratorModule {
                     }
                     let message = format!(
                         "[{name}](tg://user?id={user_id}) has banned the user",
-                        name = admin.first_name.unwrap_or("Someone".to_string()),
+                        name = markdown::escape(&admin.first_name.unwrap_or("Admin".to_string())),
                         user_id = ctx.user_id().0,
                     );
                     let buttons = Vec::<Vec<_>>::new();
@@ -1347,6 +1501,11 @@ impl XeonBotModule for AiModeratorModule {
                     {
                         return Ok(());
                     }
+                    let ChatKind::Private(admin) =
+                        ctx.bot().bot().get_chat(ctx.user_id()).await?.kind
+                    else {
+                        return Ok(());
+                    };
                     if let Err(RequestError::Api(err)) = ctx
                         .bot()
                         .bot()
@@ -1364,13 +1523,17 @@ impl XeonBotModule for AiModeratorModule {
                             "⬅️ Back",
                             ctx.bot()
                                 .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
+                                .await,
                         )]];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
                         ctx.send(message, reply_markup, Attachment::None).await?;
                         return Ok(());
                     }
-                    let message = "The message has been deleted";
+                    let message = format!(
+                        "[{name}](tg://user?id={user_id}) has deleted the message",
+                        name = markdown::escape(&admin.first_name.unwrap_or("Admin".to_string())),
+                        user_id = ctx.user_id().0,
+                    );
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     ctx.send(message, reply_markup, Attachment::None).await?;
@@ -1408,15 +1571,15 @@ impl XeonBotModule for AiModeratorModule {
                 let chat_id = ctx.chat_id();
                 let message_id = ctx.message_id().await;
                 tokio::spawn(async move {
+                    let bot = xeon.bot(&bot_id).unwrap();
+                    let ctx = TgCallbackContext::new(
+                        &bot,
+                        user_id,
+                        chat_id,
+                        message_id,
+                        "doesn't matter",
+                    );
                     let result: Result<(), anyhow::Error> = async {
-                        let bot = xeon.bot(&bot_id).unwrap();
-                        let ctx = TgCallbackContext::new(
-                            &bot,
-                            user_id,
-                            chat_id,
-                            message_id,
-                            "doesn't matter",
-                        );
                         let chat_config = if let Some(bot_config) =
                             bot_configs.get(&bot_id)
                         {
@@ -1440,7 +1603,7 @@ impl XeonBotModule for AiModeratorModule {
                                                     chat_data
                                                         .push_str(&format!("Username: @{username}\n"));
                                                 } else {
-                                                    chat_data.push_str("Username is not set\n");
+                                                    chat_data.push_str(&format!("Chat link: t.me/c/{target_chat_id}\n"));
                                                 }
                                             }
                                             PublicChatKind::Group(_) => {
@@ -1471,13 +1634,11 @@ impl XeonBotModule for AiModeratorModule {
                                 let chat_data_formatted = expandable_blockquote(&chat_data);
                                 ctx.edit_or_send(format!("Please wait while we're crafting an ✨ individual prompt ✨ for your chat based on this info:\n{chat_data_formatted}"), reply_markup).await?;
 
-                                std::io::stdout().flush().unwrap();
                                 if let Ok(new_thread) = openai_client
                                     .threads()
                                     .create(CreateThreadRequestArgs::default().build().unwrap())
                                     .await
                                 {
-                                    std::io::stdout().flush().unwrap();
                                     if let Ok(run) = openai_client
                                         .threads()
                                         .runs(&new_thread.id)
@@ -1503,51 +1664,54 @@ impl XeonBotModule for AiModeratorModule {
                                         )
                                         .await
                                     {
-                                        std::io::stdout().flush().unwrap();
                                         if let Ok(MessageContent::Text(text)) =
                                             await_execution(&openai_client, run, new_thread.id)
                                                 .await
                                         {
-                                            std::io::stdout().flush().unwrap();
                                             if let Ok(response) =
                                                 serde_json::from_str::<PromptCreationResponse>(
                                                     &text.text.value,
                                                 )
                                             {
-                                                std::io::stdout().flush().unwrap();
                                                 log::info!(
                                                     "Response for new prompt creation from: {response:?}",
                                                 );
                                                 config.prompt = response.prompt;
+
+                                                let message = format!(
+                                                    "AI has generated a prompt for you based on the chat info\\. Here it is:\n\n{prompt}\n\nI recommend you to edit it by clicking \"🗯 Edit Prompt\" below\\. You can also change the prompt later by clicking the same button\\.",
+                                                    prompt = expandable_blockquote(&config.prompt)
+                                                );
+                                                let buttons = Vec::<Vec<_>>::new();
+                                                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                                ctx.send(message, reply_markup, Attachment::None).await?;
                                             } else {
-                                                log::warn!(
+                                                return Err(anyhow::anyhow!(
                                                     "Failed to parse prompt creation response: {}",
                                                     text.text.value
-                                                );
+                                                ));
                                             }
                                         } else {
-                                            log::warn!("Prompt creation response is not a text");
+                                            return Err(anyhow::anyhow!(
+                                                "Prompt creation response is not a text"
+                                            ));
                                         }
                                     } else {
-                                        log::warn!("Failed to create a prompt creation run");
+                                        return Err(anyhow::anyhow!("Failed to create a prompt creation run"));
                                     }
                                 } else {
-                                    log::warn!("Failed to create a prompt creation thread");
+                                    return Err(anyhow::anyhow!("Failed to create a prompt creation thread"));
                                 }
-                                std::io::stdout().flush().unwrap();
                                 let bot_config = bot_configs.get(&bot_id).unwrap();
                                 bot_config
                                     .chat_configs
                                     .insert_or_update(target_chat_id, config.clone())
                                     .await?;
-                                std::io::stdout().flush().unwrap();
                                 config
                             }
                         } else {
-                            std::io::stdout().flush().unwrap();
                             return Ok(());
                         };
-                        std::io::stdout().flush().unwrap();
                         let first_messages = chat_config.first_messages;
 
                         let prompt = expandable_blockquote(&chat_config.prompt);
@@ -1555,13 +1719,11 @@ impl XeonBotModule for AiModeratorModule {
                         if chat_config.moderator_chat.is_none() {
                             warnings.push("⚠️ Moderator chat is not set. The moderator chat is the chat where all logs will be sent");
                         }
-                        std::io::stdout().flush().unwrap();
                         let bot_member = ctx
                             .bot()
                             .bot()
                             .get_chat_member(target_chat_id, ctx.bot().bot().get_me().await?.id)
                             .await?;
-                        std::io::stdout().flush().unwrap();
                         let mut add_admin_button = false;
                         if !bot_member.is_administrator() {
                             add_admin_button = true;
@@ -1570,26 +1732,41 @@ impl XeonBotModule for AiModeratorModule {
                             add_admin_button = true;
                             warnings.push("⚠️ The bot does not have permission to restrict members. The bot needs to have permission to restrict members to moderate messages");
                         }
+                        if chat_config.debug_mode {
+                            warnings.push("⚠️ The bot is currently in testing mode. It will only warn about messages, but not take any actions. I recommend you to wait a few hours or days, see how it goes, refine the prompt, and when everything looks good, switch to the running mode using 'Mode: Testing' button below");
+                        }
+                        if !chat_config.enabled {
+                            warnings.push("⚠️ The bot is currently disabled. Click the 'Disabled' button below to enable it");
+                        }
                         let warnings = if !warnings.is_empty() {
                             format!("\n\n{}", markdown::escape(&warnings.join("\n")))
                         } else {
                             "".to_string()
                         };
                         let message =
-                        format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}{warnings}");
+                            format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}{warnings}");
                         let mut buttons = vec![
                             vec![
                                 InlineKeyboardButton::callback(
-                                    "🗯 Edit Prompt",
+                                    "🗯 Set Prompt",
+                                    ctx.bot()
+                                        .to_callback_data(&TgCommand::AiModeratorSetPrompt(
+                                            target_chat_id,
+                                        ))
+                                        .await,
+                                ),
+                                InlineKeyboardButton::callback(
+                                    "✨ Edit Prompt",
                                     ctx.bot()
                                         .to_callback_data(&TgCommand::AiModeratorEditPrompt(
                                             target_chat_id,
                                         ))
-                                        .await?,
+                                        .await,
                                 ),
+                            ], vec![
                                 InlineKeyboardButton::callback(
                                     if chat_config.debug_mode {
-                                        "👷 Mode: Testing"
+                                        "👷 Mode: Testing (only warns)"
                                     } else {
                                         "🤖 Mode: Running"
                                     },
@@ -1598,7 +1775,7 @@ impl XeonBotModule for AiModeratorModule {
                                             target_chat_id,
                                             !chat_config.debug_mode,
                                         ))
-                                        .await?,
+                                        .await,
                                 ),
                             ],
                             vec![InlineKeyboardButton::callback(
@@ -1616,7 +1793,7 @@ impl XeonBotModule for AiModeratorModule {
                                     .to_callback_data(&TgCommand::AiModeratorRequestModeratorChat(
                                         target_chat_id,
                                     ))
-                                    .await?,
+                                    .await,
                             )],
                             vec![
                                 InlineKeyboardButton::callback(
@@ -1638,7 +1815,7 @@ impl XeonBotModule for AiModeratorModule {
                                                 .unwrap_or(&ModerationAction::Ban)
                                                 .next(),
                                         ))
-                                        .await?,
+                                        .await,
                                 ),
                                 InlineKeyboardButton::callback(
                                     format!(
@@ -1659,7 +1836,7 @@ impl XeonBotModule for AiModeratorModule {
                                                 .unwrap_or(&ModerationAction::Ban)
                                                 .next(),
                                         ))
-                                        .await?,
+                                        .await,
                                 ),
                             ],
                             vec![
@@ -1682,7 +1859,7 @@ impl XeonBotModule for AiModeratorModule {
                                                 .unwrap_or(&ModerationAction::Ok)
                                                 .next(),
                                         ))
-                                        .await?,
+                                        .await,
                                 ),
                                 InlineKeyboardButton::callback(
                                     format!(
@@ -1703,7 +1880,7 @@ impl XeonBotModule for AiModeratorModule {
                                                 .unwrap_or(&ModerationAction::Ok)
                                                 .next(),
                                         ))
-                                        .await?,
+                                        .await,
                                 ),
                             ],
                             vec![InlineKeyboardButton::callback(
@@ -1719,7 +1896,7 @@ impl XeonBotModule for AiModeratorModule {
                                     .to_callback_data(&TgCommand::AiModeratorFirstMessages(
                                         target_chat_id,
                                     ))
-                                    .await?,
+                                    .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 if chat_config.silent {
@@ -1732,7 +1909,7 @@ impl XeonBotModule for AiModeratorModule {
                                         target_chat_id,
                                         !chat_config.silent,
                                     ))
-                                    .await?,
+                                    .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 if chat_config.enabled {
@@ -1745,13 +1922,13 @@ impl XeonBotModule for AiModeratorModule {
                                         target_chat_id,
                                         !chat_config.enabled,
                                     ))
-                                    .await?,
+                                    .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "⬅️ Back",
                                 ctx.bot()
                                     .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
-                                    .await?,
+                                    .await,
                             )],
                         ];
                         if add_admin_button {
@@ -1763,7 +1940,7 @@ impl XeonBotModule for AiModeratorModule {
                                         .to_callback_data(&TgCommand::AiModeratorAddAsAdmin(
                                             target_chat_id,
                                         ))
-                                        .await?,
+                                        .await,
                                 )],
                             );
                         }
@@ -1773,6 +1950,23 @@ impl XeonBotModule for AiModeratorModule {
                     }.await;
                     if let Err(err) = result {
                         log::warn!("Failed to handle AiModerator command: {err:?}");
+                        let message = "Something went wrong while setting up AI Moderator\\. Please try again or ask for support in @intearchat".to_string();
+                        let buttons = vec![
+                            vec![InlineKeyboardButton::url(
+                                "🤙 Support",
+                                "tg://resolve?domain=intearchat".parse().unwrap(),
+                            )],
+                            vec![InlineKeyboardButton::callback(
+                                "⬅️ Back",
+                                ctx.bot()
+                                    .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
+                                    .await,
+                            )],
+                        ];
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        if let Err(err) = ctx.edit_or_send(message, reply_markup).await {
+                            log::warn!("Failed to send error message: {err:?}");
+                        }
                     }
                 });
             }
@@ -1790,7 +1984,7 @@ impl XeonBotModule for AiModeratorModule {
                                     target_chat_id,
                                     1,
                                 ))
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "3",
@@ -1799,7 +1993,7 @@ impl XeonBotModule for AiModeratorModule {
                                     target_chat_id,
                                     3,
                                 ))
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "10",
@@ -1808,7 +2002,7 @@ impl XeonBotModule for AiModeratorModule {
                                     target_chat_id,
                                     10,
                                 ))
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![
@@ -1819,13 +2013,13 @@ impl XeonBotModule for AiModeratorModule {
                                     target_chat_id,
                                     u32::MAX as usize,
                                 ))
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "⬅️ Back",
                             ctx.bot()
                                 .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
+                                .await,
                         ),
                     ],
                 ];
@@ -1860,7 +2054,7 @@ impl XeonBotModule for AiModeratorModule {
                         ctx.message_id().await,
                         &ctx.bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1915,7 +2109,7 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 ctx.send(message, reply_markup, Attachment::None).await?;
             }
-            TgCommand::AiModeratorEditPrompt(target_chat_id) => {
+            TgCommand::AiModeratorSetPrompt(target_chat_id) => {
                 if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
                     return Ok(());
                 }
@@ -1924,7 +2118,7 @@ impl XeonBotModule for AiModeratorModule {
                     CANCEL_TEXT,
                     ctx.bot()
                         .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                        .await?,
+                        .await,
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 ctx.bot()
@@ -1935,7 +2129,7 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 ctx.edit_or_send(message, reply_markup).await?;
             }
-            TgCommand::AiModeratorEditPromptConfirm(target_chat_id, prompt, true) => {
+            TgCommand::AiModeratorSetPromptConfirmAndReturn(target_chat_id, prompt) => {
                 if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
                     return Ok(());
                 }
@@ -1957,7 +2151,7 @@ impl XeonBotModule for AiModeratorModule {
                         ctx.message_id().await,
                         &ctx.bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1980,13 +2174,13 @@ impl XeonBotModule for AiModeratorModule {
                                     .to_callback_data(&TgCommand::AiModeratorRequestModeratorChat(
                                         target_chat_id,
                                     ))
-                                    .await?,
+                                    .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "⬅️ Back",
                                 ctx.bot()
                                     .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                    .await?,
+                                    .await,
                             )],
                         ];
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -2007,7 +2201,7 @@ impl XeonBotModule for AiModeratorModule {
                         ctx.message_id().await,
                         &ctx.bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -2020,7 +2214,7 @@ impl XeonBotModule for AiModeratorModule {
                         "⬅️ Back",
                         ctx.bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await?,
+                            .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     ctx.edit_or_send(message, reply_markup).await?;
@@ -2047,7 +2241,7 @@ impl XeonBotModule for AiModeratorModule {
                         ctx.message_id().await,
                         &ctx.bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -2075,7 +2269,7 @@ impl XeonBotModule for AiModeratorModule {
                         ctx.message_id().await,
                         &ctx.bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -2103,7 +2297,7 @@ impl XeonBotModule for AiModeratorModule {
                         ctx.message_id().await,
                         &ctx.bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -2174,6 +2368,26 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 ctx.send(message, reply_markup, Attachment::None).await?;
             }
+            TgCommand::AiModeratorEditPrompt(target_chat_id) => {
+                if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
+                    return Ok(());
+                }
+                let message = "Enter the instructions for AI to enhance your prompt";
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    CANCEL_TEXT,
+                    ctx.bot()
+                        .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.bot()
+                    .set_dm_message_command(
+                        ctx.user_id(),
+                        MessageCommand::AiModeratorEditPrompt(target_chat_id),
+                    )
+                    .await?;
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
             _ => {}
         }
         Ok(())
@@ -2212,16 +2426,22 @@ impl Default for AiModeratorChatConfig {
                 (ModerationJudgement::Spam, ModerationAction::Ban),
             ].into_iter().collect(),
             enabled: true,
-            silent: true,
+            silent: false,
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
-struct MessageToDelete(ChatId, MessageId);
+struct MessageToDelete {
+    chat_id: ChatId,
+    message_id: MessageId,
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
-struct ChatUser(ChatId, UserId);
+struct ChatUser {
+    chat_id: ChatId,
+    user_id: UserId,
+}
 
 impl AiModeratorBotConfig {
     async fn new(db: Database, bot_id: UserId) -> Result<Self, anyhow::Error> {
@@ -2258,10 +2478,18 @@ impl AiModeratorBotConfig {
     ) -> Result<(), anyhow::Error> {
         // There should be no entries with wrong order, but even if there are,
         // it's not a big deal, these messages exist for just 1 minute.
-        self.message_autodeletion_queue
-            .push_back(MessageToDelete(chat_id, message_id));
+        self.message_autodeletion_queue.push_back(MessageToDelete {
+            chat_id,
+            message_id,
+        });
         self.message_autodeletion_scheduled
-            .insert_or_update(MessageToDelete(chat_id, message_id), datetime)
+            .insert_or_update(
+                MessageToDelete {
+                    chat_id,
+                    message_id,
+                },
+                datetime,
+            )
             .await?;
         Ok(())
     }
@@ -2288,7 +2516,7 @@ impl AiModeratorBotConfig {
     }
 
     async fn get_and_increment_messages_sent(&mut self, chat_id: ChatId, user_id: UserId) -> usize {
-        let chat_user = ChatUser(chat_id, user_id);
+        let chat_user = ChatUser { chat_id, user_id };
         let messages_sent = self.messages_sent.get(&chat_user).await.unwrap_or_default();
         if let Err(err) = self
             .messages_sent
@@ -2307,6 +2535,7 @@ pub async fn await_execution(
     thread_id: String,
 ) -> Result<MessageContent, anyhow::Error> {
     let mut interval = tokio::time::interval(Duration::from_secs(1));
+    log::info!("Waiting for run {} to finish", run.id);
     while matches!(run.status, RunStatus::InProgress | RunStatus::Queued) {
         interval.tick().await;
         run = openai_client
@@ -2359,25 +2588,30 @@ pub async fn await_execution(
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct ModerationResponse {
     reasoning_steps: Vec<String>,
     judgement: ModerationJudgement,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct PromptCreationResponse {
     prompt: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct PromptEditionResponse {
     options: Vec<PromptEditionOption>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct PromptEditionOption {
     short_button: String,
+    rewritten_prompt: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct PromptEditorResponse {
     rewritten_prompt: String,
 }
 

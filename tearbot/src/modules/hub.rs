@@ -127,7 +127,7 @@ impl XeonBotModule for HubModule {
                     let message = "Please use the 'Choose a chat' button".to_string();
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "Cancel",
-                        bot.to_callback_data(&TgCommand::CancelChat).await?,
+                        bot.to_callback_data(&TgCommand::CancelChat).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -195,7 +195,7 @@ impl XeonBotModule for HubModule {
                                 target_chat_id,
                                 0,
                             ))
-                            .await?,
+                            .await,
                         ),
                         &mut None,
                     )
@@ -381,7 +381,7 @@ impl XeonBotModule for HubModule {
                                 ChatPermissionLevel::Admin => ChatPermissionLevel::Owner,
                             },
                         ))
-                        .await?,
+                        .await,
                 );
                 let mut buttons = vec![vec![switch_button]];
                 if let ChatPermissionLevel::Whitelist(_members) = permission_level {
@@ -393,7 +393,7 @@ impl XeonBotModule for HubModule {
                                 target_chat_id,
                                 0,
                             ))
-                            .await?,
+                            .await,
                     )]);
                 }
                 buttons.push(vec![InlineKeyboardButton::callback(
@@ -401,7 +401,7 @@ impl XeonBotModule for HubModule {
                     context
                         .bot()
                         .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
-                        .await?,
+                        .await,
                 )]);
                 let message = format!("Choose who can manage chat settings\\. These people will be able to add, remove, or change alerts in this chat\\.\n\nSelected option:\n{description}");
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -446,7 +446,7 @@ impl XeonBotModule for HubModule {
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -529,7 +529,7 @@ impl XeonBotModule for HubModule {
                                 target_chat_id,
                                 member_id,
                             ))
-                            .await?,
+                            .await,
                     ));
                 }
                 let message = "Managing whitelist for this chat\\. Click the name to remove them from the whitelist\\.";
@@ -547,7 +547,7 @@ impl XeonBotModule for HubModule {
                                     target_chat_id,
                                     if page > 0 { page - 1 } else { 0 },
                                 ))
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "Next Page ➡️",
@@ -557,7 +557,7 @@ impl XeonBotModule for HubModule {
                                     target_chat_id,
                                     page + 1,
                                 ))
-                                .await?,
+                                .await,
                         ),
                     ]);
                 }
@@ -566,14 +566,14 @@ impl XeonBotModule for HubModule {
                     context
                         .bot()
                         .to_callback_data(&TgCommand::ChatPermissionsAddToWhitelist(target_chat_id))
-                        .await?,
+                        .await,
                 )]);
                 buttons.push(vec![InlineKeyboardButton::callback(
                     "⬅️ Return",
                     context
                         .bot()
                         .to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))
-                        .await?,
+                        .await,
                 )]);
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -686,7 +686,7 @@ impl XeonBotModule for HubModule {
                                 target_chat_id,
                                 0,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -728,7 +728,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
         // let connection_button = if let Some(account) = bot.get_connected_account(&user_id).await {
         //     InlineKeyboardButton::callback(
         //         format!("🗑 Disconnect {account}", account = account.account_id),
-        //         bot.to_callback_data(&TgCommand::DisconnectAccount).await?,
+        //         bot.to_callback_data(&TgCommand::DisconnectAccount).await,
         //     )
         // } else {
         //     InlineKeyboardButton::callback(
@@ -740,25 +740,24 @@ Powered by [Intear](tg://resolve?domain=intearchat)
         let mut buttons = create_notificatons_buttons(chat_id, bot).await?;
         buttons.extend(vec![vec![InlineKeyboardButton::callback(
             "📣 Tools for chats and communities 💬",
-            bot.to_callback_data(&TgCommand::ChooseChat).await?,
+            bot.to_callback_data(&TgCommand::ChooseChat).await,
         )]]);
         #[cfg(feature = "utilities-module")]
         buttons.push(vec![
             InlineKeyboardButton::callback(
                 "💷 Token Info",
-                bot.to_callback_data(&TgCommand::UtilitiesFtHolders).await?,
+                bot.to_callback_data(&TgCommand::UtilitiesFtHolders).await,
             ),
             InlineKeyboardButton::callback(
                 "👤 Account Info",
-                bot.to_callback_data(&TgCommand::UtilitiesAccountInfo)
-                    .await?,
+                bot.to_callback_data(&TgCommand::UtilitiesAccountInfo).await,
             ),
         ]);
         #[cfg(feature = "near-tgi-module")]
         buttons.push(vec![InlineKeyboardButton::callback(
             "💻 Near TGI",
             bot.to_callback_data(&TgCommand::NearTgi("near".to_string()))
-                .await?,
+                .await,
         )]);
         buttons.extend(vec![
             vec![
@@ -831,11 +830,11 @@ Powered by [Intear](tg://resolve?domain=intearchat)
     //         let reply_markup = InlineKeyboardMarkup::new(vec![
     //             vec![InlineKeyboardButton::callback(
     //                 "🗑 Disconnect",
-    //                 bot.to_callback_data(&TgCommand::DisconnectAccount).await?,
+    //                 bot.to_callback_data(&TgCommand::DisconnectAccount).await,
     //             )],
     //             vec![InlineKeyboardButton::callback(
     //                 "⬅️ Back",
-    //                 bot.to_callback_data(&TgCommand::OpenMainMenu).await?,
+    //                 bot.to_callback_data(&TgCommand::OpenMainMenu).await,
     //             )],
     //         ]);
     //         bot.send_text_message(chat_id, message, reply_markup)
@@ -850,11 +849,11 @@ Powered by [Intear](tg://resolve?domain=intearchat)
     //     let reply_markup = InlineKeyboardMarkup::new(vec![
     //         vec![InlineKeyboardButton::callback(
     //             "🗑 Disconnect",
-    //             bot.to_callback_data(&TgCommand::DisconnectAccount).await?,
+    //             bot.to_callback_data(&TgCommand::DisconnectAccount).await,
     //         )],
     //         vec![InlineKeyboardButton::callback(
     //             "⬅️ Back",
-    //             bot.to_callback_data(&TgCommand::OpenMainMenu).await?,
+    //             bot.to_callback_data(&TgCommand::OpenMainMenu).await,
     //         )],
     //     ]);
     //     bot.send_text_message(chat_id, message, reply_markup)
@@ -1054,24 +1053,22 @@ Powered by [Intear](tg://resolve?domain=intearchat)
                 if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
                 | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
                 {
-                    if user_id.0 == 7091308405 {
-                        buttons.push(vec![InlineKeyboardButton::callback(
-                            "🤖 AI Moderator",
-                            bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                .await?,
-                        )]);
-                    }
+                    buttons.push(vec![InlineKeyboardButton::callback(
+                        "🤖 AI Moderator",
+                        bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                            .await,
+                    )]);
                 }
             }
         }
         buttons.push(vec![InlineKeyboardButton::callback(
             "👤 Permissions",
             bot.to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))
-                .await?,
+                .await,
         )]);
         buttons.push(vec![InlineKeyboardButton::callback(
             "⬅️ Back",
-            bot.to_callback_data(&TgCommand::OpenMainMenu).await?,
+            bot.to_callback_data(&TgCommand::OpenMainMenu).await,
         )]);
         let reply_markup = InlineKeyboardMarkup::new(buttons);
         if let Some(context) = context {
@@ -1094,43 +1091,43 @@ async fn create_notificatons_buttons(
     buttons.push(InlineKeyboardButton::callback(
         "🖼 NFT trades",
         bot.to_callback_data(&TgCommand::NftNotificationsSettings(target_chat_id))
-            .await?,
+            .await,
     ));
     #[cfg(feature = "ft-buybot-module")]
     buttons.push(InlineKeyboardButton::callback(
         "💰 FT swaps",
         bot.to_callback_data(&TgCommand::FtNotificationsSettings(target_chat_id))
-            .await?,
+            .await,
     ));
     #[cfg(feature = "price-alerts-module")]
     buttons.push(InlineKeyboardButton::callback(
         "📈 Price Alerts",
         bot.to_callback_data(&TgCommand::PriceAlertsNotificationsSettings(target_chat_id))
-            .await?,
+            .await,
     ));
     #[cfg(feature = "potlock-module")]
     buttons.push(InlineKeyboardButton::callback(
         "🥘 Potlock",
         bot.to_callback_data(&TgCommand::PotlockNotificationsSettings(target_chat_id))
-            .await?,
+            .await,
     ));
     #[cfg(feature = "new-tokens-module")]
     buttons.push(InlineKeyboardButton::callback(
         "💎 New Tokens",
         bot.to_callback_data(&TgCommand::NewTokenNotificationsSettings(target_chat_id))
-            .await?,
+            .await,
     ));
     #[cfg(feature = "new-liquidity-pools-module")]
     buttons.push(InlineKeyboardButton::callback(
         "🚰 New Liquidity Pools",
         bot.to_callback_data(&TgCommand::NewLPNotificationsSettings(target_chat_id))
-            .await?,
+            .await,
     ));
     #[cfg(feature = "socialdb-module")]
     buttons.push(InlineKeyboardButton::callback(
         "🔔 Near.social",
         bot.to_callback_data(&TgCommand::SocialDBNotificationsSettings(target_chat_id))
-            .await?,
+            .await,
     ));
     #[cfg(feature = "contract-logs-module")]
     buttons.push(InlineKeyboardButton::callback(
@@ -1138,7 +1135,7 @@ async fn create_notificatons_buttons(
         bot.to_callback_data(&TgCommand::ContractLogsNotificationsSettings(
             target_chat_id,
         ))
-        .await?,
+        .await,
     ));
     let buttons = buttons
         .into_iter()

@@ -102,18 +102,10 @@ impl ContractLogsNep297Module {
                             let buttons = if chat_id.is_user() {
                                 vec![vec![InlineKeyboardButton::callback(
                                     "✏️ Edit log filters",
-                                    match bot
-                                        .to_callback_data(
-                                            &TgCommand::CustomLogsNotificationsNep297(chat_id),
-                                        )
-                                        .await
-                                    {
-                                        Ok(button) => button,
-                                        Err(err) => {
-                                            log::warn!("Failed to create callback data for CustomLogsNotificationsNep297: {err:?}");
-                                            return;
-                                        }
-                                    },
+                                    bot.to_callback_data(
+                                        &TgCommand::CustomLogsNotificationsNep297(chat_id),
+                                    )
+                                    .await,
                                 )]]
                             } else {
                                 Vec::new()
@@ -173,7 +165,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             target_chat_id,
                             filter_index,
                         ))
-                        .await?,
+                        .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -193,7 +185,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 Some(account_id),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -214,7 +206,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             target_chat_id,
                             filter_index,
                         ))
-                        .await?,
+                        .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -234,7 +226,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 Some(predecessor_id),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -260,7 +252,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 Some(text.to_string()),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -281,7 +273,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             target_chat_id,
                             filter_index,
                         ))
-                        .await?,
+                        .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     bot.send_text_message(chat_id, message, reply_markup)
@@ -301,7 +293,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 Some(WrappedVersionReq(version)),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -327,7 +319,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 Some(text.to_string()),
                             ),
                         )
-                        .await?,
+                        .await,
                     ),
                     &mut None,
                 )
@@ -389,7 +381,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         .to_callback_data(&TgCommand::CustomLogsNotificationsNep297RemoveAll(
                             target_chat_id,
                         ))
-                        .await?,
+                        .await,
                 )]];
                 let mut filters = Vec::new();
                 for (i, filter) in subscriber.filters.iter().enumerate() {
@@ -449,7 +441,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 i,
                             ))
-                            .await?,
+                            .await,
                     ));
                 }
                 for chunk in filters.into_iter().chunks(2).into_iter() {
@@ -466,7 +458,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         .to_callback_data(&TgCommand::CustomLogsNotificationsNep297AddFilter(
                             target_chat_id,
                         ))
-                        .await?,
+                        .await,
                 )]);
                 buttons.push(vec![InlineKeyboardButton::callback(
                     "⬅️ Back",
@@ -475,7 +467,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         .to_callback_data(&TgCommand::ContractLogsNotificationsSettings(
                             target_chat_id,
                         ))
-                        .await?,
+                        .await,
                 )]);
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -510,7 +502,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     context.edit_or_send(message, reply_markup).await?;
@@ -576,7 +568,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "✏️ Predecessor ID",
@@ -588,7 +580,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![
@@ -602,7 +594,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "✏️ Version",
@@ -614,7 +606,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![
@@ -628,7 +620,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "🌐 Network",
@@ -640,7 +632,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![
@@ -654,7 +646,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         filter_index,
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "⬅️ Back",
@@ -663,7 +655,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 .to_callback_data(&TgCommand::CustomLogsNotificationsNep297(
                                     target_chat_id,
                                 ))
-                                .await?,
+                                .await,
                         ),
                     ],
                 ];
@@ -704,7 +696,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -737,7 +729,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                     .to_callback_data(&TgCommand::CustomLogsNotificationsNep297(
                                         target_chat_id,
                                     ))
-                                    .await?,
+                                    .await,
                             )]];
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                             context.edit_or_send(message, reply_markup).await?;
@@ -763,7 +755,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297(
                                 target_chat_id,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -805,7 +797,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -836,7 +828,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             target_chat_id,
                             filter_index,
                         ))
-                        .await?,
+                        .await,
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -873,7 +865,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
@@ -883,7 +875,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -918,7 +910,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
@@ -928,7 +920,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -959,7 +951,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             target_chat_id,
                             filter_index,
                         ))
-                        .await?,
+                        .await,
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -989,7 +981,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                             target_chat_id,
                             filter_index,
                         ))
-                        .await?,
+                        .await,
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -1037,7 +1029,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1086,7 +1078,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1135,7 +1127,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1184,7 +1176,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1233,7 +1225,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
@@ -1257,7 +1249,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                     None,
                                 ),
                             )
-                            .await?,
+                            .await,
                     )],
                     vec![
                         InlineKeyboardButton::callback(
@@ -1271,7 +1263,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         Some(false),
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                         InlineKeyboardButton::callback(
                             "🧑‍💻 Testnet",
@@ -1284,7 +1276,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                         Some(true),
                                     ),
                                 )
-                                .await?,
+                                .await,
                         ),
                     ],
                     vec![InlineKeyboardButton::callback(
@@ -1295,7 +1287,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -1349,7 +1341,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                                 target_chat_id,
                                 filter_index,
                             ))
-                            .await?,
+                            .await,
                     ),
                     &mut None,
                 )
