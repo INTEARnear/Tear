@@ -46,7 +46,7 @@ async-openai = "0.23.4"
 
 [patch.crates-io]
 inquire = { path = "./near-tgi/inquire" }
-interactive-clap = { path = "./near-tgi/interactive-clap" }
-interactive-clap-derive = { path = "./near-tgi/interactive-clap/interactive-clap-derive" }
+#interactive-clap = { path = "./near-tgi/interactive-clap" }
+#interactive-clap-derive = { path = "./near-tgi/interactive-clap/interactive-clap-derive" }
 keyring = { path = "./near-tgi/keyring" }
 async-openai = { path = "./ai-moderator/async-openai-patched/async-openai" }

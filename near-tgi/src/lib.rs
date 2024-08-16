@@ -397,7 +397,7 @@ impl XeonBotModule for NearTgiModule {
                             match response {
                                 ResponseOrPrompt::Response(response) => {
                                     let response = response + &format!(
-                                        "\nHere is your console command if you need to script it or re\\-run:\n`{}`\nOr share this link: `https://t.me/Intear_Xeon_bot?start=near-tgi-{}`",
+                                        "\nHere is your console command if you need to script it or re\\-run:\n`{}`\nOr share this link \\(click to copy\\): `https://t.me/Intear_Xeon_bot?start=near-tgi-{}`",
                                         markdown::escape_code(&command_string),
                                         context.bot().to_callback_data(&TgCommand::NearTgi(command_string)).await
                                     );

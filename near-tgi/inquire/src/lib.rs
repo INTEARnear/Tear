@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct CustomType<'a, T> {
     pub message: &'a str,
     pub starting_input: Option<&'a str>,
-    pub default: Option<T>,
     pub parser: inquire::parser::CustomTypeParser<'a, T>,
-    pub validators: Vec<Box<dyn inquire::validator::CustomTypeValidator<T>>>,
     pub error_message: String,
     _phantom: PhantomData<T>,
 }
@@ -21,9 +19,7 @@ impl<'a, T> CustomType<'a, T> {
         Self {
             message,
             starting_input: None,
-            default: None,
             parser: &|a| a.parse::<T>().map_err(|_e| ()),
-            validators: Vec::new(),
             error_message: "Invalid input".into(),
             _phantom: PhantomData,
         }
@@ -34,8 +30,7 @@ impl<'a, T> CustomType<'a, T> {
         self
     }
 
-    pub fn with_default(mut self, default: T) -> Self {
-        self.default = Some(default);
+    pub fn with_default(self, _: T) -> Self {
         self
     }
 
@@ -47,10 +42,9 @@ impl<'a, T> CustomType<'a, T> {
     }
 
     pub fn with_validator<V: inquire::validator::CustomTypeValidator<T> + 'static>(
-        mut self,
-        validator: V,
+        self,
+        _: V,
     ) -> Self {
-        self.validators.push(Box::new(validator));
         self
     }
 
@@ -87,32 +81,24 @@ impl<'a, T> CustomType<'a, T> {
 
 pub struct Text<'a> {
     pub message: &'a str,
-    pub autocompleter: Option<Box<dyn inquire::Autocomplete>>,
-    pub validators: Vec<Box<dyn inquire::validator::StringValidator>>,
 }
 
 impl<'a> Text<'a> {
     pub fn new(message: &'a str) -> Self {
-        Self {
-            message,
-            autocompleter: None,
-            validators: Vec::new(),
-        }
+        Self { message }
     }
 
-    pub fn with_autocomplete<AC>(mut self, ac: AC) -> Self
+    pub fn with_autocomplete<AC>(self, _: AC) -> Self
     where
         AC: Autocomplete + 'static,
     {
-        self.autocompleter = Some(Box::new(ac));
         self
     }
 
-    pub fn with_validator<V>(mut self, validator: V) -> Self
+    pub fn with_validator<V>(self, _: V) -> Self
     where
         V: inquire::validator::StringValidator + 'static,
     {
-        self.validators.push(Box::new(validator));
         self
     }
 
@@ -167,6 +153,13 @@ where
         self,
         _formatter: inquire::formatter::MultiOptionFormatter<'a, T>,
     ) -> Self {
+        self
+    }
+
+    pub fn with_validator<V>(self, _: V) -> Self
+    where
+        V: inquire::validator::MultiOptionValidator<T> + 'static,
+    {
         self
     }
 

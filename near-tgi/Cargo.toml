@@ -13,8 +13,8 @@ serde = { workspace = true, features = ["derive"] }
 itertools = { workspace = true }
 near-cli-rs = { path = "./near-cli-rs" }
 clap = { version = "4.0.18", features = ["derive"] }
-interactive-clap = "0.2.10"
-interactive-clap-derive = "0.2.10"
+interactive-clap = "0.3"
+interactive-clap-derive = "0.3"
 color-eyre = "0.6.3"
 shell-words = "1.1.0"
 inquire = "0.7.5"
