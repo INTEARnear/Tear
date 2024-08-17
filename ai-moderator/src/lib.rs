@@ -486,6 +486,9 @@ impl AiModeratorModule {
                 if chat_config.debug_mode && *action != ModerationAction::Ok {
                     note += "\n\\(testing mode is enabled, so nothing was actually done\\)";
                 }
+                if chat_config.moderator_chat.is_none() {
+                    note += "\n\nℹ️ Please set \"Moderator Chat\" in the bot settings \\(in DM @Intear_Xeon_bot\\) and messages like this will be sent there instead";
+                }
 
                 match action {
                     ModerationAction::Ban => {
