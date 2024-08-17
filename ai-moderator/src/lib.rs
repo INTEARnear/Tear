@@ -82,7 +82,7 @@ Reputable projects that are allowed to be mentioned: $NEAR, $INTEL / Intear / t.
 
     pub fn not_allow_links(&self, allowed: Vec<String>) -> String {
         match self {
-            Self::NearProject => format!("Links to third-party websites are prohibited, mark them as 'Suspicious'. But avoid flagging these allowed domains and their subdomains:
+            Self::NearProject => format!("Links to third-party websites are prohibited, mark them as 'Suspicious'. But avoid flagging these allowed domains:
 - near.org
 - near.ai
 - near.cli.rs
@@ -108,11 +108,11 @@ Reputable projects that are allowed to be mentioned: $NEAR, $INTEL / Intear / t.
 - all .tg account names
 - all .near account names
 - 64-character hexadecimal strings (all implicit account names)
-{}", allowed.iter().map(|s| format!("- {s}")).collect::<Vec<_>>().join("\n")),
+{}\nAll subdomains of these domains are also allowed", allowed.iter().map(|s| format!("- {s}")).collect::<Vec<_>>().join("\n")),
             Self::JustChat => format!("Links to third-party websites are prohibited.{}", if allowed.is_empty() {
                 "".to_string()
             } else {
-                format!(" Avoid flagging these domains and their subdomains:\n{}", allowed.iter().map(|s| format!("- {s}")).collect::<Vec<_>>().join("\n"))
+                format!(" Avoid flagging these domains and their subdomains:\n{}\nAll subdomains of these domains are also allowed", allowed.iter().map(|s| format!("- {s}")).collect::<Vec<_>>().join("\n"))
             }),
         }
     }
@@ -793,7 +793,7 @@ impl AiModeratorModule {
                 if !chat_config.silent
                     && !matches!(action, ModerationAction::Ok | ModerationAction::WarnMods)
                 {
-                    let message = markdown::escape(&chat_config.deletion_message).replace("{user}", &format!("[{name}](tg://user?id={user_id})", name = markdown::escape(&from.full_name())));
+                    let message = markdown::escape(&chat_config.deletion_message).replace("\\{user\\}", &format!("[{name}](tg://user?id={user_id})", name = markdown::escape(&from.full_name())));
                     let attachment = chat_config.deletion_message_attachment;
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
