@@ -1859,7 +1859,7 @@ impl XeonBotModule for AiModeratorModule {
                     } else {
                         return Ok(());
                     }
-                    let message = "The prompt was updated";
+                    let message = "The prompt was updated\\. You can now test the new prompt on a message in DM @Intear_Xeon_bot using \"🍥 Test\" button".to_string();
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     ctx.reply(message, reply_markup).await?;
