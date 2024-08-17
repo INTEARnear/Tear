@@ -400,11 +400,11 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetEnabled(ChatId, bool),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorAddException(ChatId, String, Option<String>, Vec<String>),
+    AiModeratorAddException(ChatId, String, Option<String>, String),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorCancelAddException,
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorSeeReason(Vec<String>),
+    AiModeratorSeeReason(String),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorUnban(ChatId, UserId),
     #[cfg(feature = "ai-moderator-module")]
@@ -421,6 +421,30 @@ pub enum TgCommand {
     AiModeratorSetSilent(ChatId, bool),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorEditPrompt(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructor(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorLinks(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorAddLinks(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorPriceTalk(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorScam(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorAskDM(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorProfanity(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorNsfw(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorOther(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorFinish(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorEditMessage(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorTest(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -530,6 +554,12 @@ pub enum MessageCommand {
     AiModeratorAddAsAdminConfirm(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorEditPrompt(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorAddLinks(PromptBuilder),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetMessage(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorTest(ChatId),
 }
 
 impl From<MessageCommand> for Bson {
@@ -873,9 +903,10 @@ impl NearSocialEvent {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ModerationJudgement {
     Good,
-    Acceptable,
+    MoreContextNeeded,
+    Inform,
     Suspicious,
-    Spam,
+    Harmful,
 }
 
 #[cfg(feature = "ai-moderator-module")]
@@ -912,4 +943,26 @@ impl ModerationAction {
             ModerationAction::Ok => ModerationAction::Ban,
         }
     }
+}
+
+#[cfg(feature = "ai-moderator-module")]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PromptBuilder {
+    pub chat_id: ChatId,
+    pub is_near: Option<bool>,
+    pub links: Option<Vec<String>>,
+    pub price_talk: Option<bool>,
+    pub scam: Option<bool>,
+    pub ask_dm: Option<bool>,
+    pub profanity: Option<ProfanityLevel>,
+    pub nsfw: Option<bool>,
+    pub other: Option<String>,
+}
+
+#[cfg(feature = "ai-moderator-module")]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ProfanityLevel {
+    NotAllowed,
+    LightProfanityAllowed,
+    Allowed,
 }

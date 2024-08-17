@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -1022,16 +1021,16 @@ impl<'a> TgCallbackContext<'a> {
 pub enum Attachment {
     None,
     PhotoUrl(Url),
-    PhotoFileId(Cow<'static, str>),
+    PhotoFileId(String),
     AnimationUrl(Url),
-    AnimationFileId(Cow<'static, str>),
+    AnimationFileId(String),
     AudioUrl(Url),
-    AudioFileId(Cow<'static, str>),
+    AudioFileId(String),
     VideoUrl(Url),
-    VideoFileId(Cow<'static, str>),
+    VideoFileId(String),
     DocumentUrl(Url),
     DocumentText(String),
-    DocumentFileId(Cow<'static, str>),
+    DocumentFileId(String),
 }
 
 pub struct MustAnswerCallbackQuery {
@@ -1066,6 +1065,7 @@ impl Drop for MustAnswerCallbackQuery {
 fn log_parse_error(text: impl Into<String>) -> impl FnOnce(&RequestError) {
     let text = text.into();
     move |err| {
+        println!("{err:?}");
         if let RequestError::Api(ApiError::CantParseEntities(s)) = err {
             log::warn!("Can't parse entities in message: {s}\n{text:?}");
         }

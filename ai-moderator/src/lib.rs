@@ -22,7 +22,10 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
-    bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
+    bot_commands::{
+        MessageCommand, ModerationAction, ModerationJudgement, ProfanityLevel, PromptBuilder,
+        TgCommand,
+    },
     mongodb::Database,
     teloxide::{
         net::Download,
@@ -31,7 +34,7 @@ use tearbot_common::{
         types::{
             ButtonRequest, ChatAdministratorRights, ChatKind, ChatPermissions, ChatShared,
             InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, KeyboardButtonRequestChat,
-            MessageId, MessageKind, ParseMode, PublicChatKind, ReplyMarkup,
+            MessageId, MessageKind, ParseMode, ReplyMarkup,
         },
         utils::markdown,
         ApiError, RequestError,
@@ -50,10 +53,269 @@ use tearbot_common::{
 
 const CANCEL_TEXT: &str = "Cancel";
 
+pub enum AiModeratorPreset {
+    NearProject,
+    JustChat,
+}
+
+impl AiModeratorPreset {
+    pub fn get_base(&self) -> &'static str {
+        match self {
+            Self::NearProject => "You are a moderation bot for a telegram cryptocurrency chat of a project on NEAR Protocol. Your job is to moderate messages based on the rules set by the admins.
+Reputable projects that are allowed to be mentioned: $NEAR, $INTEL / Intear / t.me/intearbot / t.me/Intear_Xeon_bot, $NEKO, $SHITZU, $BLACKDRAGON, $FRAX, $REF / Ref Finance, $BRRR / Burrow, Delta Trade / Delta Bot, Orderly",
+            Self::JustChat => "You are a moderation bot for a telegram chat. Your job is to moderate messages based on the rules set by the admins.",
+        }
+    }
+
+    pub fn has_allow_links(&self) -> bool {
+        match self {
+            Self::NearProject | Self::JustChat => true,
+        }
+    }
+
+    pub fn allow_links(&self) -> &'static str {
+        match self {
+            Self::NearProject => "Links to all websites are allowed, even if they are not related to NEAR Protocol or the current project.",
+            Self::JustChat => "Links to all websites are allowed, even if they are not related to the chat.",
+        }
+    }
+
+    pub fn not_allow_links(&self, allowed: Vec<String>) -> String {
+        match self {
+            Self::NearProject => format!("Links to third-party websites are prohibited, mark them as 'Suspicious'. But avoid flagging these allowed domains and their subdomains:
+- near.org
+- near.ai
+- near.cli.rs
+- shard.dog
+- meme.cooking
+- ref.finance
+- burrow.finance
+- allbridge.io
+- aurora.dev
+- nearblocks.io
+- pikespeak.ai
+- mintbase.xyz
+- paras.id
+- bitte.ai
+- meteorwallet.app
+- gitbook.io
+- mynearwallet.com
+- gfxvs.com
+- tokenbridge.app
+- rocketx.exchange
+- rainbowbridge.app
+- potlock.org
+- all .tg account names
+- all .near account names
+- 64-character hexadecimal strings (all implicit account names)
+{}", allowed.iter().map(|s| format!("- {s}")).collect::<Vec<_>>().join("\n")),
+            Self::JustChat => format!("Links to third-party websites are prohibited.{}", if allowed.is_empty() {
+                "".to_string()
+            } else {
+                format!(" Avoid flagging these domains and their subdomains:\n{}", allowed.iter().map(|s| format!("- {s}")).collect::<Vec<_>>().join("\n"))
+            }),
+        }
+    }
+
+    pub fn has_allow_price_talk(&self) -> bool {
+        match self {
+            Self::NearProject => true,
+            Self::JustChat => false,
+        }
+    }
+
+    pub fn price_talk_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject => "Price talk is allowed.",
+            Self::JustChat => unreachable!(),
+        }
+    }
+
+    pub fn price_talk_not_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject => {
+                "Discussion of prices, charts, candles is not allowed, mark it as 'Inform'."
+            }
+            Self::JustChat => unreachable!(),
+        }
+    }
+
+    pub fn has_allow_scam(&self) -> bool {
+        match self {
+            Self::NearProject => true,
+            Self::JustChat => true,
+        }
+    }
+
+    pub fn scam_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject | Self::JustChat => "Scamming is allowed, or is handled through another bot, so pass this as 'Good' even if you're sure that this message is harmful to other users.",
+        }
+    }
+
+    pub fn scam_not_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject => "Attempts to scam other people are not allowed, mark it as 'Harmful'. Some types of popular cryptocurrency scams include:
+- Promotion of airdrops with a link, excessive emojis, if the project is not even remotely related to NEAR or the chat you're moderating. Allow airdrops of reputable projects or if the project has the same name as the telegram chat.
+- Screenshot of a wallet with seed phrase (12 words), private key (ed25519:...), or the same in text.
+",
+            Self::JustChat => "Attempts to scam other people are not allowed, mark it as 'Harmful'.",
+        }
+    }
+
+    pub fn has_allow_ask_dm(&self) -> bool {
+        match self {
+            Self::NearProject => true,
+            Self::JustChat => false,
+        }
+    }
+
+    pub fn ask_dm_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject => "Asking people to send a DM is allowed.",
+            Self::JustChat => unreachable!(),
+        }
+    }
+
+    pub fn ask_dm_not_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject => {
+                "Asking people to send a DM is not allowed, mark it as 'Suspicious'."
+            }
+            Self::JustChat => unreachable!(),
+        }
+    }
+
+    pub fn has_allow_profanity(&self) -> bool {
+        match self {
+            Self::NearProject | Self::JustChat => true,
+        }
+    }
+
+    pub fn profanity_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject | Self::JustChat => "All types of profanity are fully allowed.",
+        }
+    }
+
+    pub fn profanity_not_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject | Self::JustChat => {
+                "Profanity of any sort is not allowed, mark it as 'Inform'."
+            }
+        }
+    }
+
+    pub fn light_profanity_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject | Self::JustChat => {
+                "Light profanity is allowed, but mark excessive or offensive language as 'Inform'."
+            }
+        }
+    }
+
+    pub fn has_allow_nsfw(&self) -> bool {
+        match self {
+            Self::NearProject | Self::JustChat => true,
+        }
+    }
+
+    pub fn nsfw_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject | Self::JustChat => "NSFW content is allowed.",
+        }
+    }
+
+    pub fn nsfw_not_allowed(&self) -> &'static str {
+        match self {
+            Self::NearProject | Self::JustChat => {
+                "NSFW content is not allowed, mark it as 'Inform'."
+            }
+        }
+    }
+
+    pub fn get_button_text(&self) -> &'static str {
+        match self {
+            Self::NearProject => "NEAR Project",
+            Self::JustChat => "Just Chat",
+        }
+    }
+}
+
+fn create_prompt(builder: PromptBuilder) -> String {
+    let preset = match builder.is_near {
+        Some(true) => AiModeratorPreset::NearProject,
+        _ => AiModeratorPreset::JustChat,
+    };
+    let mut prompt = preset.get_base().to_string();
+    if let Some(allowed_links) = builder.links {
+        prompt += &preset.not_allow_links(allowed_links);
+        prompt += "\n";
+    } else {
+        prompt += preset.allow_links();
+        prompt += "\n";
+    }
+    if let Some(price_talk) = builder.price_talk {
+        prompt += if price_talk {
+            preset.price_talk_allowed()
+        } else {
+            preset.price_talk_not_allowed()
+        };
+        prompt += "\n";
+    }
+    if let Some(scam) = builder.scam {
+        prompt += if scam {
+            preset.scam_allowed()
+        } else {
+            preset.scam_not_allowed()
+        };
+        prompt += "\n";
+    }
+    if let Some(ask_dm) = builder.ask_dm {
+        prompt += if ask_dm {
+            preset.ask_dm_allowed()
+        } else {
+            preset.ask_dm_not_allowed()
+        };
+        prompt += "\n";
+    }
+    if let Some(profanity) = builder.profanity {
+        prompt += match profanity {
+            ProfanityLevel::Allowed => preset.profanity_allowed(),
+            ProfanityLevel::LightProfanityAllowed => preset.light_profanity_allowed(),
+            ProfanityLevel::NotAllowed => preset.profanity_not_allowed(),
+        };
+        prompt += "\n";
+    }
+    if let Some(nsfw) = builder.nsfw {
+        prompt += if nsfw {
+            preset.nsfw_allowed()
+        } else {
+            preset.nsfw_not_allowed()
+        };
+        prompt += "\n";
+    }
+    prompt
+}
+
 pub struct AiModeratorModule {
     bot_configs: Arc<DashMap<UserId, AiModeratorBotConfig>>,
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
+}
+
+enum Model {
+    Gpt4oMini,
+    Gpt4o,
+}
+
+impl Model {
+    fn get_id(&self) -> &'static str {
+        match self {
+            Self::Gpt4oMini => "gpt-4o-mini",
+            Self::Gpt4o => "gpt-4o-2024-08-06",
+        }
+    }
 }
 
 impl AiModeratorModule {
@@ -90,7 +352,7 @@ impl AiModeratorModule {
                     chat_id == chat_config.moderator_chat.unwrap_or(target_chat_id)
                 } else {
                     // can't create a chat config in another chat
-                    return false;
+                    false
                 }
             } else {
                 // this should be inaccessible
@@ -139,7 +401,7 @@ impl AiModeratorModule {
             return Ok(());
         }
 
-        let rating = tokio::spawn(self.get_message_rating(bot, message, &chat_config, chat_id));
+        let rating = self.get_message_rating(bot, message, &chat_config, chat_id, Model::Gpt4oMini);
         let bot_configs = Arc::clone(&self.bot_configs);
         let xeon = Arc::clone(&self.xeon);
         let bot_id = bot.id();
@@ -147,7 +409,7 @@ impl AiModeratorModule {
         tokio::spawn(async move {
             let result: Result<(), anyhow::Error> = async {
                 let bot = xeon.bot(&bot_id).unwrap();
-                let (judgement, reasoning, message_text, message_image) = rating.await?;
+                let (judgement, reasoning, message_text, message_image) = rating.await;
                 if reasoning.is_none() {
                     // Skipped the check, most likely because of unsupported message type
                     return Ok(());
@@ -157,17 +419,21 @@ impl AiModeratorModule {
                         .actions
                         .get(&ModerationJudgement::Good)
                         .unwrap_or(&ModerationAction::Ok),
-                    ModerationJudgement::Acceptable => chat_config
+                    ModerationJudgement::MoreContextNeeded => chat_config
                         .actions
-                        .get(&ModerationJudgement::Acceptable)
+                        .get(&ModerationJudgement::MoreContextNeeded)
                         .unwrap_or(&ModerationAction::Ok),
+                    ModerationJudgement::Inform => chat_config
+                        .actions
+                        .get(&ModerationJudgement::Inform)
+                        .unwrap_or(&ModerationAction::Delete),
                     ModerationJudgement::Suspicious => chat_config
                         .actions
                         .get(&ModerationJudgement::Suspicious)
                         .unwrap_or(&ModerationAction::TempMute),
-                    ModerationJudgement::Spam => chat_config
+                    ModerationJudgement::Harmful => chat_config
                         .actions
-                        .get(&ModerationJudgement::Spam)
+                        .get(&ModerationJudgement::Harmful)
                         .unwrap_or(&ModerationAction::Ban),
                 };
 
@@ -177,25 +443,25 @@ impl AiModeratorModule {
                 };
                 let (attachment, note) = if let Some(photo) = message.photo() {
                     (
-                        Attachment::PhotoFileId(photo.last().unwrap().file.id.clone().into()),
+                        Attachment::PhotoFileId(photo.last().unwrap().file.id.clone()),
                         None,
                     )
                 } else if let Some(video) = message.video() {
                     // TODO moderate random frame of video
-                    (Attachment::VideoFileId(video.file.id.clone().into()), None)
+                    (Attachment::VideoFileId(video.file.id.clone()), None)
                 } else if let Some(audio) = message.audio() {
                     // TODO transcribe and moderate
-                    (Attachment::AudioFileId(audio.file.id.clone().into()), None)
+                    (Attachment::AudioFileId(audio.file.id.clone()), None)
                 } else if let Some(document) = message.document() {
                     // TODO moderate document
                     (
-                        Attachment::DocumentFileId(document.file.id.clone().into()),
+                        Attachment::DocumentFileId(document.file.id.clone()),
                         None,
                     )
                 } else if let Some(animation) = message.animation() {
                     // TODO moderate random frame of animation
                     (
-                        Attachment::AnimationFileId(animation.file.id.clone().into()),
+                        Attachment::AnimationFileId(animation.file.id.clone()),
                         None,
                     )
                 } else if message.voice().is_some() {
@@ -240,7 +506,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was banned:\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, was banned:\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -301,7 +567,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was muted:\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, was muted:\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -358,7 +624,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was muted for 15 minutes:\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, was muted for 15 minutes:\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -411,7 +677,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, was deleted:\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, was deleted:\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -445,7 +711,7 @@ impl AiModeratorModule {
                     }
                     ModerationAction::WarnMods => {
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged as spam, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
+                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
                             name = markdown::escape(&from.full_name()),
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
@@ -487,7 +753,7 @@ impl AiModeratorModule {
                     ModerationAction::Ok => {
                         if chat_config.debug_mode {
                             let message_to_send = format!(
-                                "[{name}](tg://user?id={user_id}) sent a message and it was *NOT* flagged as spam \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
+                                "[{name}](tg://user?id={user_id}) sent a message and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
                                 name = markdown::escape(&from.full_name()),
                                 text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                             );
@@ -527,11 +793,12 @@ impl AiModeratorModule {
                 if !chat_config.silent
                     && !matches!(action, ModerationAction::Ok | ModerationAction::WarnMods)
                 {
-                    let message = format!("[{name}](tg://user?id={user_id}), your message was removed by AI Moderator\\. Mods have been notified and will review it shortly if it was a mistake", name = markdown::escape(&from.full_name()));
+                    let message = markdown::escape(&chat_config.deletion_message).replace("{user}", &format!("[{name}](tg://user?id={user_id})", name = markdown::escape(&from.full_name())));
+                    let attachment = chat_config.deletion_message_attachment;
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     let message = bot
-                        .send_text_message(chat_id, message, reply_markup)
+                        .send(chat_id, message, reply_markup, attachment)
                         .await?;
                     if let Some(mut bot_config) =
                         bot_configs.get_mut(&bot.bot().get_me().await?.id)
@@ -560,14 +827,8 @@ impl AiModeratorModule {
         message: &Message,
         config: &AiModeratorChatConfig,
         chat_id: ChatId,
-    ) -> impl Future<
-        Output = (
-            ModerationJudgement,
-            Option<Vec<String>>,
-            String,
-            Option<String>,
-        ),
-    > {
+        model: Model,
+    ) -> impl Future<Output = (ModerationJudgement, Option<String>, String, Option<String>)> {
         let message_text = message
             .text()
             .or(message.caption())
@@ -647,25 +908,26 @@ impl AiModeratorModule {
                     },
                 ))
             }
-            let title = get_chat_title_cached_5m(&bot.bot(), chat_id).await;
+            let title = get_chat_title_cached_5m(bot.bot(), chat_id).await;
             let run = openai_client
                 .threads()
                 .runs(&new_thread.id)
                 .create(
                     create_run
+                        .model(model.get_id())
                         .assistant_id(
                             std::env::var("OPENAI_MODERATE_ASSISTANT_ID")
                                 .expect("OPENAI_MODERATE_ASSISTANT_ID not set"),
                         )
                         .additional_instructions(format!(
-                            "{}{}Admins have set these rules:\n\n{}",
+                            "{}{}\n\nAdmins have set these rules:\n\n{}",
                             if message_image.is_some() {
-                                concat!("Reply in json format with the following schema, without formatting, ready to parse:\n", include_str!("../schema/moderate.schema.json"), "\n")
+                                concat!("\nReply in json format with the following schema, without formatting, ready to parse:\n", include_str!("../schema/moderate.schema.json"), "\n")
                             } else {
                                 ""
                             },
                             if let Ok(Some(title)) = title {
-                                format!("Chat title: {title}\n")
+                                format!("\nChat title: {title}")
                             } else {
                                 "".to_string()
                             },
@@ -711,7 +973,7 @@ impl AiModeratorModule {
                             );
                             (
                                 response.judgement,
-                                Some(response.reasoning_steps),
+                                Some(response.reasoning),
                                 message_text,
                                 message_image,
                             )
@@ -1170,6 +1432,145 @@ impl XeonBotModule for AiModeratorModule {
                     }
                 });
             }
+            MessageCommand::AiModeratorPromptConstructorAddLinks(builder) => {
+                if !chat_id.is_user() {
+                    return Ok(());
+                }
+                if !check_admin_permission_in_chat(bot, builder.chat_id, user_id).await {
+                    return Ok(());
+                }
+                let links = text
+                    .split_whitespace()
+                    .map(|s| s.trim_end_matches(',').to_owned())
+                    .collect();
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        bot,
+                        user_id,
+                        chat_id,
+                        None,
+                        &bot.to_callback_data(&TgCommand::AiModeratorPromptConstructorPriceTalk(
+                            PromptBuilder {
+                                links: Some(links),
+                                ..builder
+                            },
+                        ))
+                        .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
+            MessageCommand::AiModeratorSetMessage(target_chat_id) => {
+                if !chat_id.is_user() {
+                    return Ok(());
+                }
+                if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
+                    return Ok(());
+                }
+                let message_text = text.to_string();
+                let message_attachment = if let Some(photo) = message.photo() {
+                    Attachment::PhotoFileId(photo.last().unwrap().file.id.clone())
+                } else if let Some(video) = message.video() {
+                    Attachment::VideoFileId(video.file.id.clone())
+                } else if let Some(audio) = message.audio() {
+                    Attachment::AudioFileId(audio.file.id.clone())
+                } else if let Some(document) = message.document() {
+                    Attachment::DocumentFileId(document.file.id.clone())
+                } else {
+                    Attachment::None
+                };
+                if let Some(bot_config) = self.bot_configs.get(&bot.bot().get_me().await?.id) {
+                    if let Some(mut chat_config) =
+                        bot_config.chat_configs.get(&target_chat_id).await
+                    {
+                        chat_config.deletion_message = message_text;
+                        chat_config.deletion_message_attachment = message_attachment;
+                        bot_config
+                            .chat_configs
+                            .insert_or_update(target_chat_id, chat_config)
+                            .await?;
+                    } else {
+                        return Ok(());
+                    }
+                }
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        bot,
+                        user_id,
+                        chat_id,
+                        None,
+                        &bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
+            MessageCommand::AiModeratorTest(target_chat_id) => {
+                if !chat_id.is_user() {
+                    return Ok(());
+                }
+                if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
+                    return Ok(());
+                }
+                bot.remove_dm_message_command(&user_id).await?;
+                let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
+                    if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
+                        chat_config
+                    } else {
+                        return Ok(());
+                    }
+                } else {
+                    return Ok(());
+                };
+                let message_to_send =
+                    "Please wait while AI tries to moderate this message".to_string();
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                let message_sent = bot
+                    .send_text_message(chat_id, message_to_send, reply_markup)
+                    .await?;
+
+                let a =
+                    self.get_message_rating(bot, message, &chat_config, chat_id, Model::Gpt4oMini);
+                let b = self.get_message_rating(bot, message, &chat_config, chat_id, Model::Gpt4o);
+                let bot_id = bot.id();
+                let xeon = Arc::clone(&self.xeon);
+                tokio::spawn(async move {
+                    let bot = xeon.bot(&bot_id).unwrap();
+                    let rating_mini = a.await;
+                    let rating_mid = b.await;
+                    let message = format!(
+                        "*Judgement:* {:?}\n*Reasoning:* _{}_{}",
+                        rating_mini.0,
+                        markdown::escape(&rating_mini.1.unwrap_or_default()),
+                        if rating_mini.0 != rating_mid.0 {
+                            format!("\n\n\\-\\-\\-\\-\\-\\-\\-\\-\\-\\-\n\nBetter model result \\(not available yet, will be a paid feature\\):\n*Judgement:* {:?}\n*Reasoning:* _{}_",
+                                rating_mid.0,
+                                markdown::escape(&rating_mid.1.unwrap_or_default())
+                            )
+                        } else {
+                            "".to_string()
+                        },
+                    );
+                    let buttons = vec![vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                            .await,
+                    )]];
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    if let Err(err) = bot
+                        .bot()
+                        .edit_message_text(chat_id, message_sent.id, message)
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .reply_markup(reply_markup)
+                        .await
+                    {
+                        log::warn!("Failed to send test result: {err:?}");
+                    }
+                });
+            }
             _ => {}
         }
         Ok(())
@@ -1255,11 +1656,7 @@ impl XeonBotModule for AiModeratorModule {
                                 "Old Prompt: {}\n\nMessage: {}\n\nReasoning:{}",
                                 chat_config.prompt,
                                 message_text,
-                                reasoning
-                                    .iter()
-                                    .map(|reason| format!("\n- {reason}"))
-                                    .collect::<Vec<_>>()
-                                    .join("")
+                                reasoning,
                             );
                             let new_thread = openai_client
                                 .threads()
@@ -1376,7 +1773,7 @@ impl XeonBotModule for AiModeratorModule {
                                                 },
                                             );
                                             let message =
-                                            format!("{message}\n\nOr choose one of the AI\\-generated options:{suggestions}");
+                                                format!("{message}\n\nOr choose one of the AI\\-generated options:{suggestions}\n\n*Note that these suggestions are not guaranteed to work\\. They're easy to set up, but for best performance, it's recommended to write your own prompts*");
                                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                                             ctx.edit_or_send(message, reply_markup).await?;
                                         } else {
@@ -1486,15 +1883,8 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 TgCommand::AiModeratorSeeReason(reasoning) => {
                     let message = format!(
-                        "AI reasoning:\n\n{reasoning}",
-                        reasoning = reasoning
-                            .iter()
-                            .map(|reason| format!(
-                                "\\- {reason}",
-                                reason = markdown::escape(reason)
-                            ))
-                            .collect::<Vec<_>>()
-                            .join("\n")
+                        "*AI reasoning:* _{reasoning}_\n\nIs this wrong? Check the message in DM @Intear\\_Xeon\\_bot using 'Test' feature, and see if our more expensive model can do better",
+                        reasoning = markdown::escape(&reasoning)
                     );
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -1687,412 +2077,338 @@ impl XeonBotModule for AiModeratorModule {
                     )
                 };
 
-                let xeon = Arc::clone(&self.xeon);
-                let bot_id = ctx.bot().id();
-                let bot_configs = Arc::clone(&self.bot_configs);
-                let openai_client = self.openai_client.clone();
-                let user_id = ctx.user_id();
-                let chat_id = ctx.chat_id();
-                let message_id = ctx.message_id().await;
-                tokio::spawn(async move {
-                    let bot = xeon.bot(&bot_id).unwrap();
-                    let ctx = TgCallbackContext::new(
-                        &bot,
-                        user_id,
-                        chat_id,
-                        message_id,
-                        "doesn't matter",
-                    );
-                    let result: Result<(), anyhow::Error> = async {
-                        let chat_config = if let Some(bot_config) =
-                            bot_configs.get(&bot_id)
-                        {
-                            if let Some(chat_config) =
-                                bot_config.chat_configs.get(&target_chat_id).await
-                            {
-                                chat_config
-                            } else {
-                                drop(bot_config);
-                                let mut config = AiModeratorChatConfig::default();
-                                let chat = ctx.bot().bot().get_chat(target_chat_id).await?;
-                                let mut chat_data = String::new();
-                                match chat.kind {
-                                    ChatKind::Public(chat) => {
-                                        if let Some(title) = chat.title {
-                                            chat_data.push_str(&format!("Chat title: {title}\n"));
-                                        }
-                                        match chat.kind {
-                                            PublicChatKind::Supergroup(chat) => {
-                                                if let Some(username) = chat.username {
-                                                    chat_data
-                                                        .push_str(&format!("Username: @{username}\n"));
-                                                } else {
-                                                    chat_data.push_str(&format!("Chat link: t.me/c/{target_chat_id}\n"));
-                                                }
-                                            }
-                                            PublicChatKind::Group(_) => {
-                                                // I guess you *can* set usernames for groups, but teloxide
-                                                // doesn't have this and tbh I don't care, no one's using groups
-                                                // for communities that need moderation
-                                                chat_data.push_str("Username is not set\n");
-                                            }
-                                            PublicChatKind::Channel(_) => {
-                                                log::warn!(
-                                                    "Channel chat in AiModeratorSetModeratorChat"
-                                                );
-                                                return Ok(());
-                                            }
-                                        }
-                                        if let Some(description) = chat.description {
-                                            chat_data.push_str(&format!(
-                                                "Chat description: {description}\n",
-                                            ));
-                                        }
-                                    }
-                                    ChatKind::Private(_) => {
-                                        log::warn!("Private chat (DM) in AiModeratorSetModeratorChat");
-                                    }
-                                }
-                                let buttons = Vec::<Vec<_>>::new();
-                                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                let chat_data_formatted = expandable_blockquote(&chat_data);
-                                ctx.edit_or_send(format!("Please wait while we're crafting an ✨ individual prompt ✨ for your chat based on this info:\n{chat_data_formatted}"), reply_markup).await?;
-
-                                if let Ok(new_thread) = openai_client
-                                    .threads()
-                                    .create(CreateThreadRequestArgs::default().build().unwrap())
-                                    .await
-                                {
-                                    if let Ok(run) = openai_client
-                                        .threads()
-                                        .runs(&new_thread.id)
-                                        .create(
-                                            CreateRunRequestArgs::default()
-                                                .assistant_id(
-                                                    std::env::var(
-                                                        "OPENAI_PROMPT_CREATION_ASSISTANT_ID",
-                                                    )
-                                                    .expect(
-                                                        "OPENAI_PROMPT_CREATION_ASSISTANT_ID not set",
-                                                    ),
-                                                )
-                                                .additional_messages(vec![CreateMessageRequest {
-                                                    role: MessageRole::User,
-                                                    content: CreateMessageRequestContent::Content(
-                                                        chat_data.to_string(),
-                                                    ),
-                                                    ..Default::default()
-                                                }])
-                                                .build()
-                                                .expect("Failed to build CreateRunRequestArgs"),
-                                        )
-                                        .await
-                                    {
-                                        if let Ok(MessageContent::Text(text)) =
-                                            await_execution(&openai_client, run, new_thread.id)
-                                                .await
-                                        {
-                                            if let Ok(response) =
-                                                serde_json::from_str::<PromptCreationResponse>(
-                                                    &text.text.value,
-                                                )
-                                            {
-                                                log::info!(
-                                                    "Response for new prompt creation from: {response:?}",
-                                                );
-                                                config.prompt = response.prompt;
-
-                                                let message = format!(
-                                                    "AI has generated a prompt for you based on the chat info\\. Here it is:\n\n{prompt}\n\nI recommend you to edit it by clicking \"⌨️ Edit Prompt\" below\\. You can also change the prompt later by clicking the same button\\.",
-                                                    prompt = expandable_blockquote(&config.prompt)
-                                                );
-                                                let buttons = Vec::<Vec<_>>::new();
-                                                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                                ctx.send(message, reply_markup, Attachment::None).await?;
-                                            } else {
-                                                return Err(anyhow::anyhow!(
-                                                    "Failed to parse prompt creation response: {}",
-                                                    text.text.value
-                                                ));
-                                            }
-                                        } else {
-                                            return Err(anyhow::anyhow!(
-                                                "Prompt creation response is not a text"
-                                            ));
-                                        }
-                                    } else {
-                                        return Err(anyhow::anyhow!("Failed to create a prompt creation run"));
-                                    }
-                                } else {
-                                    return Err(anyhow::anyhow!("Failed to create a prompt creation thread"));
-                                }
-                                let bot_config = bot_configs.get(&bot_id).unwrap();
-                                bot_config
-                                    .chat_configs
-                                    .insert_or_update(target_chat_id, config.clone())
-                                    .await?;
-                                config
-                            }
-                        } else {
-                            return Ok(());
-                        };
-                        let first_messages = chat_config.first_messages;
-
-                        let prompt = expandable_blockquote(&chat_config.prompt);
-                        let mut warnings = Vec::new();
-                        if chat_config.moderator_chat.is_none() {
-                            warnings.push("⚠️ Moderator chat is not set. The moderator chat is the chat where all logs will be sent");
-                        }
-                        let bot_member = ctx
-                            .bot()
-                            .bot()
-                            .get_chat_member(target_chat_id, ctx.bot().bot().get_me().await?.id)
+                let chat_config = if let Some(bot_config) = self.bot_configs.get(&ctx.bot().id()) {
+                    if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
+                        chat_config
+                    } else {
+                        bot_config
+                            .chat_configs
+                            .insert_or_update(target_chat_id, AiModeratorChatConfig::default())
                             .await?;
-                        let mut add_admin_button = false;
-                        if !bot_member.is_administrator() {
-                            add_admin_button = true;
-                            warnings.push("⚠️ The bot is not an admin in the chat. The bot needs to have the permissions necessary to moderate messages");
-                        } else if !bot_member.can_restrict_members() {
-                            add_admin_button = true;
-                            warnings.push("⚠️ The bot does not have permission to restrict members. The bot needs to have permission to restrict members to moderate messages");
-                        }
-                        if chat_config.debug_mode {
-                            warnings.push("⚠️ The bot is currently in testing mode. It will only warn about messages, but not take any actions. I recommend you to wait a few hours or days, see how it goes, refine the prompt, and when everything looks good, switch to the running mode using 'Mode: Testing' button below");
-                        }
-                        if !chat_config.enabled {
-                            warnings.push("⚠️ The bot is currently disabled. Click the 'Disabled' button below to enable it");
-                        }
-                        let warnings = if !warnings.is_empty() {
-                            format!("\n\n{}", markdown::escape(&warnings.join("\n")))
-                        } else {
-                            "".to_string()
-                        };
-                        let message =
-                            format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}{warnings}");
-                        let mut buttons = vec![
-                            vec![
-                                InlineKeyboardButton::callback(
-                                    "⌨ Enter New Prompt",
-                                    ctx.bot()
-                                        .to_callback_data(&TgCommand::AiModeratorSetPrompt(
-                                            target_chat_id,
-                                        ))
-                                        .await,
-                                ),
-                                InlineKeyboardButton::callback(
-                                    "✨ Edit Prompt",
-                                    ctx.bot()
-                                        .to_callback_data(&TgCommand::AiModeratorEditPrompt(
-                                            target_chat_id,
-                                        ))
-                                        .await,
-                                ),
-                            ], vec![
-                                InlineKeyboardButton::callback(
-                                    if chat_config.debug_mode {
-                                        "👷 Mode: Testing (only warns)"
-                                    } else {
-                                        "🤖 Mode: Running"
-                                    },
-                                    ctx.bot()
-                                        .to_callback_data(&TgCommand::AiModeratorSetDebugMode(
-                                            target_chat_id,
-                                            !chat_config.debug_mode,
-                                        ))
-                                        .await,
-                                ),
-                            ],
-                            vec![InlineKeyboardButton::callback(
-                                format!(
-                                    "👤 Moderator Chat: {}",
-                                    if let Some(moderator_chat) = chat_config.moderator_chat {
-                                        get_chat_title_cached_5m(ctx.bot().bot(), moderator_chat)
-                                            .await?
-                                            .unwrap_or("Invalid".to_string())
-                                    } else {
-                                        "⚠️ Not Set".to_string()
-                                    }
-                                ),
-                                ctx.bot()
-                                    .to_callback_data(&TgCommand::AiModeratorRequestModeratorChat(
-                                        target_chat_id,
+                        self.handle_callback(
+                            TgCallbackContext::new(
+                                ctx.bot(),
+                                ctx.user_id(),
+                                ctx.chat_id(),
+                                ctx.message_id().await,
+                                &ctx.bot()
+                                    .to_callback_data(&TgCommand::AiModeratorPromptConstructor(
+                                        PromptBuilder {
+                                            chat_id: target_chat_id,
+                                            is_near: None,
+                                            links: None,
+                                            price_talk: None,
+                                            scam: None,
+                                            ask_dm: None,
+                                            profanity: None,
+                                            nsfw: None,
+                                            other: None,
+                                        },
                                     ))
                                     .await,
-                            )],
-                            vec![
-                                InlineKeyboardButton::callback(
-                                    format!(
-                                        "😡 Spam: {}",
-                                        chat_config
-                                            .actions
-                                            .get(&ModerationJudgement::Spam)
-                                            .unwrap_or(&ModerationAction::Ban)
-                                            .name()
-                                    ),
-                                    ctx.bot()
-                                        .to_callback_data(&TgCommand::AiModeratorSetAction(
-                                            target_chat_id,
-                                            ModerationJudgement::Spam,
-                                            chat_config
-                                                .actions
-                                                .get(&ModerationJudgement::Spam)
-                                                .unwrap_or(&ModerationAction::Ban)
-                                                .next(),
-                                        ))
-                                        .await,
-                                ),
-                                InlineKeyboardButton::callback(
-                                    format!(
-                                        "🤔 Sus: {}",
-                                        chat_config
-                                            .actions
-                                            .get(&ModerationJudgement::Suspicious)
-                                            .unwrap_or(&ModerationAction::Ban)
-                                            .name()
-                                    ),
-                                    ctx.bot()
-                                        .to_callback_data(&TgCommand::AiModeratorSetAction(
-                                            target_chat_id,
-                                            ModerationJudgement::Suspicious,
-                                            chat_config
-                                                .actions
-                                                .get(&ModerationJudgement::Suspicious)
-                                                .unwrap_or(&ModerationAction::Ban)
-                                                .next(),
-                                        ))
-                                        .await,
-                                ),
-                            ],
-                            vec![
-                                InlineKeyboardButton::callback(
-                                    format!(
-                                        "👍 Maybe: {}",
-                                        chat_config
-                                            .actions
-                                            .get(&ModerationJudgement::Acceptable)
-                                            .unwrap_or(&ModerationAction::Ok)
-                                            .name()
-                                    ),
-                                    ctx.bot()
-                                        .to_callback_data(&TgCommand::AiModeratorSetAction(
-                                            target_chat_id,
-                                            ModerationJudgement::Acceptable,
-                                            chat_config
-                                                .actions
-                                                .get(&ModerationJudgement::Acceptable)
-                                                .unwrap_or(&ModerationAction::Ok)
-                                                .next(),
-                                        ))
-                                        .await,
-                                ),
-                                InlineKeyboardButton::callback(
-                                    format!(
-                                        "👌 Good: {}",
-                                        chat_config
-                                            .actions
-                                            .get(&ModerationJudgement::Good)
-                                            .unwrap_or(&ModerationAction::Ok)
-                                            .name()
-                                    ),
-                                    ctx.bot()
-                                        .to_callback_data(&TgCommand::AiModeratorSetAction(
-                                            target_chat_id,
-                                            ModerationJudgement::Good,
-                                            chat_config
-                                                .actions
-                                                .get(&ModerationJudgement::Good)
-                                                .unwrap_or(&ModerationAction::Ok)
-                                                .next(),
-                                        ))
-                                        .await,
-                                ),
-                            ],
-                            vec![InlineKeyboardButton::callback(
-                                format!(
-                                    "✅ Check {first_messages} messages",
-                                    first_messages = if first_messages == u32::MAX as usize {
-                                        "all".to_string()
-                                    } else {
-                                        format!("first {first_messages}")
-                                    }
-                                ),
-                                ctx.bot()
-                                    .to_callback_data(&TgCommand::AiModeratorFirstMessages(
-                                        target_chat_id,
-                                    ))
-                                    .await,
-                            )],
-                            vec![InlineKeyboardButton::callback(
-                                if chat_config.silent {
-                                    "🔇 Doesn't send deletion messages"
-                                } else {
-                                    "🔊 Sends deletion messages"
-                                },
-                                ctx.bot()
-                                    .to_callback_data(&TgCommand::AiModeratorSetSilent(
-                                        target_chat_id,
-                                        !chat_config.silent,
-                                    ))
-                                    .await,
-                            )],
-                            vec![InlineKeyboardButton::callback(
-                                if chat_config.enabled {
-                                    "✅ Enabled"
-                                } else {
-                                    "❌ Disabled"
-                                },
-                                ctx.bot()
-                                    .to_callback_data(&TgCommand::AiModeratorSetEnabled(
-                                        target_chat_id,
-                                        !chat_config.enabled,
-                                    ))
-                                    .await,
-                            )],
-                            vec![InlineKeyboardButton::callback(
-                                "⬅️ Back",
-                                ctx.bot()
-                                    .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
-                                    .await,
-                            )],
-                        ];
-                        if add_admin_button {
-                            buttons.insert(
-                                0,
-                                vec![InlineKeyboardButton::callback(
-                                    "❗️ Add Bot as Admin",
-                                    ctx.bot()
-                                        .to_callback_data(&TgCommand::AiModeratorAddAsAdmin(
-                                            target_chat_id,
-                                        ))
-                                        .await,
-                                )],
-                            );
-                        }
-                        let reply_markup = InlineKeyboardMarkup::new(buttons);
-                        ctx.edit_or_send(message, reply_markup).await?;
-                        Ok(())
-                    }.await;
-                    if let Err(err) = result {
-                        log::warn!("Failed to handle AiModerator command: {err:?}");
-                        let message = "Something went wrong while setting up AI Moderator\\. Please try again or ask for support in @intearchat".to_string();
-                        let buttons = vec![
-                            vec![InlineKeyboardButton::url(
-                                "🤙 Support",
-                                "tg://resolve?domain=intearchat".parse().unwrap(),
-                            )],
-                            vec![InlineKeyboardButton::callback(
-                                "⬅️ Back",
-                                ctx.bot()
-                                    .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
-                                    .await,
-                            )],
-                        ];
-                        let reply_markup = InlineKeyboardMarkup::new(buttons);
-                        if let Err(err) = ctx.edit_or_send(message, reply_markup).await {
-                            log::warn!("Failed to send error message: {err:?}");
-                        }
+                            ),
+                            &mut None,
+                        )
+                        .await?;
+                        return Ok(());
                     }
-                });
+                } else {
+                    return Ok(());
+                };
+                let first_messages = chat_config.first_messages;
+
+                let prompt = expandable_blockquote(&chat_config.prompt);
+                let mut warnings = Vec::new();
+                if chat_config.moderator_chat.is_none() {
+                    warnings.push("⚠️ Moderator chat is not set. The moderator chat is the chat where all logs will be sent");
+                }
+                let bot_member = ctx
+                    .bot()
+                    .bot()
+                    .get_chat_member(target_chat_id, ctx.bot().bot().get_me().await?.id)
+                    .await?;
+                let mut add_admin_button = false;
+                if !bot_member.is_administrator() {
+                    add_admin_button = true;
+                    warnings.push("⚠️ The bot is not an admin in the chat. The bot needs to have the permissions necessary to moderate messages");
+                } else if !bot_member.can_restrict_members() {
+                    add_admin_button = true;
+                    warnings.push("⚠️ The bot does not have permission to restrict members. The bot needs to have permission to restrict members to moderate messages");
+                }
+                if chat_config.debug_mode {
+                    warnings.push("⚠️ The bot is currently in testing mode. It will only warn about messages, but not take any actions. I recommend you to wait a few hours or days, see how it goes, refine the prompt, and when everything looks good, switch to the running mode using 'Mode: Testing' button below");
+                }
+                if !chat_config.enabled {
+                    warnings.push("⚠️ The bot is currently disabled. Click the 'Disabled' button below to enable it");
+                }
+                let warnings = if !warnings.is_empty() {
+                    format!("\n\n{}", markdown::escape(&warnings.join("\n")))
+                } else {
+                    "".to_string()
+                };
+                let deletion_message = chat_config.deletion_message.clone()
+                    + match chat_config.deletion_message_attachment {
+                        Attachment::None => "",
+                        Attachment::PhotoUrl(_) | Attachment::PhotoFileId(_) => "\n+ photo",
+                        Attachment::AnimationUrl(_) | Attachment::AnimationFileId(_) => "\n+ gif",
+                        Attachment::AudioUrl(_) | Attachment::AudioFileId(_) => "\n+ audio",
+                        Attachment::VideoUrl(_) | Attachment::VideoFileId(_) => "\n+ video",
+                        Attachment::DocumentUrl(_)
+                        | Attachment::DocumentText(_)
+                        | Attachment::DocumentFileId(_) => "\n\\+ file",
+                    };
+                let deletion_message = expandable_blockquote(&deletion_message);
+                let message =
+                    format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}\n\nMessage that appears when a message is deleted:\n{deletion_message}\n\nℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}");
+                let mut buttons = vec![
+                    vec![InlineKeyboardButton::callback(
+                        "⌨ Enter New Prompt",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorSetPrompt(target_chat_id))
+                            .await,
+                    )],
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "✨ Edit Prompt",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorEditPrompt(target_chat_id))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "⚙️ Setup Prompt",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructor(
+                                    PromptBuilder {
+                                        chat_id: target_chat_id,
+                                        is_near: None,
+                                        links: None,
+                                        price_talk: None,
+                                        scam: None,
+                                        ask_dm: None,
+                                        profanity: None,
+                                        nsfw: None,
+                                        other: None,
+                                    },
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        if chat_config.debug_mode {
+                            "👷 Mode: Testing (only warns)"
+                        } else {
+                            "🤖 Mode: Running"
+                        },
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorSetDebugMode(
+                                target_chat_id,
+                                !chat_config.debug_mode,
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        format!(
+                            "👤 Moderator Chat: {}",
+                            if let Some(moderator_chat) = chat_config.moderator_chat {
+                                get_chat_title_cached_5m(ctx.bot().bot(), moderator_chat)
+                                    .await?
+                                    .unwrap_or("Invalid".to_string())
+                            } else {
+                                "⚠️ Not Set".to_string()
+                            }
+                        ),
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorRequestModeratorChat(
+                                target_chat_id,
+                            ))
+                            .await,
+                    )],
+                    vec![
+                        InlineKeyboardButton::callback(
+                            format!(
+                                "😡 Harmful: {}",
+                                chat_config
+                                    .actions
+                                    .get(&ModerationJudgement::Harmful)
+                                    .unwrap_or(&ModerationAction::Ban)
+                                    .name()
+                            ),
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorSetAction(
+                                    target_chat_id,
+                                    ModerationJudgement::Harmful,
+                                    chat_config
+                                        .actions
+                                        .get(&ModerationJudgement::Harmful)
+                                        .unwrap_or(&ModerationAction::Ban)
+                                        .next(),
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            format!(
+                                "🤔 Sus: {}",
+                                chat_config
+                                    .actions
+                                    .get(&ModerationJudgement::Suspicious)
+                                    .unwrap_or(&ModerationAction::Ban)
+                                    .name()
+                            ),
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorSetAction(
+                                    target_chat_id,
+                                    ModerationJudgement::Suspicious,
+                                    chat_config
+                                        .actions
+                                        .get(&ModerationJudgement::Suspicious)
+                                        .unwrap_or(&ModerationAction::Ban)
+                                        .next(),
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![
+                        InlineKeyboardButton::callback(
+                            format!(
+                                "👍 Maybe: {}",
+                                chat_config
+                                    .actions
+                                    .get(&ModerationJudgement::MoreContextNeeded)
+                                    .unwrap_or(&ModerationAction::Ok)
+                                    .name()
+                            ),
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorSetAction(
+                                    target_chat_id,
+                                    ModerationJudgement::MoreContextNeeded,
+                                    chat_config
+                                        .actions
+                                        .get(&ModerationJudgement::MoreContextNeeded)
+                                        .unwrap_or(&ModerationAction::Ok)
+                                        .next(),
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            format!(
+                                "👌 Good: {}",
+                                chat_config
+                                    .actions
+                                    .get(&ModerationJudgement::Good)
+                                    .unwrap_or(&ModerationAction::Ok)
+                                    .name()
+                            ),
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorSetAction(
+                                    target_chat_id,
+                                    ModerationJudgement::Good,
+                                    chat_config
+                                        .actions
+                                        .get(&ModerationJudgement::Good)
+                                        .unwrap_or(&ModerationAction::Ok)
+                                        .next(),
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![
+                        InlineKeyboardButton::callback(
+                            format!(
+                                "ℹ️ Inform: {}",
+                                chat_config
+                                    .actions
+                                    .get(&ModerationJudgement::Inform)
+                                    .unwrap_or(&ModerationAction::Delete) // TODO add message configuration
+                                    .name()
+                            ),
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorSetAction(
+                                    target_chat_id,
+                                    ModerationJudgement::Inform,
+                                    chat_config
+                                        .actions
+                                        .get(&ModerationJudgement::Inform)
+                                        .unwrap_or(&ModerationAction::Delete)
+                                        .next(),
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "✏️ Set Message",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorEditMessage(
+                                    target_chat_id,
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        if chat_config.silent {
+                            "🔇 Doesn't send deletion messages"
+                        } else {
+                            "🔊 Sends deletion messages"
+                        },
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorSetSilent(
+                                target_chat_id,
+                                !chat_config.silent,
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        format!(
+                            "🔍 Check {first_messages} messages",
+                            first_messages = if first_messages == u32::MAX as usize {
+                                "all".to_string()
+                            } else {
+                                format!("only first {first_messages}")
+                            }
+                        ),
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorFirstMessages(target_chat_id))
+                            .await,
+                    )],
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "🍥 Test",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorTest(target_chat_id))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            if chat_config.enabled {
+                                "✅ Enabled"
+                            } else {
+                                "❌ Disabled"
+                            },
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorSetEnabled(
+                                    target_chat_id,
+                                    !chat_config.enabled,
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
+                            .await,
+                    )],
+                ];
+                if add_admin_button {
+                    buttons.insert(
+                        0,
+                        vec![InlineKeyboardButton::callback(
+                            "❗️ Add Bot as Admin",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorAddAsAdmin(target_chat_id))
+                                .await,
+                        )],
+                    );
+                }
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
             }
             TgCommand::AiModeratorFirstMessages(target_chat_id) => {
                 if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
@@ -2338,7 +2654,7 @@ impl XeonBotModule for AiModeratorModule {
             }
             TgCommand::AiModeratorSetAction(target_chat_id, judgement, action) => {
                 if judgement == ModerationJudgement::Good {
-                    let message = "You can't change the action for the 'Good' judgement\\. This is for legit messages that the AI didn't flag as spam";
+                    let message = "You can't change the action for the 'Good' judgement\\. This is for legit messages that the AI didn't flag as harmful";
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "⬅️ Back",
                         ctx.bot()
@@ -2523,6 +2839,500 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 ctx.edit_or_send(message, reply_markup).await?;
             }
+            // 0. Base prompt
+            // 1. Links
+            // 2. Price Talk
+            // 3. Scam
+            // 4. Ask to DM
+            // 5. Language
+            // 6. NSFW
+            TgCommand::AiModeratorPromptConstructor(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                let message = markdown::escape("Hi! I'm the AI Moderator, I'm here to help you moderate your chat.
+
+I can detect most types of unwanted messages, such as spam, scam, offensive language, adult content, and more.
+
+Is this chat a NEAR project? If so, I can add some trusted projects that will to be ignored (ref finance links etc.)
+                ");
+                let buttons = vec![
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "⨝ Yes",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorLinks(
+                                    PromptBuilder {
+                                        is_near: Some(true),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "💬 No",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorLinks(
+                                    PromptBuilder {
+                                        is_near: Some(false),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        "⌨️ Skip and enter prompt manually",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorSetPrompt(builder.chat_id))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Cancel",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModerator(builder.chat_id))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorLinks(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                let message = markdown::escape(
+                    "Are links to third-party websites allowed in this chat? If not, I can add trusted domains that need to be ignored",
+                );
+                let buttons = vec![
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "✅ Allowed",
+                            ctx.bot()
+                                .to_callback_data(
+                                    &TgCommand::AiModeratorPromptConstructorPriceTalk(
+                                        PromptBuilder {
+                                            links: None,
+                                            ..builder.clone()
+                                        },
+                                    ),
+                                )
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "❌ Not allowed",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorAddLinks(
+                                    PromptBuilder {
+                                        links: Some(Vec::new()),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructor(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorAddLinks(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                let message = markdown::escape(
+                    "Please enter the domains that are allowed in this chat, each on a new line or separated by a space (we'll detect automatially). I will ignore messages that contain links to these domains. They don't necessarily have to be valid https:// links, AI will understand anything, but I recommend top-level domains (not sub.doma.in's) without https or www, each on a new line.",
+                );
+                let buttons = vec![
+                    vec![InlineKeyboardButton::callback(
+                        "➡️ Skip",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorPriceTalk(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorLinks(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.bot()
+                    .set_dm_message_command(
+                        ctx.user_id(),
+                        MessageCommand::AiModeratorPromptConstructorAddLinks(builder.clone()),
+                    )
+                    .await?;
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorPriceTalk(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                if !builder.is_near.unwrap_or_default() {
+                    self.handle_callback(
+                        TgCallbackContext::new(
+                            ctx.bot(),
+                            ctx.user_id(),
+                            ctx.chat_id(),
+                            ctx.message_id().await,
+                            &ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorScam(
+                                    builder.clone(),
+                                ))
+                                .await,
+                        ),
+                        &mut None,
+                    )
+                    .await?;
+                    return Ok(());
+                }
+                let message = markdown::escape(
+                    "Is price talk allowed in this chat? If not, I will delete these messages and send a message with rules to the user",
+                );
+                let buttons = vec![
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "✅ Allowed",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorScam(
+                                    PromptBuilder {
+                                        price_talk: Some(true),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "❌ Not allowed",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorScam(
+                                    PromptBuilder {
+                                        price_talk: Some(false),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorLinks(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorScam(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                let message = markdown::escape(
+                    "What about attempts to scam members? This may produce a few false positives, but will mostly work.",
+                );
+                let buttons = vec![
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "✅ Allowed",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorAskDM(
+                                    PromptBuilder {
+                                        scam: Some(true),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "❌ Not allowed",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorAskDM(
+                                    PromptBuilder {
+                                        scam: Some(false),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorPriceTalk(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorAskDM(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                if !builder.is_near.unwrap_or_default() {
+                    self.handle_callback(
+                        TgCallbackContext::new(
+                            ctx.bot(),
+                            ctx.user_id(),
+                            ctx.chat_id(),
+                            ctx.message_id().await,
+                            &ctx.bot()
+                                .to_callback_data(
+                                    &TgCommand::AiModeratorPromptConstructorProfanity(
+                                        builder.clone(),
+                                    ),
+                                )
+                                .await,
+                        ),
+                        &mut None,
+                    )
+                    .await?;
+                    return Ok(());
+                }
+                let message = markdown::escape(
+                    "Are people allowed to ask others to send them a DM? This is a common way to scam people by pretending that the person is an administrator or tech support, but in some cases, legitimate users may want to ask for help in private or share sensitive information.",
+                );
+                let buttons = vec![
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "✅ Allowed",
+                            ctx.bot()
+                                .to_callback_data(
+                                    &TgCommand::AiModeratorPromptConstructorProfanity(
+                                        PromptBuilder {
+                                            ask_dm: Some(true),
+                                            ..builder.clone()
+                                        },
+                                    ),
+                                )
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "❌ Not allowed",
+                            ctx.bot()
+                                .to_callback_data(
+                                    &TgCommand::AiModeratorPromptConstructorProfanity(
+                                        PromptBuilder {
+                                            ask_dm: Some(false),
+                                            ..builder.clone()
+                                        },
+                                    ),
+                                )
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorScam(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorProfanity(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                let message = markdown::escape("What level of profanity is allowed in this chat?");
+                let buttons = vec![
+                    vec![InlineKeyboardButton::callback(
+                        "🤬 Fully Allowed",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorNsfw(
+                                PromptBuilder {
+                                    profanity: Some(ProfanityLevel::Allowed),
+                                    ..builder.clone()
+                                },
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        "💢 Only Light Profanity",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorNsfw(
+                                PromptBuilder {
+                                    profanity: Some(ProfanityLevel::LightProfanityAllowed),
+                                    ..builder.clone()
+                                },
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        "🤐 Not allowed",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorNsfw(
+                                PromptBuilder {
+                                    profanity: Some(ProfanityLevel::NotAllowed),
+                                    ..builder.clone()
+                                },
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorAskDM(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorNsfw(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                let message = markdown::escape(
+                    "Is adult content allowed in this chat? This includes nudity, sexual content, and other adult themes.",
+                );
+                let buttons = vec![
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "✅ Allowed",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorFinish(
+                                    PromptBuilder {
+                                        nsfw: Some(true),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "❌ Not allowed",
+                            ctx.bot()
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorFinish(
+                                    PromptBuilder {
+                                        nsfw: Some(false),
+                                        ..builder.clone()
+                                    },
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorProfanity(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorFinish(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                let target_chat_id = builder.chat_id;
+                let prompt = create_prompt(builder);
+                if let Some(bot_config) = self.bot_configs.get(&ctx.bot().bot().get_me().await?.id)
+                {
+                    if let Some(mut chat_config) =
+                        bot_config.chat_configs.get(&target_chat_id).await
+                    {
+                        chat_config.prompt = prompt;
+                        bot_config
+                            .chat_configs
+                            .insert_or_update(target_chat_id, chat_config)
+                            .await?;
+                    } else {
+                        return Ok(());
+                    }
+                }
+                let message = markdown::escape(
+                    "Great! I've created the prompt for you. You can edit it at any time using 'Edit Prompt' and 'Set Prompt' buttons above",
+                );
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.send(message, reply_markup, Attachment::None).await?;
+
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        ctx.bot(),
+                        ctx.user_id(),
+                        ctx.chat_id(),
+                        ctx.message_id().await,
+                        &ctx.bot()
+                            .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorEditMessage(chat_id) => {
+                if !check_admin_permission_in_chat(ctx.bot(), chat_id, ctx.user_id()).await {
+                    return Ok(());
+                }
+                let message = "Enter the message that will be sent in the chat when a message is deleted\\. For example, you can link to rules, or say that AI deleted this message and mods will review it shortly\\. Make sure that 'Sends deletion messages' is enabled\\. You can use \\{user\\} to mention the user whose message was deleted";
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Cancel",
+                    ctx.bot()
+                        .to_callback_data(&TgCommand::AiModerator(chat_id))
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.bot()
+                    .set_dm_message_command(
+                        ctx.user_id(),
+                        MessageCommand::AiModeratorSetMessage(chat_id),
+                    )
+                    .await?;
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorTest(chat_id) => {
+                if !check_admin_permission_in_chat(ctx.bot(), chat_id, ctx.user_id()).await {
+                    return Ok(());
+                }
+                let message = "Enter the message, and I'll tell you what would be done";
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Cancel",
+                    ctx.bot()
+                        .to_callback_data(&TgCommand::AiModerator(chat_id))
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.bot()
+                    .set_dm_message_command(ctx.user_id(), MessageCommand::AiModeratorTest(chat_id))
+                    .await?;
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
             _ => {}
         }
         Ok(())
@@ -2545,6 +3355,8 @@ struct AiModeratorChatConfig {
     actions: HashMap<ModerationJudgement, ModerationAction>,
     enabled: bool,
     silent: bool,
+    deletion_message: String,
+    deletion_message_attachment: Attachment,
 }
 
 impl Default for AiModeratorChatConfig {
@@ -2556,12 +3368,15 @@ impl Default for AiModeratorChatConfig {
             debug_mode: true,
             actions: [
                 (ModerationJudgement::Good, ModerationAction::Ok),
-                (ModerationJudgement::Acceptable, ModerationAction::Ok),
+                (ModerationJudgement::MoreContextNeeded, ModerationAction::Ok),
+                (ModerationJudgement::Inform, ModerationAction::Delete),
                 (ModerationJudgement::Suspicious, ModerationAction::TempMute),
-                (ModerationJudgement::Spam, ModerationAction::Ban),
+                (ModerationJudgement::Harmful, ModerationAction::Ban),
             ].into_iter().collect(),
             enabled: true,
             silent: false,
+            deletion_message: "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string(),
+            deletion_message_attachment: Attachment::None,
         }
     }
 }
@@ -2725,13 +3540,8 @@ pub async fn await_execution(
 
 #[derive(Debug, Clone, Deserialize)]
 struct ModerationResponse {
-    reasoning_steps: Vec<String>,
+    reasoning: String,
     judgement: ModerationJudgement,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct PromptCreationResponse {
-    prompt: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
