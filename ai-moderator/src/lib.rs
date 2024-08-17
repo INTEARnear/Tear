@@ -1589,7 +1589,7 @@ impl XeonBotModule for AiModeratorModule {
                         user_id,
                         chat_id,
                         None,
-                        &bot.to_callback_data(&TgCommand::AiModeratorPromptConstructorPriceTalk(
+                        &bot.to_callback_data(&TgCommand::AiModeratorPromptConstructorFinish(
                             PromptBuilder {
                                 other: Some(other),
                                 ..builder
@@ -2189,7 +2189,7 @@ impl XeonBotModule for AiModeratorModule {
                     };
                 let deletion_message = expandable_blockquote(&deletion_message);
                 let message =
-                    format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}\n\nMessage that appears when a message is deleted:\n{deletion_message}\n\nℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}");
+                    format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}\n\nMessage that appears when a message is deleted:\n{deletion_message}\n\nℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}");
                 let mut buttons = vec![
                     vec![InlineKeyboardButton::callback(
                         "⌨ Enter New Prompt",
