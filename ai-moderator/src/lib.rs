@@ -3413,8 +3413,14 @@ struct AiModeratorChatConfig {
     actions: HashMap<ModerationJudgement, ModerationAction>,
     enabled: bool,
     silent: bool,
+    #[serde(default = "default_deletion_message")]
     deletion_message: String,
+    #[serde(default)]
     deletion_message_attachment: Attachment,
+}
+
+fn default_deletion_message() -> String {
+    "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string()
 }
 
 impl Default for AiModeratorChatConfig {

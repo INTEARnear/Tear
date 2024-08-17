@@ -1017,8 +1017,9 @@ impl<'a> TgCallbackContext<'a> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub enum Attachment {
+    #[default]
     None,
     PhotoUrl(Url),
     PhotoFileId(String),

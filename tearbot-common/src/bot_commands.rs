@@ -907,9 +907,11 @@ impl NearSocialEvent {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ModerationJudgement {
     Good,
+    #[serde(alias = "Acceptable")]
     MoreContextNeeded,
     Inform,
     Suspicious,
+    #[serde(alias = "Spam")]
     Harmful,
 }
 
