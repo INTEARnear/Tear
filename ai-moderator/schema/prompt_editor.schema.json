@@ -1,0 +1,12 @@
+{
+    "type": "object",
+    "properties": {
+        "rewritten_prompt": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "rewritten_prompt"
+    ],
+    "additionalProperties": false
+}

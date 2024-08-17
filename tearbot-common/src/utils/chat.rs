@@ -91,8 +91,8 @@ pub async fn check_admin_permission_in_chat(
 pub enum ChatPermissionLevel {
     Owner,
     Whitelist(HashSet<UserId>),
-    #[default]
     CanPromoteMembers,
+    #[default]
     CanChangeInfo,
     CanRestrictMembers,
     Admin,
