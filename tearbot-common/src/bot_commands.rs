@@ -445,6 +445,8 @@ pub enum TgCommand {
     AiModeratorEditMessage(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorTest(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorAddOther(PromptBuilder),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -560,6 +562,8 @@ pub enum MessageCommand {
     AiModeratorSetMessage(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorTest(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPromptConstructorAddOther(PromptBuilder),
 }
 
 impl From<MessageCommand> for Bson {

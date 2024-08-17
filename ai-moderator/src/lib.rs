@@ -295,6 +295,10 @@ fn create_prompt(builder: PromptBuilder) -> String {
         };
         prompt += "\n";
     }
+    if let Some(other) = builder.other {
+        prompt += &other;
+        prompt += "\n";
+    }
     prompt
 }
 
@@ -1571,6 +1575,32 @@ impl XeonBotModule for AiModeratorModule {
                     }
                 });
             }
+            MessageCommand::AiModeratorPromptConstructorAddOther(builder) => {
+                if !chat_id.is_user() {
+                    return Ok(());
+                }
+                if !check_admin_permission_in_chat(bot, builder.chat_id, user_id).await {
+                    return Ok(());
+                }
+                let other = text.to_string();
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        bot,
+                        user_id,
+                        chat_id,
+                        None,
+                        &bot.to_callback_data(&TgCommand::AiModeratorPromptConstructorPriceTalk(
+                            PromptBuilder {
+                                other: Some(other),
+                                ..builder
+                            },
+                        ))
+                        .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -2839,13 +2869,6 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 ctx.edit_or_send(message, reply_markup).await?;
             }
-            // 0. Base prompt
-            // 1. Links
-            // 2. Price Talk
-            // 3. Scam
-            // 4. Ask to DM
-            // 5. Language
-            // 6. NSFW
             TgCommand::AiModeratorPromptConstructor(builder) => {
                 if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
                 {
@@ -3222,7 +3245,7 @@ Is this chat a NEAR project? If so, I can add some trusted projects that will to
                         InlineKeyboardButton::callback(
                             "✅ Allowed",
                             ctx.bot()
-                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorFinish(
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorOther(
                                     PromptBuilder {
                                         nsfw: Some(true),
                                         ..builder.clone()
@@ -3233,7 +3256,7 @@ Is this chat a NEAR project? If so, I can add some trusted projects that will to
                         InlineKeyboardButton::callback(
                             "❌ Not allowed",
                             ctx.bot()
-                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorFinish(
+                                .to_callback_data(&TgCommand::AiModeratorPromptConstructorOther(
                                     PromptBuilder {
                                         nsfw: Some(false),
                                         ..builder.clone()
@@ -3252,6 +3275,41 @@ Is this chat a NEAR project? If so, I can add some trusted projects that will to
                     )],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::AiModeratorPromptConstructorOther(builder) => {
+                if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await
+                {
+                    return Ok(());
+                }
+                let message = markdown::escape(
+                    "Is there anything else that should be allowed or disallowed in this chat? Just write it, AI will (hopefully) understand. If not, we're done",
+                );
+                let buttons = vec![
+                    vec![InlineKeyboardButton::callback(
+                        "➡️ Skip",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorFinish(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        ctx.bot()
+                            .to_callback_data(&TgCommand::AiModeratorPromptConstructorNsfw(
+                                builder.clone(),
+                            ))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.bot()
+                    .set_dm_message_command(
+                        ctx.user_id(),
+                        MessageCommand::AiModeratorPromptConstructorAddOther(builder),
+                    )
+                    .await?;
                 ctx.edit_or_send(message, reply_markup).await?;
             }
             TgCommand::AiModeratorPromptConstructorFinish(builder) => {
