@@ -3334,7 +3334,7 @@ Is this chat a NEAR project? If so, I can add some trusted projects that will to
                     }
                 }
                 let message = markdown::escape(
-                    "Great! I've created the prompt for you. You can edit it at any time using 'Edit Prompt' and 'Set Prompt' buttons above",
+                    "Great! I've created the prompt for you. You can edit it at any time using 'Edit Prompt' and 'Set Prompt' buttons below",
                 );
                 let buttons = Vec::<Vec<_>>::new();
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -3345,7 +3345,7 @@ Is this chat a NEAR project? If so, I can add some trusted projects that will to
                         ctx.bot(),
                         ctx.user_id(),
                         ctx.chat_id(),
-                        ctx.message_id().await,
+                        None,
                         &ctx.bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
                             .await,
