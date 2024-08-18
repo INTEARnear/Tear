@@ -158,6 +158,8 @@ Reputable projects that are allowed to be mentioned: $NEAR, $INTEL / Intear / t.
             Self::NearProject => "Attempts to scam other people are not allowed, mark it as 'Harmful'. Some types of popular cryptocurrency scams include:
 - Promotion of airdrops with a link, excessive emojis, if the project is not even remotely related to NEAR or the chat you're moderating. Allow airdrops of reputable projects or if the project has the same name as the telegram chat.
 - Screenshot of a wallet with seed phrase (12 words), private key (ed25519:...), or the same in text.
+- Pumps-and-dump, money-doubling schemes, \"contact @someone to get 10% daily\", and other financial scams, especially when they include a link.
+- Screenshots of a website with an interesting functionality (for example, seeing how much you paper-handed) that contains a URL that is not in the lsit of allowed links. If a screenshot doesn't contain a URL, mark it as 'NeedsMoreContext'.
 ",
             Self::JustChat => "Attempts to scam other people are not allowed, mark it as 'Harmful'.",
         }
