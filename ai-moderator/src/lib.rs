@@ -1537,15 +1537,25 @@ impl XeonBotModule for AiModeratorModule {
                     .send_text_message(chat_id, message_to_send, reply_markup)
                     .await?;
 
-                let a =
-                    self.get_message_rating(bot, message, &chat_config, chat_id, Model::Gpt4oMini);
-                let b = self.get_message_rating(bot, message, &chat_config, chat_id, Model::Gpt4o);
+                let a = self.get_message_rating(
+                    bot,
+                    message,
+                    &chat_config,
+                    target_chat_id,
+                    Model::Gpt4oMini,
+                );
+                let b = self.get_message_rating(
+                    bot,
+                    message,
+                    &chat_config,
+                    target_chat_id,
+                    Model::Gpt4o,
+                );
                 let bot_id = bot.id();
                 let xeon = Arc::clone(&self.xeon);
                 tokio::spawn(async move {
                     let bot = xeon.bot(&bot_id).unwrap();
-                    let rating_mini = a.await;
-                    let rating_mid = b.await;
+                    let (rating_mini, rating_mid) = tokio::join!(a, b);
                     let message = format!(
                         "*Judgement:* {:?}\n*Reasoning:* _{}_{}",
                         rating_mini.0,
