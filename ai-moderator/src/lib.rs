@@ -2932,7 +2932,7 @@ Is this chat a NEAR project? If so, I can add some trusted projects that will to
                     return Ok(());
                 }
                 let message = markdown::escape(
-                    "Please enter the domains that are allowed in this chat, each on a new line or separated by a space (we'll detect automatially). I will ignore messages that contain links to these domains. They don't necessarily have to be valid https:// links, AI will understand anything, but I recommend top-level domains (not sub.doma.in's) without https or www, each on a new line.",
+                    "Please enter the domains that are allowed in this chat, each on a new line or separated by a space (we'll detect automatially). I will ignore messages that contain links to these domains. They don't necessarily have to be valid https:// links, AI will understand anything, but I recommend top-level domains (not sub.doma.in) without https or www, each on a new line.\n\nExamples: `x.com`, `youtube.com`.\n\nIf you skip this step, these websites will not be allowed, but you can always change it later by using '✨ Edit Prompt' button in the AI Moderator menu.",
                 );
                 let buttons = vec![
                     vec![InlineKeyboardButton::callback(
