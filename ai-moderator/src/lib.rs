@@ -425,10 +425,6 @@ impl AiModeratorModule {
                         .actions
                         .get(&ModerationJudgement::Good)
                         .unwrap_or(&ModerationAction::Ok),
-                    ModerationJudgement::MoreContextNeeded => chat_config
-                        .actions
-                        .get(&ModerationJudgement::MoreContextNeeded)
-                        .unwrap_or(&ModerationAction::Ok),
                     ModerationJudgement::Inform => chat_config
                         .actions
                         .get(&ModerationJudgement::Inform)
@@ -2305,50 +2301,6 @@ impl XeonBotModule for AiModeratorModule {
                     vec![
                         InlineKeyboardButton::callback(
                             format!(
-                                "👍 Maybe: {}",
-                                chat_config
-                                    .actions
-                                    .get(&ModerationJudgement::MoreContextNeeded)
-                                    .unwrap_or(&ModerationAction::Ok)
-                                    .name()
-                            ),
-                            ctx.bot()
-                                .to_callback_data(&TgCommand::AiModeratorSetAction(
-                                    target_chat_id,
-                                    ModerationJudgement::MoreContextNeeded,
-                                    chat_config
-                                        .actions
-                                        .get(&ModerationJudgement::MoreContextNeeded)
-                                        .unwrap_or(&ModerationAction::Ok)
-                                        .next(),
-                                ))
-                                .await,
-                        ),
-                        InlineKeyboardButton::callback(
-                            format!(
-                                "👌 Good: {}",
-                                chat_config
-                                    .actions
-                                    .get(&ModerationJudgement::Good)
-                                    .unwrap_or(&ModerationAction::Ok)
-                                    .name()
-                            ),
-                            ctx.bot()
-                                .to_callback_data(&TgCommand::AiModeratorSetAction(
-                                    target_chat_id,
-                                    ModerationJudgement::Good,
-                                    chat_config
-                                        .actions
-                                        .get(&ModerationJudgement::Good)
-                                        .unwrap_or(&ModerationAction::Ok)
-                                        .next(),
-                                ))
-                                .await,
-                        ),
-                    ],
-                    vec![
-                        InlineKeyboardButton::callback(
-                            format!(
                                 "ℹ️ Inform: {}",
                                 chat_config
                                     .actions
@@ -2689,15 +2641,6 @@ impl XeonBotModule for AiModeratorModule {
             }
             TgCommand::AiModeratorSetAction(target_chat_id, judgement, action) => {
                 if judgement == ModerationJudgement::Good {
-                    let message = "You can't change the action for the 'Good' judgement\\. This is for legit messages that the AI didn't flag as harmful";
-                    let buttons = vec![vec![InlineKeyboardButton::callback(
-                        "⬅️ Back",
-                        ctx.bot()
-                            .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await,
-                    )]];
-                    let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    ctx.edit_or_send(message, reply_markup).await?;
                     return Ok(());
                 }
                 if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
@@ -3437,7 +3380,6 @@ impl Default for AiModeratorChatConfig {
             debug_mode: true,
             actions: [
                 (ModerationJudgement::Good, ModerationAction::Ok),
-                (ModerationJudgement::MoreContextNeeded, ModerationAction::Ok),
                 (ModerationJudgement::Inform, ModerationAction::Delete),
                 (ModerationJudgement::Suspicious, ModerationAction::TempMute),
                 (ModerationJudgement::Harmful, ModerationAction::Ban),

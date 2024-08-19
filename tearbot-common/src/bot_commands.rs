@@ -906,9 +906,8 @@ impl NearSocialEvent {
 #[cfg(feature = "ai-moderator-module")]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ModerationJudgement {
+    #[serde(alias = "Acceptable", alias = "MoreContextNeeded")]
     Good,
-    #[serde(alias = "Acceptable")]
-    MoreContextNeeded,
     Inform,
     Suspicious,
     #[serde(alias = "Spam")]
