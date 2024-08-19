@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use teloxide::{
     prelude::{ChatId, Requester, UserId},
     types::{ChatMemberKind, ReplyMarkup},
+    utils::markdown,
 };
 
 use crate::tgbot::{BotData, TgBot};
@@ -96,4 +97,19 @@ pub enum ChatPermissionLevel {
     CanChangeInfo,
     CanRestrictMembers,
     Admin,
+}
+
+pub fn expandable_blockquote(text: &str) -> String {
+    if text.trim().is_empty() {
+        "".to_string()
+    } else {
+        format!(
+            "**{quote}||",
+            quote = text
+                .lines()
+                .map(|line| format!("> {line}", line = markdown::escape(line)))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
 }

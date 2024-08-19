@@ -16,7 +16,7 @@ use inindexer::near_utils::dec_format;
 use mongodb::Database;
 use near_primitives::types::{AccountId, Balance};
 use serde::Deserialize;
-use teloxide::prelude::{ChatId, Message, Requester, UserId};
+use teloxide::prelude::{ChatId, Message, UserId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 pub struct Xeon {
@@ -157,7 +157,7 @@ impl XeonState {
     }
 
     pub async fn add_bot(&self, bot: BotData) -> Result<(), anyhow::Error> {
-        let user_id = bot.bot().get_me().await?.id;
+        let user_id = bot.id();
         self.bots.insert(user_id, bot);
         Ok(())
     }

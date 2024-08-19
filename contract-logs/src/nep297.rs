@@ -11,7 +11,7 @@ use tearbot_common::{
     mongodb::Database,
     near_primitives::types::AccountId,
     teloxide::{
-        prelude::{ChatId, Message, Requester, UserId},
+        prelude::{ChatId, Message, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
     },
@@ -54,7 +54,7 @@ impl ContractLogsNep297Module {
     pub async fn new(xeon: Arc<XeonState>) -> Result<Self, anyhow::Error> {
         let bot_configs = Arc::new(DashMap::new());
         for bot in xeon.bots() {
-            let bot_id = bot.bot().get_me().await?.id;
+            let bot_id = bot.id();
             let config = ContractLogsNep297Config::new(xeon.db(), bot_id).await?;
             bot_configs.insert(bot_id, config);
             log::info!("Contract logs nep297 config loaded for bot {bot_id}");
@@ -365,9 +365,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         )
                     )
                 };
-                let subscriber = if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
+                let subscriber = if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
                 {
                     (bot_config.subscribers.get(&target_chat_id).await).unwrap_or_default()
                 } else {
@@ -482,9 +480,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                     .bot()
                     .remove_dm_message_command(&context.user_id())
                     .await?;
-                let subscriber = if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
+                let subscriber = if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
                 {
                     (bot_config.subscribers.get(&target_chat_id).await).unwrap_or_default()
                 } else {
@@ -668,10 +664,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                {
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {
@@ -708,10 +701,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                {
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {
@@ -767,10 +757,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                else {
+                let Some(bot_config) = self.bot_configs.get(&context.bot().id()) else {
                     return Ok(());
                 };
                 let mut subscriber =
@@ -996,10 +983,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                {
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {
@@ -1045,10 +1029,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                {
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {
@@ -1094,10 +1075,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                {
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {
@@ -1143,10 +1121,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                {
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {
@@ -1192,10 +1167,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                {
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {
@@ -1308,10 +1280,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self
-                    .bot_configs
-                    .get(&context.bot().bot().get_me().await?.id)
-                {
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {

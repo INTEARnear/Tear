@@ -18,7 +18,7 @@ use near_cli_rs::commands::transaction::CliTransactionActions;
 use near_cli_rs::commands::CliTopLevelCommand;
 use near_cli_rs::js_command_match::JsCmd;
 use near_cli_rs::LOG_COLLECTOR;
-use tearbot_common::teloxide::prelude::{ChatId, Message, Requester, UserId};
+use tearbot_common::teloxide::prelude::{ChatId, Message, UserId};
 use tearbot_common::teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::tgbot::{Attachment, BotData, BotType};
@@ -272,7 +272,7 @@ impl XeonBotModule for NearTgiModule {
                 let chat_id = context.chat_id();
                 let user_id = context.user_id();
                 let message_id = context.message_id().await;
-                let bot_id = context.bot().bot().get_me().await?.user.id;
+                let bot_id = context.bot().id();
                 let xeon = Arc::clone(context.bot().xeon());
                 tokio::task::spawn_blocking(move || {
                     let result = std::panic::catch_unwind(|| {

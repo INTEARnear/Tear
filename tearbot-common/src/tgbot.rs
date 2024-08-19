@@ -40,6 +40,9 @@ use crate::xeon::XeonState;
 
 pub type TgBot = CacheMe<Throttle<Bot>>;
 
+/// Use this as callback data if you're 100% sure that the callback data will never be used
+pub const DONT_CARE: &str = "dontcare";
+
 pub struct BotData {
     bot: TgBot,
     bot_type: BotType,
@@ -194,7 +197,7 @@ impl BotData {
             Dispatcher::builder(bot, handler).build().dispatch().await;
         });
 
-        let me = self.bot.get_me().await?.id;
+        let me = self.id();
         let xeon = Arc::clone(&self.xeon);
         tokio::spawn(async move {
             while let Some(msg) = msg_receiver.recv().await {

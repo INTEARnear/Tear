@@ -402,8 +402,6 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorAddException(ChatId, String, Option<String>, String),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorCancelAddException,
-    #[cfg(feature = "ai-moderator-module")]
     AiModeratorSeeReason(String),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorUnban(ChatId, UserId),
@@ -442,7 +440,7 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorPromptConstructorFinish(PromptBuilder),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorEditMessage(ChatId),
+    AiModeratorSetMessage(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorTest(ChatId),
     #[cfg(feature = "ai-moderator-module")]
