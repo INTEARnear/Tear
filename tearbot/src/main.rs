@@ -31,6 +31,7 @@ use nft_buybot::NftBuybotModule;
 use potlock::PotlockModule;
 #[cfg(feature = "price-alerts-module")]
 use price_alerts::PriceAlertsModule;
+use reqwest::Url;
 #[cfg(feature = "socialdb-module")]
 use socialdb::SocialDBModule;
 use tearbot_common::indexer_events::start_stream;
@@ -64,6 +65,16 @@ fn main() -> Result<(), anyhow::Error> {
             let db = get_db().await?;
             let xeon = Xeon::new(db.clone()).await?;
 
+            let is_test_proxy_port_closed = reqwest::get("http://localhost:5555")
+                .await
+                .err()
+                .map_or(false, |err| err.is_connect());
+            let base: Url = if is_test_proxy_port_closed {
+                "https://api.telegram.org".parse().unwrap()
+            } else {
+                "http://localhost:5555".parse().unwrap()
+            };
+
             if let Ok(main_bot_token) = std::env::var("MAIN_TOKEN") {
                 let main_bot = BotData::new(
                     CacheMe::new(
@@ -74,6 +85,7 @@ fn main() -> Result<(), anyhow::Error> {
                                 .build()
                                 .unwrap(),
                         )
+                        .set_api_url(base.clone())
                         .throttle(Limits {
                             messages_per_sec_overall: 1000, // just to increase queue size
                             ..Limits::default()
@@ -227,7 +239,11 @@ fn main() -> Result<(), anyhow::Error> {
             #[cfg(feature = "honey-module")]
             if let Ok(honey_token) = std::env::var("HONEY_TOKEN") {
                 let honey_bot = BotData::new(
-                    CacheMe::new(Bot::new(honey_token).throttle(Limits::default())),
+                    CacheMe::new(
+                        Bot::new(honey_token)
+                            .set_api_url(base.clone())
+                            .throttle(Limits::default()),
+                    ),
                     BotType::Honey,
                     xeon.arc_clone_state(),
                 )

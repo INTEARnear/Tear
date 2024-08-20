@@ -38,6 +38,8 @@ pub struct AiModeratorModule {
     bot_configs: Arc<DashMap<UserId, AiModeratorBotConfig>>,
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
+    // AI_MODERATOR_ACCOUNT_ID
+    // AI_MODERATOR_PRIVATE_KEY
 }
 
 #[async_trait]

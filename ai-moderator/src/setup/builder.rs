@@ -196,13 +196,6 @@ Reputable projects that are allowed to be mentioned: $NEAR, $INTEL / Intear / t.
             }
         }
     }
-
-    pub fn get_button_text(&self) -> &'static str {
-        match self {
-            Self::NearProject => "NEAR Project",
-            Self::JustChat => "Just Chat",
-        }
-    }
 }
 
 fn create_prompt(builder: PromptBuilder) -> String {
@@ -328,6 +321,14 @@ pub async fn handle_links_button(
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
         return Ok(());
     }
+    let preset = match builder.is_near {
+        Some(true) => AiModeratorPreset::NearProject,
+        _ => AiModeratorPreset::JustChat,
+    };
+    if !preset.has_allow_links() {
+        handle_price_talk_button(ctx, builder).await?;
+        return Ok(());
+    }
     let message = markdown::escape(
         "Are links to third-party websites allowed in this chat? If not, I can add trusted domains that need to be ignored",
     );
@@ -442,7 +443,11 @@ pub async fn handle_price_talk_button(
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    if !builder.is_near.unwrap_or_default() {
+    let preset = match builder.is_near {
+        Some(true) => AiModeratorPreset::NearProject,
+        _ => AiModeratorPreset::JustChat,
+    };
+    if !preset.has_allow_price_talk() {
         handle_scam_button(ctx, builder).await?;
         return Ok(());
     }
@@ -495,6 +500,14 @@ pub async fn handle_scam_button(
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
         return Ok(());
     }
+    let preset = match builder.is_near {
+        Some(true) => AiModeratorPreset::NearProject,
+        _ => AiModeratorPreset::JustChat,
+    };
+    if !preset.has_allow_scam() {
+        handle_ask_dm_button(ctx, builder).await?;
+        return Ok(());
+    }
     let message = markdown::escape(
         "What about attempts to scam members? This may produce a few false positives, but will mostly work.",
     );
@@ -544,7 +557,11 @@ pub async fn handle_ask_dm_button(
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    if !builder.is_near.unwrap_or_default() {
+    let preset = match builder.is_near {
+        Some(true) => AiModeratorPreset::NearProject,
+        _ => AiModeratorPreset::JustChat,
+    };
+    if !preset.has_allow_ask_dm() {
         handle_profanity_button(ctx, builder).await?;
         return Ok(());
     }
@@ -595,6 +612,14 @@ pub async fn handle_profanity_button(
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
+        return Ok(());
+    }
+    let preset = match builder.is_near {
+        Some(true) => AiModeratorPreset::NearProject,
+        _ => AiModeratorPreset::JustChat,
+    };
+    if !preset.has_allow_profanity() {
+        handle_nsfw_button(ctx, builder).await?;
         return Ok(());
     }
     let message = markdown::escape("What level of profanity is allowed in this chat?");
@@ -651,6 +676,14 @@ pub async fn handle_nsfw_button(
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
+        return Ok(());
+    }
+    let preset = match builder.is_near {
+        Some(true) => AiModeratorPreset::NearProject,
+        _ => AiModeratorPreset::JustChat,
+    };
+    if !preset.has_allow_nsfw() {
+        handle_other_button(ctx, builder).await?;
         return Ok(());
     }
     let message = markdown::escape(
