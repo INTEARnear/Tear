@@ -6,6 +6,7 @@ exclude = [
     "near-tgi/interactive-clap",
     "near-tgi/interactive-clap-derive",
     "ai-moderator/async-openai-patched",
+    "teloxide"
 ]
 
 [workspace.package]
@@ -28,7 +29,7 @@ rand = "0.8.5"
 reqwest = "0.11"
 serde = "1.0.197"
 serde_json = "1.0.115"
-teloxide = { git = "https://github.com/syrtcevvi/teloxide", rev = "fe8d9f80e43539ab38e8e92cebc1bc105b65a226" }
+teloxide = { path = "./teloxide/crates/teloxide" }
 tokio = "1.37.0"
 tokio-stream = "0.1.15"
 near-primitives = "0.23.0"

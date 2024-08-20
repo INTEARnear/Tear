@@ -1,5 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 
+mod billing;
 mod edit;
 mod moderation_actions;
 mod moderator;
@@ -9,7 +10,7 @@ mod utils;
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use async_openai::{config::OpenAIConfig, Client};
@@ -34,12 +35,14 @@ use tearbot_common::{
 };
 use utils::Model;
 
+const FREE_TRIAL_MESSAGES: u32 = 1000;
+
 pub struct AiModeratorModule {
     bot_configs: Arc<DashMap<UserId, AiModeratorBotConfig>>,
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
-    // AI_MODERATOR_ACCOUNT_ID
-    // AI_MODERATOR_PRIVATE_KEY
+    last_balance_warning_message: HashMap<ChatId, Instant>, // AI_MODERATOR_ACCOUNT_ID
+                                                            // AI_MODERATOR_PRIVATE_KEY
 }
 
 #[async_trait]
@@ -191,6 +194,9 @@ impl XeonBotModule for AiModeratorModule {
                     &self.bot_configs,
                 )
                 .await?;
+            }
+            MessageCommand::AiModeratorBuyMessages(target_chat_id) => {
+                billing::add_balance::handle_input(bot, user_id, chat_id, target_chat_id, text).await?;
             }
             _ => {}
         }
@@ -369,6 +375,31 @@ impl XeonBotModule for AiModeratorModule {
             TgCommand::AiModeratorTest(target_chat_id) => {
                 moderator::handle_test_message_button(&ctx, target_chat_id).await?;
             }
+            TgCommand::AiModeratorAddBalance(target_chat_id) => {
+                billing::add_balance::handle_button(&ctx, target_chat_id).await?;
+            }
+            TgCommand::AiModeratorBuyMessages(target_chat_id, messages) => {
+                billing::add_balance::handle_buy_messages(
+                    ctx.bot(),
+                    ctx.chat_id(),
+                    target_chat_id,
+                    messages,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorBuyingMessages(
+                target_chat_id,
+                number,
+            ) => {
+                billing::add_balance::handle_buying_messages(
+                    ctx.bot(),
+                    ctx.chat_id(),
+                    target_chat_id,
+                    number,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -380,6 +411,7 @@ struct AiModeratorBotConfig {
     message_autodeletion_scheduled: PersistentCachedStore<MessageToDelete, DateTime<Utc>>,
     message_autodeletion_queue: VecDeque<MessageToDelete>,
     messages_sent: PersistentCachedStore<ChatUser, usize>,
+    pub messages_balance: PersistentCachedStore<ChatId, u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -453,11 +485,17 @@ impl AiModeratorBotConfig {
             &format!("bot{bot_id}_ai_moderator_messages_sent"),
         )
         .await?;
+        let messages_balance = PersistentCachedStore::new(
+            db.clone(),
+            &format!("bot{bot_id}_ai_moderator_messages_balance"),
+        )
+        .await?;
         Ok(Self {
             chat_configs,
             message_autodeletion_scheduled,
             message_autodeletion_queue,
             messages_sent,
+            messages_balance,
         })
     }
 
@@ -518,6 +556,25 @@ impl AiModeratorBotConfig {
         }
         messages_sent
     }
+
+    async fn decrement_message_balance(&mut self, chat_id: ChatId) -> bool {
+        let balance = self
+            .messages_balance
+            .get(&chat_id)
+            .await
+            .unwrap_or(FREE_TRIAL_MESSAGES);
+        if balance == 0 {
+            return false;
+        }
+        if let Err(err) = self
+            .messages_balance
+            .insert_or_update(chat_id, balance - 1)
+            .await
+        {
+            log::error!("Failed to decrement message balance: {err}");
+        }
+        true
+    }
 }
 
 impl AiModeratorModule {
@@ -538,6 +595,7 @@ impl AiModeratorModule {
             bot_configs,
             openai_client,
             xeon,
+            last_balance_warning_message: HashMap::new(),
         })
     }
 
@@ -555,6 +613,32 @@ impl AiModeratorModule {
                     .await
                     < chat_config.first_messages
                 {
+                    if !chat_config.debug_mode
+                        && bot
+                            .bot()
+                            .get_chat_member(chat_id, user_id)
+                            .await?
+                            .is_privileged()
+                    {
+                        return Ok(());
+                    }
+
+                    if !bot_config.decrement_message_balance(chat_id).await {
+                        const WARNING_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
+                        if self
+                            .last_balance_warning_message
+                            .get(&chat_id)
+                            .map_or(true, |last| last.elapsed() > WARNING_INTERVAL)
+                        {
+                            let message = "You have run out of messages balance\\. Please make sure your balance is greater than 0".to_string();
+                            let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                            let reply_markup = InlineKeyboardMarkup::new(buttons);
+                            bot.send_text_message(chat_id, message, reply_markup)
+                                .await?;
+                        }
+                        return Ok(());
+                    }
                     chat_config
                 } else {
                     return Ok(()); // Skip moderation for more than first_messages messages
@@ -566,14 +650,6 @@ impl AiModeratorModule {
             return Ok(());
         };
         if !chat_config.enabled {
-            return Ok(());
-        }
-        if bot
-            .bot()
-            .get_chat_member(chat_id, user_id)
-            .await?
-            .is_privileged()
-        {
             return Ok(());
         }
 

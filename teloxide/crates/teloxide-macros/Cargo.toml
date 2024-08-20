@@ -1,0 +1,29 @@
+[package]
+name = "teloxide-macros"
+version = "0.8.0"
+description = "The teloxide's procedural macros"
+
+rust-version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+documentation = "https://docs.rs/teloxide-core/"
+# FIXME: add a simple readme for teloxide-macros
+#readme = "README.md"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.7"
+proc-macro2 = "1.0.67"
+syn = { version = "1.0.13", features = ["full", "extra-traits"] }
+heck = "0.4.0"
+
+[package.metadata.release]
+tag-prefix = "macros-"
+pre-release-replacements = [
+    { file = "CHANGELOG.md", search = "## unreleased", replace = "## unreleased\n\n## {{version}} - {{date}}", exactly = 1 },
+]

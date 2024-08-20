@@ -22,7 +22,7 @@ use tearbot_common::{
 use crate::{
     setup,
     utils::{get_message_rating, Model},
-    AiModeratorBotConfig, AiModeratorChatConfig,
+    AiModeratorBotConfig, AiModeratorChatConfig, FREE_TRIAL_MESSAGES,
 };
 
 pub async fn open_main(
@@ -48,9 +48,14 @@ pub async fn open_main(
         )
     };
 
-    let chat_config = if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
+    let (messages, chat_config) = if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
         if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-            chat_config
+            let messages = bot_config
+                .messages_balance
+                .get(&target_chat_id)
+                .await
+                .unwrap_or(FREE_TRIAL_MESSAGES);
+            (messages, chat_config)
         } else {
             bot_config
                 .chat_configs
@@ -114,8 +119,9 @@ pub async fn open_main(
             | Attachment::DocumentFileId(_) => "\n\\+ file",
         };
     let deletion_message = expandable_blockquote(&deletion_message);
+    let balance = format!("{messages} messages");
     let message =
-                    format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}\n\nMessage that appears when a message is deleted:\n{deletion_message}\n\nℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}");
+        format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}\n\nMessage that appears when a message is deleted:\n{deletion_message}\n\nℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}\n\nYour balance: *{balance}*");
     let mut buttons = vec![
         vec![InlineKeyboardButton::callback(
             "⌨ Enter New Prompt",
@@ -281,6 +287,13 @@ pub async fn open_main(
                     .to_callback_data(&TgCommand::AiModeratorTest(target_chat_id))
                     .await,
             ),
+            InlineKeyboardButton::callback(
+                "💳 Add Balance",
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorAddBalance(target_chat_id))
+                    .await,
+            ),
+        ], vec![
             InlineKeyboardButton::callback(
                 if chat_config.enabled {
                     "✅ Enabled"

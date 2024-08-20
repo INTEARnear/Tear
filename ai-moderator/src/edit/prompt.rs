@@ -40,14 +40,27 @@ pub async fn handle_set_prompt_input(
     if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
         return Ok(());
     }
+    if !utils::is_in_moderator_chat_or_dm(chat_id, target_chat_id, bot, bot_configs).await {
+        return Ok(());
+    }
     let prompt = text.to_string();
-    handle_set_prompt_confirm_button(
-        &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
-        target_chat_id,
-        prompt,
-        bot_configs,
-    )
-    .await?;
+    if chat_id.is_user() {
+        handle_set_prompt_confirm_and_return_button(
+            &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+            target_chat_id,
+            prompt,
+            bot_configs,
+        )
+        .await?;
+    } else {
+        handle_set_prompt_confirm_button(
+            &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+            target_chat_id,
+            prompt,
+            bot_configs,
+        )
+        .await?;
+    }
     Ok(())
 }
 

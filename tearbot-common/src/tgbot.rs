@@ -9,7 +9,6 @@ use near_primitives::hash::CryptoHash;
 use near_primitives::types::AccountId;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use teloxide::payloads::SendAnimationSetters;
 use teloxide::payloads::SendAudioSetters;
 use teloxide::payloads::SendMessageSetters;
 use teloxide::payloads::SendPhotoSetters;
@@ -28,6 +27,7 @@ use teloxide::utils::markdown;
 use teloxide::{adaptors::throttle::Throttle, prelude::ChatId};
 use teloxide::{adaptors::CacheMe, payloads::SendVideoSetters};
 use teloxide::{dispatching::UpdateFilterExt, types::ReplyParameters};
+use teloxide::{payloads::SendAnimationSetters, prelude::PreCheckoutQuery};
 use teloxide::{ApiError, Bot, RequestError};
 use tokio::sync::RwLock;
 
@@ -176,6 +176,7 @@ impl BotData {
         let (msg_sender, mut msg_receiver) = tokio::sync::mpsc::channel(1000);
         let (callback_query_sender, mut callback_query_receiver) = tokio::sync::mpsc::channel(1000);
 
+        let bot_clone = self.bot.clone();
         tokio::spawn(async move {
             let handler = dptree::entry()
                 .branch(Update::filter_message().endpoint(move |msg: Message| {
@@ -191,6 +192,17 @@ impl BotData {
                         async move {
                             callback_query_sender.send(callback_query).await.unwrap();
                             Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+                        }
+                    },
+                ))
+                .branch(Update::filter_pre_checkout_query().endpoint(
+                    move |pre_checkout_query: PreCheckoutQuery| {
+                        let bot = bot_clone.clone();
+                        async move {
+                            log::info!("Pre checkout query: {pre_checkout_query:?}");
+                            bot.answer_pre_checkout_query(pre_checkout_query.id, true)
+                                .await?;
+                            Ok(())
                         }
                     },
                 ));
@@ -234,7 +246,19 @@ impl BotData {
                             })
                         {
                             let from_id = UserId(*from_id);
-                            if let Some(command) = bot.get_dm_message_command(&from_id).await {
+                            if let Some(payment) = msg.successful_payment() {
+                                log::info!("Received payment: {payment:?} for module {}", module.name());
+                                let payload = &payment.invoice_payload;
+                                let ctx = TgCallbackContext::new(
+                                    &bot,
+                                    from_id,
+                                    msg.chat.id,
+                                    None,
+                                    payload,
+                                );
+                                module.handle_callback(ctx, &mut None).await
+                            } else if let Some(command) = bot.get_dm_message_command(&from_id).await
+                            {
                                 log::debug!("DM command: {command:?}, module: {}", module.name());
                                 module
                                     .handle_message(
