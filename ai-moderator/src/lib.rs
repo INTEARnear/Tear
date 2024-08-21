@@ -20,13 +20,17 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
     bot_commands::PaymentReference,
+    teloxide::{
+        payloads::BanChatMemberSetters,
+        types::{ChatKind, PublicChatKind},
+    },
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
 };
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
     mongodb::Database,
     teloxide::{
-        payloads::{KickChatMemberSetters, RestrictChatMemberSetters},
+        payloads::RestrictChatMemberSetters,
         prelude::{ChatId, Message, Requester, UserId},
         types::{ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, MessageId},
         utils::markdown,
@@ -709,8 +713,29 @@ impl AiModeratorModule {
                 };
 
                 let moderator_chat = chat_config.moderator_chat.unwrap_or(chat_id);
-                let Some(from) = message.from.as_ref() else {
+                let Some(user) = message.from.as_ref() else {
                     return Ok(());
+                };
+                let (sender_id, full_name) = if let Some(ref chat) = message.sender_chat {
+                    match &chat.kind {
+                        // Probably unreachable
+                        ChatKind::Private(private) => {
+                            let full_name = match (&private.first_name, &private.last_name) {
+                                (Some(first_name), Some(last_name)) => {
+                                    format!("{first_name} {last_name}")
+                                }
+                                (Some(one_part), None) | (None, Some(one_part)) => one_part.clone(),
+                                (None, None) => user.full_name(),
+                            };
+                            (chat.id, full_name)
+                        }
+                        ChatKind::Public(public) => {
+                            let full_name = public.title.clone().or_else(|| public.invite_link.clone()).unwrap_or_else(|| user.full_name());
+                            (chat.id, full_name)
+                        }
+                    }
+                } else {
+                    (ChatId(user_id.0 as i64), user.full_name())
                 };
                 let (attachment, note) = if let Some(photo) = message.photo() {
                     (
@@ -756,15 +781,62 @@ impl AiModeratorModule {
                 if chat_config.moderator_chat.is_none() {
                     note += "\n\nℹ️ Please set \"Moderator Chat\" in the bot settings \\(in DM @Intear_Xeon_bot\\) and messages like this will be sent there instead";
                 }
-
+                let action = if sender_id.is_user() {
+                    *action
+                } else {
+                    match action {
+                        ModerationAction::Mute => {
+                            note += "\n\nℹ️ This message was sent by a group or a channel \\(anonymously\\), so the user was banned instead of being muted\\. Telegram doesn't allow partially restricting anonymous senders, either nothing or fully ban";
+                            ModerationAction::Ban
+                        },
+                        ModerationAction::TempMute => {
+                            note += "\n\nℹ️ This message was sent by a group or a channel \\(anonymously\\), so it was deleted instead of being temporarily muted\\. Telegram doesn't allow partially restricting anonymous senders, either nothing or fully ban";
+                            ModerationAction::Delete
+                        }
+                        other => *other,
+                    }
+                };
+                let sender_link = match &message.sender_chat {
+                    Some(chat) => match &chat.kind {
+                        // Probably unreachable
+                        ChatKind::Private(private) => match private.username.clone() {
+                            Some(username) => format!("[{name}](tg://resolve?domain={username})",
+                                name = markdown::escape(&full_name)
+                            ),
+                            None => markdown::escape(&full_name)
+                        }
+                        ChatKind::Public(public) => match &public.kind {
+                            // Probably unreachable
+                            PublicChatKind::Group(_) => markdown::escape(&full_name),
+                            // Probably unreachable
+                            PublicChatKind::Supergroup(supergroup) => format!("[{name}](tg://resolve?domain={username})",
+                                name = markdown::escape(&full_name),
+                                username = supergroup.username.clone().unwrap_or_default(),
+                            ),
+                            PublicChatKind::Channel(channel) => format!("[{name}](tg://resolve?domain={username})",
+                                name = markdown::escape(&full_name),
+                                username = channel.username.clone().unwrap_or_default(),
+                            ),
+                        }
+                    },
+                    None => format!("[{name}](tg://user?id={sender_id})", name = markdown::escape(&full_name)),
+                };
                 match action {
                     ModerationAction::Ban => {
                         if !chat_config.debug_mode {
-                            if let Err(RequestError::Api(err)) = bot
-                                .bot()
-                                .kick_chat_member(chat_id, user_id)
-                                .revoke_messages(true)
-                                .await
+                            let result = if let Some(user_id) = sender_id.as_user() {
+                                bot
+                                    .bot()
+                                    .ban_chat_member(chat_id, user_id)
+                                    .revoke_messages(true)
+                                    .await
+                            } else {
+                                bot
+                                    .bot()
+                                    .ban_chat_sender_chat(chat_id, sender_id)
+                                    .await
+                            };
+                            if let Err(RequestError::Api(err)) = result
                             {
                                 let err = match err {
                                     ApiError::Unknown(err) => {
@@ -780,8 +852,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, was banned:\n\n{text}{note}",
-                            name = markdown::escape(&from.full_name()),
+                            "{sender_link} sent a message and it was flagged, was banned:\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -798,7 +869,7 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "👍 Unban User",
                                 bot.to_callback_data(&TgCommand::AiModeratorUnban(
-                                    chat_id, user_id,
+                                    chat_id, sender_id,
                                 ))
                                 .await,
                             )],
@@ -817,15 +888,19 @@ impl AiModeratorModule {
                     ModerationAction::Mute => {
                         if !chat_config.debug_mode {
                             let _ = bot.bot().delete_message(chat_id, message.id).await;
-                            if let Err(RequestError::Api(err)) = bot
-                                .bot()
-                                .restrict_chat_member(
-                                    chat_id,
-                                    user_id,
-                                    ChatPermissions::SEND_MESSAGES,
-                                )
-                                .until_date(chrono::Utc::now() + chrono::Duration::minutes(5))
-                                .await
+                            let result = if let Some(user_id) = sender_id.as_user() {
+                                bot
+                                    .bot()
+                                    .restrict_chat_member(
+                                        chat_id,
+                                        user_id,
+                                        ChatPermissions::empty(),
+                                    )
+                                    .await
+                            } else {
+                                unreachable!()
+                            };
+                            if let Err(RequestError::Api(err)) = result
                             {
                                 let err = match err {
                                     ApiError::Unknown(err) => {
@@ -841,8 +916,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, was muted:\n\n{text}{note}",
-                            name = markdown::escape(&from.full_name()),
+                            "{sender_link} sent a message and it was flagged, was muted:\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -859,7 +933,7 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "👍 Unmute User",
                                 bot.to_callback_data(&TgCommand::AiModeratorUnmute(
-                                    chat_id, user_id,
+                                    chat_id, sender_id,
                                 ))
                                 .await,
                             )],
@@ -878,11 +952,16 @@ impl AiModeratorModule {
                     ModerationAction::TempMute => {
                         if !chat_config.debug_mode {
                             let _ = bot.bot().delete_message(chat_id, message.id).await;
-                            if let Err(RequestError::Api(err)) = bot
+                            let result = if let Some(user_id) = sender_id.as_user() {
+                                bot
                                 .bot()
                                 .restrict_chat_member(chat_id, user_id, ChatPermissions::empty())
                                 .until_date(chrono::Utc::now() + chrono::Duration::minutes(15))
                                 .await
+                            } else {
+                                unreachable!()
+                            };
+                            if let Err(RequestError::Api(err)) = result
                             {
                                 let err = match err {
                                     ApiError::Unknown(err) => {
@@ -898,8 +977,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, was muted for 15 minutes:\n\n{text}{note}",
-                            name = markdown::escape(&from.full_name()),
+                            "{sender_link} sent a message and it was flagged, was muted for 15 minutes:\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -916,7 +994,7 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "👍 Unmute User",
                                 bot.to_callback_data(&TgCommand::AiModeratorUnmute(
-                                    chat_id, user_id,
+                                    chat_id, sender_id,
                                 ))
                                 .await,
                             )],
@@ -951,8 +1029,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, was deleted:\n\n{text}{note}",
-                            name = markdown::escape(&from.full_name()),
+                            "{sender_link} sent a message and it was flagged, was deleted:\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -968,7 +1045,7 @@ impl AiModeratorModule {
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "🔨 Ban User",
-                                bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, user_id))
+                                bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, sender_id))
                                     .await,
                             )],
                             vec![InlineKeyboardButton::callback(
@@ -985,8 +1062,7 @@ impl AiModeratorModule {
                     }
                     ModerationAction::WarnMods => {
                         let message_to_send = format!(
-                            "[{name}](tg://user?id={user_id}) sent a message and it was flagged, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
-                            name = markdown::escape(&from.full_name()),
+                            "{sender_link} sent a message and it was flagged, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -1009,7 +1085,7 @@ impl AiModeratorModule {
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "🔨 Ban User",
-                                bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, user_id))
+                                bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, sender_id))
                                     .await,
                             )],
                             vec![InlineKeyboardButton::callback(
@@ -1027,8 +1103,7 @@ impl AiModeratorModule {
                     ModerationAction::Ok => {
                         if chat_config.debug_mode {
                             let message_to_send = format!(
-                                "[{name}](tg://user?id={user_id}) sent a message and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
-                                name = markdown::escape(&from.full_name()),
+                                "{sender_link} sent a message and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
                                 text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                             );
                             let mut buttons = vec![
@@ -1067,7 +1142,7 @@ impl AiModeratorModule {
                 if !chat_config.silent
                     && !matches!(action, ModerationAction::Ok | ModerationAction::WarnMods)
                 {
-                    let message = markdown::escape(&chat_config.deletion_message).replace("\\{user\\}", &format!("[{name}](tg://user?id={user_id})", name = markdown::escape(&from.full_name())));
+                    let message = markdown::escape(&chat_config.deletion_message).replace("\\{user\\}", &sender_link);
                     let attachment = chat_config.deletion_message_attachment;
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);

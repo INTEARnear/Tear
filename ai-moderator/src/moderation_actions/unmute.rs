@@ -1,7 +1,7 @@
 use tearbot_common::{
     bot_commands::TgCommand,
     teloxide::{
-        prelude::{ChatId, Requester, UserId},
+        prelude::{ChatId, Requester},
         types::{ChatKind, ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
         ApiError, RequestError,
@@ -13,12 +13,19 @@ use tearbot_common::{
 pub async fn handle_button(
     ctx: &TgCallbackContext<'_>,
     target_chat_id: ChatId,
-    target_user_id: UserId,
+    target_user_id: ChatId,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
     }
     let ChatKind::Private(admin) = ctx.bot().bot().get_chat(ctx.user_id()).await?.kind else {
+        return Ok(());
+    };
+    let Some(target_user_id) = target_user_id.as_user() else {
+        let message = "This message was sent by a group or a channel\\. They can't be muted or unmuted, so if you see this message, it's probably a bug, please report it in @intearchat";
+        let buttons = Vec::<Vec<_>>::new();
+        let reply_markup = InlineKeyboardMarkup::new(buttons);
+        ctx.send(message, reply_markup, Attachment::None).await?;
         return Ok(());
     };
     if let Err(RequestError::Api(err)) = ctx

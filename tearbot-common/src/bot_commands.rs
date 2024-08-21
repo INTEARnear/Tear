@@ -404,11 +404,11 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSeeReason(String),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorUnban(ChatId, UserId),
+    AiModeratorUnban(ChatId, ChatId),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorUnmute(ChatId, UserId),
+    AiModeratorUnmute(ChatId, ChatId),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorBan(ChatId, UserId),
+    AiModeratorBan(ChatId, ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorDelete(ChatId, teloxide::types::MessageId),
     #[cfg(feature = "ai-moderator-module")]

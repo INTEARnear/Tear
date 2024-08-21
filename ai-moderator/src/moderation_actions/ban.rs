@@ -1,8 +1,8 @@
 use tearbot_common::{
     bot_commands::TgCommand,
     teloxide::{
-        payloads::KickChatMemberSetters,
-        prelude::{ChatId, Requester, UserId},
+        payloads::BanChatMemberSetters,
+        prelude::{ChatId, Requester},
         types::{ChatKind, InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
         ApiError, RequestError,
@@ -14,7 +14,7 @@ use tearbot_common::{
 pub async fn handle_button(
     ctx: &TgCallbackContext<'_>,
     target_chat_id: ChatId,
-    target_user_id: UserId,
+    target_user_id: ChatId,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
@@ -22,13 +22,19 @@ pub async fn handle_button(
     let ChatKind::Private(admin) = ctx.bot().bot().get_chat(ctx.user_id()).await?.kind else {
         return Ok(());
     };
-    if let Err(RequestError::Api(err)) = ctx
-        .bot()
-        .bot()
-        .kick_chat_member(target_chat_id, target_user_id)
-        .revoke_messages(true)
-        .await
-    {
+    let result = if let Some(user_id) = target_user_id.as_user() {
+        ctx.bot()
+            .bot()
+            .ban_chat_member(target_chat_id, user_id)
+            .revoke_messages(true)
+            .await
+    } else {
+        ctx.bot()
+            .bot()
+            .ban_chat_sender_chat(target_chat_id, target_user_id)
+            .await
+    };
+    if let Err(RequestError::Api(err)) = result {
         let err = match err {
             ApiError::Unknown(err) => err.trim_start_matches("Bad Request: ").to_owned(),
             other => other.to_string(),
