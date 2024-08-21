@@ -31,7 +31,7 @@ use teloxide::{payloads::SendAnimationSetters, prelude::PreCheckoutQuery};
 use teloxide::{ApiError, Bot, RequestError};
 use tokio::sync::RwLock;
 
-use crate::bot_commands::{MessageCommand, TgCommand};
+use crate::bot_commands::{MessageCommand, PaymentReference, TgCommand};
 use crate::utils::chat::ChatPermissionLevel;
 use crate::utils::format_duration;
 use crate::utils::requests::fetch_file_cached_1d;
@@ -247,16 +247,18 @@ impl BotData {
                         {
                             let from_id = UserId(*from_id);
                             if let Some(payment) = msg.successful_payment() {
-                                log::info!("Received payment: {payment:?} for module {}", module.name());
-                                let payload = &payment.invoice_payload;
-                                let ctx = TgCallbackContext::new(
-                                    &bot,
-                                    from_id,
-                                    msg.chat.id,
-                                    None,
-                                    payload,
+                                log::info!(
+                                    "Received payment: {payment:?} for module {}",
+                                    module.name()
                                 );
-                                module.handle_callback(ctx, &mut None).await
+                                match bot.parse_payment_payload(&payment.invoice_payload).await {
+                                    Ok(payload) => {
+                                        module
+                                            .handle_payment(&bot, from_id, msg.chat.id, payload)
+                                            .await
+                                    }
+                                    Err(err) => Err(err),
+                                }
                             } else if let Some(command) = bot.get_dm_message_command(&from_id).await
                             {
                                 log::debug!("DM command: {command:?}, module: {}", module.name());
@@ -271,7 +273,10 @@ impl BotData {
                                     )
                                     .await
                             } else {
-                                log::debug!("DM message: {text}, module: {}", module.name());
+                                log::debug!(
+                                    "DM message (no command): {text}, module: {}",
+                                    module.name()
+                                );
                                 module
                                     .handle_message(
                                         &bot,
@@ -548,7 +553,7 @@ impl BotData {
         Ok(())
     }
 
-    pub async fn create_callback_data(&self, data: String) -> Result<String, anyhow::Error> {
+    pub async fn create_hash_reference(&self, data: String) -> Result<String, anyhow::Error> {
         let hash = CryptoHash::hash_bytes(data.as_bytes());
         let b58 = format!("{hash}");
         self.callback_data_cache
@@ -559,21 +564,39 @@ impl BotData {
 
     pub async fn to_callback_data(&self, data: &TgCommand) -> String {
         let data = serde_json::to_string(data).unwrap();
-        self.create_callback_data(data)
+        self.create_hash_reference(data)
             .await
             .expect("Error creating callback data")
     }
 
-    pub async fn get_callback_data(&self, b58: &str) -> Option<String> {
+    pub async fn to_payment_payload(&self, data: &PaymentReference) -> String {
+        let data = serde_json::to_string(data).unwrap();
+        self.create_hash_reference(data)
+            .await
+            .expect("Error creating callback data")
+    }
+
+    pub async fn get_hash_reference(&self, b58: &str) -> Option<String> {
         let hash: CryptoHash = b58.parse().ok()?;
         self.callback_data_cache.get(&hash.to_string()).await
     }
 
     pub async fn parse_callback_data(&self, b58: &str) -> Result<TgCommand, anyhow::Error> {
         let data = self
-            .get_callback_data(b58)
+            .get_hash_reference(b58)
             .await
             .ok_or_else(|| anyhow::anyhow!("Callback data cannot be restored"))?;
+        Ok(serde_json::from_str(&data)?)
+    }
+
+    pub async fn parse_payment_payload(
+        &self,
+        b58: &str,
+    ) -> Result<PaymentReference, anyhow::Error> {
+        let data = self
+            .get_hash_reference(b58)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Payment callback cannot be restored"))?;
         Ok(serde_json::from_str(&data)?)
     }
 

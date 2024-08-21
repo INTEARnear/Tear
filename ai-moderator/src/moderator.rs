@@ -293,21 +293,20 @@ pub async fn open_main(
                     .to_callback_data(&TgCommand::AiModeratorAddBalance(target_chat_id))
                     .await,
             ),
-        ], vec![
-            InlineKeyboardButton::callback(
-                if chat_config.enabled {
-                    "✅ Enabled"
-                } else {
-                    "❌ Disabled"
-                },
-                ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorSetEnabled(
-                        target_chat_id,
-                        !chat_config.enabled,
-                    ))
-                    .await,
-            ),
         ],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.enabled {
+                "✅ Enabled"
+            } else {
+                "❌ Disabled"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetEnabled(
+                    target_chat_id,
+                    !chat_config.enabled,
+                ))
+                .await,
+        )],
         vec![InlineKeyboardButton::callback(
             "⬅️ Back",
             ctx.bot()

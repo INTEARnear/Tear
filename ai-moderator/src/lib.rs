@@ -18,7 +18,10 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use tearbot_common::tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext};
+use tearbot_common::{
+    bot_commands::PaymentReference,
+    tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
+};
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
     mongodb::Database,
@@ -196,7 +199,8 @@ impl XeonBotModule for AiModeratorModule {
                 .await?;
             }
             MessageCommand::AiModeratorBuyMessages(target_chat_id) => {
-                billing::add_balance::handle_input(bot, user_id, chat_id, target_chat_id, text).await?;
+                billing::add_balance::handle_input(bot, user_id, chat_id, target_chat_id, text)
+                    .await?;
             }
             _ => {}
         }
@@ -387,19 +391,31 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
-            TgCommand::AiModeratorBuyingMessages(
-                target_chat_id,
-                number,
-            ) => {
+            _ => {}
+        }
+        Ok(())
+    }
+
+    async fn handle_payment(
+        &self,
+        bot: &BotData,
+        _user_id: UserId,
+        chat_id: ChatId,
+        payment: PaymentReference,
+    ) -> Result<(), anyhow::Error> {
+        #[allow(clippy::single_match)]
+        match payment {
+            PaymentReference::AiModeratorBuyingMessages(target_chat_id, number) => {
                 billing::add_balance::handle_buying_messages(
-                    ctx.bot(),
-                    ctx.chat_id(),
+                    bot,
+                    chat_id,
                     target_chat_id,
                     number,
                     &self.bot_configs,
                 )
                 .await?;
             }
+            #[allow(unreachable_patterns)]
             _ => {}
         }
         Ok(())

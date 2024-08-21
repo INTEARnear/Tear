@@ -449,8 +449,6 @@ pub enum TgCommand {
     AiModeratorAddBalance(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorBuyMessages(ChatId, u32),
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorBuyingMessages(ChatId, u32),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -570,6 +568,12 @@ pub enum MessageCommand {
     AiModeratorPromptConstructorAddOther(PromptBuilder),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorBuyMessages(ChatId),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PaymentReference {
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorBuyingMessages(ChatId, u32),
 }
 
 impl From<MessageCommand> for Bson {

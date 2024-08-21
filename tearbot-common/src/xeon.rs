@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    bot_commands::MessageCommand,
+    bot_commands::{MessageCommand, PaymentReference},
     indexer_events::IndexerEventHandler,
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
     utils::{requests::get_not_cached, tokens::WRAP_NEAR},
@@ -258,4 +258,15 @@ pub trait XeonBotModule: Send + Sync + 'static {
         ctx: TgCallbackContext<'a>,
         query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error>;
+
+    #[allow(unused_variables)]
+    async fn handle_payment(
+        &self,
+        bot: &BotData,
+        user_id: UserId,
+        chat_id: ChatId,
+        payment: PaymentReference,
+    ) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }

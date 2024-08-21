@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use tearbot_common::{
-    bot_commands::{MessageCommand, TgCommand},
+    bot_commands::{MessageCommand, PaymentReference, TgCommand},
     teloxide::{
         prelude::{ChatId, Requester, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice, ReplyMarkup},
@@ -98,7 +98,7 @@ pub async fn handle_buy_messages(
             chat_id,
             format!("{number} AI moderated messages"),
             format!("{number} credits that can be used for Tear's AI Moderator service"),
-            bot.to_callback_data(&TgCommand::AiModeratorBuyingMessages(
+            bot.to_payment_payload(&PaymentReference::AiModeratorBuyingMessages(
                 target_chat_id,
                 number,
             ))
@@ -127,10 +127,13 @@ pub async fn handle_buying_messages(
             return Ok(());
         };
         let new_messages = messages + number;
-        config.messages_balance.insert_or_update(target_chat_id, new_messages).await?;
+        config
+            .messages_balance
+            .insert_or_update(target_chat_id, new_messages)
+            .await?;
     } else {
         log::warn!("No config found for chat {chat_id} but payment of {number} messagse received");
-        return Ok(())
+        return Ok(());
     }
     let buttons = vec![vec![InlineKeyboardButton::callback(
         "⬅️ Back",
