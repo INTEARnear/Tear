@@ -307,6 +307,10 @@ pub async fn open_main(
                 ))
                 .await,
         )],
+        vec![InlineKeyboardButton::url(
+            "📖 Guide",
+            "https://telegra.ph/AI-Moderator-08-22".parse().unwrap(),
+        )],
         vec![InlineKeyboardButton::callback(
             "⬅️ Back",
             ctx.bot()
