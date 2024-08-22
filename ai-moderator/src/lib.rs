@@ -633,13 +633,16 @@ impl AiModeratorModule {
                     .await
                     < chat_config.first_messages
                 {
-                    if !chat_config.debug_mode
-                        && bot
+                    let is_admin = message
+                        .sender_chat
+                        .as_ref()
+                        .map_or(false, |sender| sender.id == chat_id)
+                        || bot
                             .bot()
                             .get_chat_member(chat_id, user_id)
                             .await?
-                            .is_privileged()
-                    {
+                            .is_privileged();
+                    if !chat_config.debug_mode && is_admin {
                         return Ok(());
                     }
 
