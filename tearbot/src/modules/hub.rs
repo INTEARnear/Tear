@@ -335,7 +335,7 @@ impl XeonBotModule for HubModule {
                         })
                     }
                     ChatPermissionLevel::CanPromoteMembers => "Only admins who can promote members to admins can manage chat settings".to_owned(),
-                    ChatPermissionLevel::CanChangeInfo => "Only admins who can change chat info can manage chat settings".to_owned(),
+                    ChatPermissionLevel::CanChangeInfo => "Only admins who can change chat information".to_owned(),
                     ChatPermissionLevel::CanRestrictMembers => "Only admins who can restrict members can manage chat settings".to_owned(),
                     ChatPermissionLevel::Admin => "All admins can manage chat settings\\. *NOTE: If you give someone an empty administrator title with no permission for a custom 'tag', they will also be able to manage chat settings*".to_owned(),
                 };
@@ -711,20 +711,26 @@ impl HubModule {
         }
         let chat_id = ChatId(user_id.0 as i64);
         bot.remove_dm_message_command(&user_id).await?;
-        #[cfg(feature = "private")]
+        #[cfg(feature = "xeon")]
         let message = "
 Welcome to Xeon, a better and faster version of [IntearBot](tg://resolve?domain=intearbot) that can handle the next billion web3 users ⚡️
 
 Powered by [Intear](tg://resolve?domain=intearchat)
             ".trim().to_string();
-        #[cfg(not(feature = "private"))]
+        #[cfg(feature = "tear")]
         let message = "
 Welcome to Tear, an [open\\-source](https://github.com/inTEARnear/Tear) edition of [Xeon](tg://resolve?domain=Intear_Xeon_bot) 💚
 
 Powered by [Intear](tg://resolve?domain=intearchat)
+            ".trim().to_string();
+        #[cfg(feature = "int")]
+        let message = "
+Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             "
         .trim()
         .to_string();
+        #[cfg(not(any(feature = "xeon", feature = "tear", feature = "int")))]
+        let message = compile_error!("Enable `tear`, `xeon`, or `int` feature");
         // let connection_button = if let Some(account) = bot.get_connected_account(&user_id).await {
         //     InlineKeyboardButton::callback(
         //         format!("🗑 Disconnect {account}", account = account.account_id),
@@ -759,6 +765,7 @@ Powered by [Intear](tg://resolve?domain=intearchat)
             bot.to_callback_data(&TgCommand::NearTgi("near".to_string()))
                 .await,
         )]);
+        #[cfg(any(feature = "tear", feature = "xeon"))]
         buttons.extend(vec![
             vec![
                 // InlineKeyboardButton::callback(
@@ -935,7 +942,6 @@ Powered by [Intear](tg://resolve?domain=intearchat)
             .bot()
             .set_dm_message_command(context.user_id(), MessageCommand::ChooseChat)
             .await?;
-        context.delete_last_message().await?;
         let message = "What chat do you want to set up?".to_string();
         let reply_markup = ReplyMarkup::keyboard(vec![
             vec![

@@ -4,6 +4,7 @@ mod modules;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(feature = "ai-moderator-module")]
 use ai_moderator::AiModeratorModule;
 // #[cfg(feature = "airdrops")]
 // use airdrops::AirdropsModule;
@@ -34,7 +35,6 @@ use price_alerts::PriceAlertsModule;
 use reqwest::Url;
 #[cfg(feature = "socialdb-module")]
 use socialdb::SocialDBModule;
-use tearbot_common::indexer_events::start_stream;
 use tearbot_common::mongodb::options::ClientOptions;
 use tearbot_common::mongodb::{Client, Database};
 use tearbot_common::teloxide::adaptors::throttle::Limits;
@@ -260,7 +260,8 @@ fn main() -> Result<(), anyhow::Error> {
 
             info!("Starting XEON");
 
-            start_stream(xeon.arc_clone_state()).await;
+            #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
+            tearbot_common::indexer_events::start_stream(xeon.arc_clone_state()).await;
 
             tokio::time::sleep(Duration::from_secs(u64::MAX)).await;
 

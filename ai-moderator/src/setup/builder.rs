@@ -265,52 +265,63 @@ pub async fn handle_start_button(
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    let message = markdown::escape("Hi! I'm the AI Moderator, I'm here to help you moderate your chat.
+    if cfg!(feature = "near") {
+        let message = markdown::escape("Hi! I'm the AI Moderator, I'm here to help you moderate your chat.
 
 I can detect most types of unwanted messages, such as spam, scam, offensive language, adult content, and more.
 
 Is this chat a NEAR project? If so, I can add some trusted projects that will to be ignored (ref finance links etc.)
-    ");
-    let buttons = vec![
-        vec![
-            InlineKeyboardButton::callback(
-                "⨝ Yes",
+        ");
+        let buttons = vec![
+            vec![
+                InlineKeyboardButton::callback(
+                    "⨝ Yes",
+                    ctx.bot()
+                        .to_callback_data(&TgCommand::AiModeratorPromptConstructorLinks(
+                            PromptBuilder {
+                                is_near: Some(true),
+                                ..builder.clone()
+                            },
+                        ))
+                        .await,
+                ),
+                InlineKeyboardButton::callback(
+                    "💬 No",
+                    ctx.bot()
+                        .to_callback_data(&TgCommand::AiModeratorPromptConstructorLinks(
+                            PromptBuilder {
+                                is_near: Some(false),
+                                ..builder.clone()
+                            },
+                        ))
+                        .await,
+                ),
+            ],
+            vec![InlineKeyboardButton::callback(
+                "⌨️ Skip and enter prompt manually",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorPromptConstructorLinks(
-                        PromptBuilder {
-                            is_near: Some(true),
-                            ..builder.clone()
-                        },
-                    ))
+                    .to_callback_data(&TgCommand::AiModeratorSetPrompt(builder.chat_id))
                     .await,
-            ),
-            InlineKeyboardButton::callback(
-                "💬 No",
+            )],
+            vec![InlineKeyboardButton::callback(
+                "⬅️ Cancel",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorPromptConstructorLinks(
-                        PromptBuilder {
-                            is_near: Some(false),
-                            ..builder.clone()
-                        },
-                    ))
+                    .to_callback_data(&TgCommand::AiModerator(builder.chat_id))
                     .await,
-            ),
-        ],
-        vec![InlineKeyboardButton::callback(
-            "⌨️ Skip and enter prompt manually",
-            ctx.bot()
-                .to_callback_data(&TgCommand::AiModeratorSetPrompt(builder.chat_id))
-                .await,
-        )],
-        vec![InlineKeyboardButton::callback(
-            "⬅️ Cancel",
-            ctx.bot()
-                .to_callback_data(&TgCommand::AiModerator(builder.chat_id))
-                .await,
-        )],
-    ];
-    let reply_markup = InlineKeyboardMarkup::new(buttons);
-    ctx.edit_or_send(message, reply_markup).await?;
+            )],
+        ];
+        let reply_markup = InlineKeyboardMarkup::new(buttons);
+        ctx.edit_or_send(message, reply_markup).await?;
+    } else {
+        handle_links_button(
+            ctx,
+            PromptBuilder {
+                is_near: Some(false),
+                ..builder
+            },
+        )
+        .await?;
+    }
     Ok(())
 }
 

@@ -40,7 +40,7 @@ futures-util = { workspace = true }
 semver = { workspace = true, optional = true }
 tokio-tungstenite = { version = "0.23.1", features = [
     "rustls-tls-native-roots",
-] }
+], optional = true }
 inquire = { version = "0.7.5", optional = true }
 
 [features]
@@ -57,3 +57,4 @@ honey-module = []
 near-tgi-module = ["inquire"]
 ai-moderator-module = []
 redis-events = ["redis", "inevents-redis"]
+websocket-events = ["tokio-tungstenite"]

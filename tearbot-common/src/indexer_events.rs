@@ -1,10 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
-
 use async_trait::async_trait;
-use chrono::{DateTime, TimeDelta, Utc};
 
 #[allow(unused_imports)]
 use intear_events::events::{
@@ -36,12 +30,8 @@ use intear_events::events::{
     },
 };
 
-use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
-
-use crate::{utils::requests::get_reqwest_client, xeon::XeonState};
-
-pub async fn start_stream(state: Arc<XeonState>) {
+#[cfg(any(feature = "redis-events", feature = "websocket-events"))]
+pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
     #[cfg(feature = "redis-events")]
     let redis_client = redis::Client::open(
         std::env::var("REDIS_URL").expect("REDIS_URL enviroment variable not set"),
@@ -51,7 +41,7 @@ pub async fn start_stream(state: Arc<XeonState>) {
     let connection = redis::aio::ConnectionManager::new(redis_client)
         .await
         .expect("Failed to create redis connection");
-    let (tx, mut rx) = mpsc::channel(1000);
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1000);
 
     tokio::spawn(stream_events::<NftMintEventData>(
         NftMintEvent::ID,
@@ -187,34 +177,39 @@ pub async fn start_stream(state: Arc<XeonState>) {
         if status_ping_url.is_none() && !cfg!(debug_assertions) {
             log::warn!("STATUS_PING_URL not set in release mode, status pings will not be sent");
         }
-        let mut last_ping = Instant::now();
+        let mut last_ping = std::time::Instant::now();
 
         while let Some(event) = rx.recv().await {
-            const EVENT_WARNING_THRESHOLD: TimeDelta = TimeDelta::seconds(60);
-            if Utc::now() - event.get_timestamp() > EVENT_WARNING_THRESHOLD
+            const EVENT_WARNING_THRESHOLD: chrono::TimeDelta = chrono::TimeDelta::seconds(60);
+            if chrono::Utc::now() - event.get_timestamp() > EVENT_WARNING_THRESHOLD
                 && !cfg!(debug_assertions)
             {
                 log::warn!("Event is older than 60 seconds: {event:?}");
             }
-            const PING_FREQUENCY: Duration = Duration::from_secs(30);
+            const PING_FREQUENCY: std::time::Duration = std::time::Duration::from_secs(30);
             if last_ping.elapsed() > PING_FREQUENCY {
                 if let Some(url) = &status_ping_url {
-                    if let Err(e) = get_reqwest_client().post(url).send().await {
+                    if let Err(e) = crate::utils::requests::get_reqwest_client()
+                        .post(url)
+                        .send()
+                        .await
+                    {
                         log::error!("Failed to ping status url: {e}");
                     }
                 }
-                last_ping = Instant::now();
+                last_ping = std::time::Instant::now();
             }
 
             for handler in state.indexer_event_handlers().await.iter() {
-                let now = Instant::now();
+                let now = std::time::Instant::now();
                 log::debug!("Handling event {event:?}");
                 if let Err(err) = handler.handle_event(&event).await {
                     log::error!("Failed to handle event {event:?}: {err:?}");
                 }
                 log::debug!("Handled");
                 let elapsed = now.elapsed();
-                const HANDLER_WARNING_THRESHOLD: Duration = Duration::from_millis(10);
+                const HANDLER_WARNING_THRESHOLD: std::time::Duration =
+                    std::time::Duration::from_millis(10);
                 if elapsed > HANDLER_WARNING_THRESHOLD {
                     log::warn!(
                         "Event handler took more than {HANDLER_WARNING_THRESHOLD:?} to process event {event:?}: {elapsed:?}"
@@ -225,12 +220,17 @@ pub async fn start_stream(state: Arc<XeonState>) {
     });
 }
 
+#[cfg(all(feature = "redis-events", feature = "websocket-events"))]
+compile_error!("Only one of redis-events and websocket-events can be enabled");
+
 #[cfg(feature = "redis-events")]
-async fn stream_events<E: Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>(
+async fn stream_events<
+    E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
+>(
     event_id: &'static str,
     testnet: bool,
     convert: fn(E) -> IndexerEvent,
-    tx: mpsc::Sender<IndexerEvent>,
+    tx: tokio::sync::mpsc::Sender<IndexerEvent>,
     connection: redis::aio::ConnectionManager,
 ) {
     let id = if testnet {
@@ -254,12 +254,14 @@ async fn stream_events<E: Serialize + for<'de> Deserialize<'de> + Send + Sync + 
         .unwrap();
 }
 
-#[cfg(not(feature = "redis-events"))]
-async fn stream_events<E: Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>(
+#[cfg(feature = "websocket-events")]
+async fn stream_events<
+    E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
+>(
     event_id: &'static str,
     testnet: bool,
     convert: fn(E) -> IndexerEvent,
-    tx: mpsc::Sender<IndexerEvent>,
+    tx: tokio::sync::mpsc::Sender<IndexerEvent>,
 ) {
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::tungstenite::Message;
@@ -320,7 +322,8 @@ pub enum IndexerEvent {
 }
 
 impl IndexerEvent {
-    fn get_timestamp(&self) -> DateTime<Utc> {
+    #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
+    fn get_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
         let nanosec = match self {
             IndexerEvent::NftMint(event) => event.block_timestamp_nanosec,
             IndexerEvent::NftTransfer(event) => event.block_timestamp_nanosec,
@@ -339,7 +342,7 @@ impl IndexerEvent {
             IndexerEvent::SocialDBIndex(event) => event.block_timestamp_nanosec,
             IndexerEvent::NewMemeCookingMeme(event) => event.block_timestamp_nanosec,
         };
-        DateTime::from_timestamp_nanos(nanosec as i64)
+        chrono::DateTime::from_timestamp_nanos(nanosec as i64)
     }
 }
 

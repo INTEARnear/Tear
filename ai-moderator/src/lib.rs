@@ -779,7 +779,7 @@ impl AiModeratorModule {
                     note += "\n\\(testing mode is enabled, so nothing was actually done\\)";
                 }
                 if chat_config.moderator_chat.is_none() {
-                    note += "\n\nℹ️ Please set \"Moderator Chat\" in the bot settings \\(in DM @Intear_Xeon_bot\\) and messages like this will be sent there instead";
+                    note += "\n\nℹ️ Please set \"Moderator Chat\" in the bot settings \\(in DM of this bot\\) and messages like this will be sent there instead";
                 }
                 let action = if sender_id.is_user() {
                     *action
@@ -874,6 +874,13 @@ impl AiModeratorModule {
                                 .await,
                             )],
                             vec![InlineKeyboardButton::callback(
+                                "↩️ Undelete Message",
+                                bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
+                                    // TODO
+                                ))
+                                .await,
+                            )],
+                            vec![InlineKeyboardButton::callback(
                                 "💭 See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
                                     reasoning.unwrap(),
@@ -934,6 +941,13 @@ impl AiModeratorModule {
                                 "👍 Unmute User",
                                 bot.to_callback_data(&TgCommand::AiModeratorUnmute(
                                     chat_id, sender_id,
+                                ))
+                                .await,
+                            )],
+                            vec![InlineKeyboardButton::callback(
+                                "↩️ Undelete Message",
+                                bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
+                                    // TODO
                                 ))
                                 .await,
                             )],
@@ -999,6 +1013,13 @@ impl AiModeratorModule {
                                 .await,
                             )],
                             vec![InlineKeyboardButton::callback(
+                                "↩️ Undelete Message",
+                                bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
+                                    // TODO
+                                ))
+                                .await,
+                            )],
+                            vec![InlineKeyboardButton::callback(
                                 "💭 See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
                                     reasoning.unwrap(),
@@ -1047,6 +1068,13 @@ impl AiModeratorModule {
                                 "🔨 Ban User",
                                 bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, sender_id))
                                     .await,
+                            )],
+                            vec![InlineKeyboardButton::callback(
+                                "↩️ Undelete Message",
+                                bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
+                                    // TODO
+                                ))
+                                .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "💭 See Reason",

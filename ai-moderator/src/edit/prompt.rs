@@ -132,7 +132,7 @@ pub async fn handle_set_prompt_confirm_button(
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     set_prompt(ctx, target_chat_id, prompt, bot_configs).await?;
-    let message = "The prompt was updated\\. You can now test the new prompt on a message in DM @Intear_Xeon_bot using \"🍥 Test\" button".to_string();
+    let message = "The prompt was updated\\. You can now test the new prompt on a message in DM of this bot using \"🍥 Test\" button".to_string();
     let buttons = Vec::<Vec<_>>::new();
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.reply(message, reply_markup).await?;

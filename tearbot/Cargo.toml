@@ -35,13 +35,15 @@ async-trait = { workspace = true }
 rustls = "0.23.12"
 
 [features]
-default = [
+tear = [
     "contract-logs-module",
     "utilities-module",
     "near-tgi-module",
     "ai-moderator-module",
+    "ai-moderator/near",
+    "websocket-events",
 ]
-private = [
+xeon = [
     "contract-logs-module",
     "ft-buybot-module",
     "new-liquidity-pools-module",
@@ -53,9 +55,14 @@ private = [
     "utilities-module",
     "honey-module",
     "near-tgi-module",
+    "ai-moderator-module",
+    "ai-moderator/near",
     "redis-events",
 ]
+int = ["ai-moderator-module"]
+
 redis-events = ["tearbot-common/redis-events"]
+websocket-events = ["tearbot-common/websocket-events"]
 contract-logs-module = ["tearbot-common/contract-logs-module", "contract-logs"]
 ft-buybot-module = ["tearbot-common/ft-buybot-module", "ft-buybot"]
 new-liquidity-pools-module = [

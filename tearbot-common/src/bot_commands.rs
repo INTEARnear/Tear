@@ -449,6 +449,8 @@ pub enum TgCommand {
     AiModeratorAddBalance(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorBuyMessages(ChatId, u32),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorUndeleteMessage(), // TODO
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
