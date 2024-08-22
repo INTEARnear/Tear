@@ -420,9 +420,12 @@ impl XeonBotModule for HubModule {
                     .get_chat_member(target_chat_id, context.user_id())
                     .await?;
                 if !member.is_owner() {
-                    let message =
+                    let message = if cfg!(feature = "configure-channels") {
                         "You must be the owner of the group / channel to edit permissions"
-                            .to_string();
+                            .to_string()
+                    } else {
+                        "You must be the owner of the group to edit permissions".to_string()
+                    };
                     context
                         .send(
                             message,
@@ -465,9 +468,12 @@ impl XeonBotModule for HubModule {
                     .get_chat_member(target_chat_id, context.user_id())
                     .await?;
                 if !member.is_owner() {
-                    let message =
+                    let message = if cfg!(feature = "configure-channels") {
                         "You must be the owner of the group / channel to edit permissions"
-                            .to_string();
+                            .to_string()
+                    } else {
+                        "You must be the owner of the group to edit permissions".to_string()
+                    };
                     context
                         .send(
                             message,
@@ -591,9 +597,12 @@ impl XeonBotModule for HubModule {
                     .get_chat_member(target_chat_id, context.user_id())
                     .await?;
                 if !member.is_owner() {
-                    let message =
+                    let message = if cfg!(feature = "configure-channels") {
                         "You must be the owner of the group / channel to edit permissions"
-                            .to_string();
+                            .to_string()
+                    } else {
+                        "You must be the owner of the group to edit permissions".to_string()
+                    };
                     context
                         .send(
                             message,
@@ -647,9 +656,12 @@ impl XeonBotModule for HubModule {
                     .get_chat_member(target_chat_id, context.user_id())
                     .await?;
                 if !member.is_owner() {
-                    let message =
+                    let message = if cfg!(feature = "configure-channels") {
                         "You must be the owner of the group / channel to edit permissions"
-                            .to_string();
+                            .to_string()
+                    } else {
+                        "You must be the owner of the group to edit permissions".to_string()
+                    };
                     context
                         .send(
                             message,
@@ -943,83 +955,105 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             .set_dm_message_command(context.user_id(), MessageCommand::ChooseChat)
             .await?;
         let message = "What chat do you want to set up?".to_string();
+        let requested_bot_rights = if cfg!(feature = "all-group-features-need-admin") {
+            ChatAdministratorRights {
+                can_manage_chat: true,
+                is_anonymous: false,
+                can_delete_messages: false,
+                can_manage_video_chats: false,
+                can_restrict_members: true,
+                can_promote_members: false,
+                can_change_info: false,
+                can_invite_users: false,
+                can_post_messages: Some(true),
+                can_edit_messages: None,
+                can_pin_messages: None,
+                can_manage_topics: None,
+                can_post_stories: None,
+                can_edit_stories: None,
+                can_delete_stories: None,
+            }
+        } else {
+            ChatAdministratorRights {
+                can_manage_chat: true,
+                is_anonymous: false,
+                can_delete_messages: false,
+                can_manage_video_chats: false,
+                can_restrict_members: false,
+                can_promote_members: false,
+                can_change_info: false,
+                can_invite_users: false,
+                can_post_messages: Some(true),
+                can_edit_messages: None,
+                can_pin_messages: None,
+                can_manage_topics: None,
+                can_post_stories: None,
+                can_edit_stories: None,
+                can_delete_stories: None,
+            }
+        };
+        let mut chat_selection = vec![KeyboardButton {
+            text: "Group chat".into(),
+            request: Some(ButtonRequest::RequestChat(KeyboardButtonRequestChat {
+                request_id: 69,
+                chat_is_channel: false,
+                chat_is_forum: None,
+                chat_has_username: None,
+                chat_is_created: None,
+                user_administrator_rights: Some(ChatAdministratorRights {
+                    can_manage_chat: true,
+                    is_anonymous: false,
+                    can_delete_messages: false,
+                    can_manage_video_chats: false,
+                    can_restrict_members: requested_bot_rights.can_restrict_members, // must be a superset of the bot's rights
+                    can_promote_members: false,
+                    can_change_info: false,
+                    can_invite_users: false,
+                    can_post_messages: Some(true), // must be a superset of the bot's rights
+                    can_edit_messages: None,
+                    can_pin_messages: None,
+                    can_manage_topics: None,
+                    can_post_stories: None,
+                    can_edit_stories: None,
+                    can_delete_stories: None,
+                }),
+                bot_administrator_rights: Some(requested_bot_rights.clone()),
+                bot_is_member: true,
+            })),
+        }];
+        if cfg!(feature = "configure-channels") {
+            chat_selection.push(KeyboardButton {
+                text: "Channel".into(),
+                request: Some(ButtonRequest::RequestChat(KeyboardButtonRequestChat {
+                    request_id: 42,
+                    chat_is_channel: true,
+                    chat_is_forum: None,
+                    chat_has_username: None,
+                    chat_is_created: None,
+                    user_administrator_rights: Some(ChatAdministratorRights {
+                        can_manage_chat: true,
+                        is_anonymous: false,
+                        can_delete_messages: false,
+                        can_manage_video_chats: false,
+                        can_restrict_members: false,
+                        can_promote_members: false,
+                        can_change_info: false,
+                        can_invite_users: false,
+                        can_post_messages: Some(true),
+                        can_edit_messages: None,
+                        can_pin_messages: None,
+                        can_manage_topics: None,
+                        can_post_stories: None,
+                        can_edit_stories: None,
+                        can_delete_stories: None,
+                    }),
+                    bot_administrator_rights: Some(requested_bot_rights),
+                    bot_is_member: true,
+                })),
+            });
+        }
         let reply_markup = ReplyMarkup::keyboard(vec![
-            vec![
-                KeyboardButton {
-                    text: "Group chat".into(),
-                    request: Some(ButtonRequest::RequestChat(KeyboardButtonRequestChat {
-                        request_id: 69,
-                        chat_is_channel: false,
-                        chat_is_forum: None,
-                        chat_has_username: None,
-                        chat_is_created: None,
-                        user_administrator_rights: Some(ChatAdministratorRights {
-                            can_manage_chat: true,
-                            is_anonymous: false,
-                            can_delete_messages: false,
-                            can_manage_video_chats: false,
-                            can_restrict_members: false,
-                            can_promote_members: false,
-                            can_change_info: false,
-                            can_invite_users: false,
-                            can_post_messages: None,
-                            can_edit_messages: None,
-                            can_pin_messages: None,
-                            can_manage_topics: None,
-                            can_post_stories: None,
-                            can_edit_stories: None,
-                            can_delete_stories: None,
-                        }),
-                        bot_administrator_rights: None,
-                        bot_is_member: true,
-                    })),
-                },
-                KeyboardButton {
-                    text: "Channel".into(),
-                    request: Some(ButtonRequest::RequestChat(KeyboardButtonRequestChat {
-                        request_id: 42,
-                        chat_is_channel: true,
-                        chat_is_forum: None,
-                        chat_has_username: None,
-                        chat_is_created: None,
-                        user_administrator_rights: Some(ChatAdministratorRights {
-                            can_manage_chat: true,
-                            is_anonymous: false,
-                            can_delete_messages: false,
-                            can_manage_video_chats: false,
-                            can_restrict_members: false,
-                            can_promote_members: false,
-                            can_change_info: false,
-                            can_invite_users: false,
-                            can_post_messages: Some(true),
-                            can_edit_messages: None,
-                            can_pin_messages: None,
-                            can_manage_topics: None,
-                            can_post_stories: None,
-                            can_edit_stories: None,
-                            can_delete_stories: None,
-                        }),
-                        bot_administrator_rights: Some(ChatAdministratorRights {
-                            can_manage_chat: true,
-                            is_anonymous: false,
-                            can_delete_messages: false,
-                            can_manage_video_chats: false,
-                            can_restrict_members: false,
-                            can_promote_members: false,
-                            can_change_info: false,
-                            can_invite_users: false,
-                            can_post_messages: Some(true),
-                            can_edit_messages: None,
-                            can_pin_messages: None,
-                            can_manage_topics: None,
-                            can_post_stories: None,
-                            can_edit_stories: None,
-                            can_delete_stories: None,
-                        }),
-                        bot_is_member: true,
-                    })),
-                },
-            ],
+            chat_selection,
             vec![KeyboardButton {
                 text: CANCEL_TEXT.into(),
                 request: None,

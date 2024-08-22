@@ -58,8 +58,16 @@ xeon = [
     "ai-moderator-module",
     "ai-moderator/near",
     "redis-events",
+    "configure-channels",
 ]
-int = ["ai-moderator-module"]
+int = [
+    "ai-moderator-module",
+    "all-group-features-need-admin",
+    "configure-channels",
+]
+
+all-group-features-need-admin = []
+configure-channels = []
 
 redis-events = ["tearbot-common/redis-events"]
 websocket-events = ["tearbot-common/websocket-events"]
