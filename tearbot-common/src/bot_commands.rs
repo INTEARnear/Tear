@@ -4,7 +4,7 @@ use near_primitives::types::AccountId;
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::{ChatId, UserId};
 
-use crate::utils::chat::ChatPermissionLevel;
+use crate::{tgbot::Attachment, utils::chat::ChatPermissionLevel};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TgCommand {
@@ -450,7 +450,7 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorBuyMessages(ChatId, u32),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorUndeleteMessage(), // TODO
+    AiModeratorUndeleteMessage(ChatId, ChatId, ChatId, String, Attachment),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

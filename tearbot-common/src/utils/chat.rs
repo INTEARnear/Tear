@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use cached::{proc_macro::cached, TimedSizedCache};
 use serde::{Deserialize, Serialize};
 use teloxide::{
-    prelude::{ChatId, Requester, UserId},
-    types::{ChatMemberKind, ReplyMarkup},
+    prelude::{ChatId, Message, Requester, UserId},
+    types::{ChatKind, ChatMemberKind, PublicChatKind, ReplyMarkup},
     utils::markdown,
 };
 
@@ -111,5 +111,120 @@ pub fn expandable_blockquote(text: &str) -> String {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
+    }
+}
+
+pub fn mention_sender(message: &Message) -> String {
+    let Some(from) = message.from.as_ref() else {
+        return "Unknown".to_string();
+    };
+    let (sender_id, full_name) = if let Some(ref chat) = message.sender_chat {
+        match &chat.kind {
+            // Probably unreachable
+            ChatKind::Private(private) => {
+                let full_name = match (&private.first_name, &private.last_name) {
+                    (Some(first_name), Some(last_name)) => {
+                        format!("{first_name} {last_name}")
+                    }
+                    (Some(one_part), None) | (None, Some(one_part)) => one_part.clone(),
+                    (None, None) => from.full_name(),
+                };
+                (chat.id, full_name)
+            }
+            ChatKind::Public(public) => {
+                let full_name = public
+                    .title
+                    .clone()
+                    .or_else(|| public.invite_link.clone())
+                    .unwrap_or_else(|| from.full_name());
+                (chat.id, full_name)
+            }
+        }
+    } else {
+        (ChatId(from.id.0 as i64), from.full_name())
+    };
+    match &message.sender_chat {
+        Some(chat) => match &chat.kind {
+            // Probably unreachable
+            ChatKind::Private(private) => match private.username.clone() {
+                Some(username) => format!(
+                    "[{name}](tg://resolve?domain={username})",
+                    name = markdown::escape(&full_name)
+                ),
+                None => markdown::escape(&full_name),
+            },
+            ChatKind::Public(public) => match &public.kind {
+                // Probably unreachable
+                PublicChatKind::Group(_) => markdown::escape(&full_name),
+                // Probably unreachable
+                PublicChatKind::Supergroup(supergroup) => format!(
+                    "[{name}](tg://resolve?domain={username})",
+                    name = markdown::escape(&full_name),
+                    username = supergroup.username.clone().unwrap_or_default(),
+                ),
+                PublicChatKind::Channel(channel) => format!(
+                    "[{name}](tg://resolve?domain={username})",
+                    name = markdown::escape(&full_name),
+                    username = channel.username.clone().unwrap_or_default(),
+                ),
+            },
+        },
+        None => format!(
+            "[{name}](tg://user?id={sender_id})",
+            name = markdown::escape(&full_name)
+        ),
+    }
+}
+
+pub async fn mention_user_or_chat(bot: &TgBot, sender_id: ChatId, chat_id: ChatId) -> String {
+    if let Some(user_id) = sender_id.as_user() {
+        if let Ok(user) = bot.get_chat_member(chat_id, user_id).await {
+            format!(
+                "[{name}](tg://user?id={user_id})",
+                name = user.user.full_name()
+            )
+        } else {
+            format!("[Unknown](tg://user?id={user_id})")
+        }
+    } else if let Ok(chat) = bot.get_chat(sender_id).await {
+        let chat_name = match &chat.kind {
+            // Probably unreachable
+            ChatKind::Private(private) => match (&private.first_name, &private.last_name) {
+                (Some(first_name), Some(last_name)) => {
+                    format!("{first_name} {last_name}")
+                }
+                (Some(one_part), None) | (None, Some(one_part)) => one_part.clone(),
+                (None, None) => "Unknown".to_string(),
+            },
+            ChatKind::Public(public) => public
+                .title
+                .clone()
+                .or_else(|| public.invite_link.clone())
+                .unwrap_or_else(|| "Unknown".to_string()),
+        };
+        match chat.kind {
+            ChatKind::Private(private) => match private.username.clone() {
+                Some(username) => format!(
+                    "[{name}](tg://resolve?domain={username})",
+                    name = markdown::escape(&chat_name)
+                ),
+                None => markdown::escape(&chat_name),
+            },
+            ChatKind::Public(public) => match &public.kind {
+                PublicChatKind::Group(_) => markdown::escape(&chat_name),
+                PublicChatKind::Supergroup(supergroup) => format!(
+                    "[{name}](tg://resolve?domain={username})",
+                    name = markdown::escape(&chat_name),
+                    username = supergroup.username.clone().unwrap_or_default(),
+                ),
+                PublicChatKind::Channel(channel) => format!(
+                    "[{name}](tg://resolve?domain={username})",
+                    name = markdown::escape(&chat_name),
+                    username = channel.username.clone().unwrap_or_default(),
+                ),
+            },
+        }
+    } else {
+        "Unknown".to_string()
     }
 }

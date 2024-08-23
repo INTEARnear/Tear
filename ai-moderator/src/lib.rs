@@ -20,11 +20,9 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
     bot_commands::PaymentReference,
-    teloxide::{
-        payloads::BanChatMemberSetters,
-        types::{ChatKind, PublicChatKind},
-    },
+    teloxide::payloads::BanChatMemberSetters,
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
+    utils::chat::mention_sender,
 };
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
@@ -275,6 +273,23 @@ impl XeonBotModule for AiModeratorModule {
                 TgCommand::AiModeratorSetPrompt(target_chat_id) => {
                     edit::prompt::handle_set_prompt_button(&ctx, target_chat_id, &self.bot_configs)
                         .await?;
+                }
+                TgCommand::AiModeratorUndeleteMessage(
+                    moderator_chat,
+                    chat_id,
+                    sender_id,
+                    message_text,
+                    attachment,
+                ) => {
+                    moderation_actions::undelete_message::handle_button(
+                        &ctx,
+                        moderator_chat,
+                        chat_id,
+                        sender_id,
+                        message_text,
+                        attachment,
+                    )
+                    .await?;
                 }
                 _ => {}
             }
@@ -719,27 +734,13 @@ impl AiModeratorModule {
                 let Some(user) = message.from.as_ref() else {
                     return Ok(());
                 };
-                let (sender_id, full_name) = if let Some(ref chat) = message.sender_chat {
-                    match &chat.kind {
-                        // Probably unreachable
-                        ChatKind::Private(private) => {
-                            let full_name = match (&private.first_name, &private.last_name) {
-                                (Some(first_name), Some(last_name)) => {
-                                    format!("{first_name} {last_name}")
-                                }
-                                (Some(one_part), None) | (None, Some(one_part)) => one_part.clone(),
-                                (None, None) => user.full_name(),
-                            };
-                            (chat.id, full_name)
-                        }
-                        ChatKind::Public(public) => {
-                            let full_name = public.title.clone().or_else(|| public.invite_link.clone()).unwrap_or_else(|| user.full_name());
-                            (chat.id, full_name)
-                        }
-                    }
+                let sender_link = mention_sender(&message);
+                let sender_id = if let Some(chat) = message.sender_chat.as_ref() {
+                    chat.id
                 } else {
-                    (ChatId(user_id.0 as i64), user.full_name())
+                    ChatId(user.id.0 as i64)
                 };
+
                 let (attachment, note) = if let Some(photo) = message.photo() {
                     (
                         Attachment::PhotoFileId(photo.last().unwrap().file.id.clone()),
@@ -775,6 +776,7 @@ impl AiModeratorModule {
                 } else {
                     (Attachment::None, None)
                 };
+
                 let mut note = note
                     .map(|note| format!("\n{note}", note = markdown::escape(note)))
                     .unwrap_or_default();
@@ -784,6 +786,7 @@ impl AiModeratorModule {
                 if chat_config.moderator_chat.is_none() {
                     note += "\n\nℹ️ Please set \"Moderator Chat\" in the bot settings \\(in DM of this bot\\) and messages like this will be sent there instead";
                 }
+
                 let action = if sender_id.is_user() {
                     *action
                 } else {
@@ -798,31 +801,6 @@ impl AiModeratorModule {
                         }
                         other => *other,
                     }
-                };
-                let sender_link = match &message.sender_chat {
-                    Some(chat) => match &chat.kind {
-                        // Probably unreachable
-                        ChatKind::Private(private) => match private.username.clone() {
-                            Some(username) => format!("[{name}](tg://resolve?domain={username})",
-                                name = markdown::escape(&full_name)
-                            ),
-                            None => markdown::escape(&full_name)
-                        }
-                        ChatKind::Public(public) => match &public.kind {
-                            // Probably unreachable
-                            PublicChatKind::Group(_) => markdown::escape(&full_name),
-                            // Probably unreachable
-                            PublicChatKind::Supergroup(supergroup) => format!("[{name}](tg://resolve?domain={username})",
-                                name = markdown::escape(&full_name),
-                                username = supergroup.username.clone().unwrap_or_default(),
-                            ),
-                            PublicChatKind::Channel(channel) => format!("[{name}](tg://resolve?domain={username})",
-                                name = markdown::escape(&full_name),
-                                username = channel.username.clone().unwrap_or_default(),
-                            ),
-                        }
-                    },
-                    None => format!("[{name}](tg://user?id={sender_id})", name = markdown::escape(&full_name)),
                 };
                 match action {
                     ModerationAction::Ban => {
@@ -863,7 +841,7 @@ impl AiModeratorModule {
                                 "➕ Add Exception",
                                 bot.to_callback_data(&TgCommand::AiModeratorAddException(
                                     chat_id,
-                                    message_text,
+                                    message_text.clone(),
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
@@ -879,7 +857,11 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "↩️ Undelete Message",
                                 bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
-                                    // TODO
+                                    moderator_chat,
+                                    chat_id,
+                                    sender_id,
+                                    message_text,
+                                    attachment.clone(),
                                 ))
                                 .await,
                             )],
@@ -934,7 +916,7 @@ impl AiModeratorModule {
                                 "➕ Add Exception",
                                 bot.to_callback_data(&TgCommand::AiModeratorAddException(
                                     chat_id,
-                                    message_text,
+                                    message_text.clone(),
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
@@ -950,7 +932,11 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "↩️ Undelete Message",
                                 bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
-                                    // TODO
+                                    moderator_chat,
+                                    chat_id,
+                                    sender_id,
+                                    message_text,
+                                    attachment.clone(),
                                 ))
                                 .await,
                             )],
@@ -1002,7 +988,7 @@ impl AiModeratorModule {
                                 "➕ Add Exception",
                                 bot.to_callback_data(&TgCommand::AiModeratorAddException(
                                     chat_id,
-                                    message_text,
+                                    message_text.clone(),
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
@@ -1018,7 +1004,11 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "↩️ Undelete Message",
                                 bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
-                                    // TODO
+                                    moderator_chat,
+                                    chat_id,
+                                    sender_id,
+                                    message_text,
+                                    attachment.clone(),
                                 ))
                                 .await,
                             )],
@@ -1061,7 +1051,7 @@ impl AiModeratorModule {
                                 "➕ Add Exception",
                                 bot.to_callback_data(&TgCommand::AiModeratorAddException(
                                     chat_id,
-                                    message_text,
+                                    message_text.clone(),
                                     message_image,
                                     reasoning.clone().unwrap(),
                                 ))
@@ -1075,7 +1065,11 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "↩️ Undelete Message",
                                 bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
-                                    // TODO
+                                    moderator_chat,
+                                    chat_id,
+                                    sender_id,
+                                    message_text,
+                                    attachment.clone(),
                                 ))
                                 .await,
                             )],

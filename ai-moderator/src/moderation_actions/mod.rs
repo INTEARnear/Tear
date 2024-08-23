@@ -3,4 +3,5 @@ pub mod ban;
 pub mod delete_message;
 pub mod see_reason;
 pub mod unban;
+pub mod undelete_message;
 pub mod unmute;
