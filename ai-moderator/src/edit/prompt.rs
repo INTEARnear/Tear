@@ -19,15 +19,14 @@ use tearbot_common::{
         types::{InlineKeyboardButton, InlineKeyboardMarkup, ParseMode},
     },
     tgbot::{BotData, TgCallbackContext, DONT_CARE},
-    utils::chat::{check_admin_permission_in_chat, expandable_blockquote},
+    utils::{
+        ai::await_execution,
+        chat::{check_admin_permission_in_chat, expandable_blockquote},
+    },
     xeon::XeonState,
 };
 
-use crate::{
-    moderator,
-    utils::{self, await_execution},
-    AiModeratorBotConfig,
-};
+use crate::{moderator, utils, AiModeratorBotConfig};
 
 pub async fn handle_set_prompt_input(
     bot: &BotData,

@@ -21,11 +21,14 @@ use tearbot_common::{
         utils::markdown,
     },
     tgbot::{TgCallbackContext, DONT_CARE},
-    utils::chat::{check_admin_permission_in_chat, expandable_blockquote},
+    utils::{
+        ai::await_execution,
+        chat::{check_admin_permission_in_chat, expandable_blockquote},
+    },
     xeon::XeonState,
 };
 
-use crate::{utils::await_execution, AiModeratorBotConfig};
+use crate::AiModeratorBotConfig;
 
 pub async fn handle_button(
     ctx: &TgCallbackContext<'_>,

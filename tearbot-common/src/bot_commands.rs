@@ -451,6 +451,26 @@ pub enum TgCommand {
     AiModeratorBuyMessages(ChatId, u32),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorUndeleteMessage(ChatId, ChatId, ChatId, String, Attachment),
+    #[cfg(feature = "image-gen-module")]
+    ImageGenGenerateAnother(String),
+    #[cfg(feature = "image-gen-module")]
+    ImageGenReplaceObject(reqwest::Url),
+    #[cfg(feature = "image-gen-module")]
+    ImageGenUpscale(reqwest::Url),
+    #[cfg(feature = "image-gen-module")]
+    ImageGenCreateSimilar(reqwest::Url),
+    #[cfg(feature = "image-gen-module")]
+    CreateLoRA(reqwest::Url, String),
+    #[cfg(feature = "image-gen-module")]
+    ImageGenBuyCredits,
+    #[cfg(feature = "image-gen-module")]
+    ImageGenBuyCreditsAmount(u32),
+    #[cfg(feature = "image-gen-module")]
+    ImageGenSettings,
+    #[cfg(feature = "image-gen-module")]
+    ImageGenSetPromptEnhancer(bool),
+    #[cfg(feature = "image-gen-module")]
+    ImageGenSetNSFWMode(bool),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -576,6 +596,7 @@ pub enum MessageCommand {
 pub enum PaymentReference {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorBuyingMessages(ChatId, u32),
+    ImageGenBuyingCredits(u32),
 }
 
 impl From<MessageCommand> for Bson {

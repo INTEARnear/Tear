@@ -2324,6 +2324,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "image-gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-openai",
+ "async-trait",
+ "chrono",
+ "dashmap",
+ "log",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
+
+[[package]]
 name = "include_dir"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5997,6 +6014,7 @@ dependencies = [
  "dotenvy",
  "ft-buybot",
  "honey",
+ "image-gen",
  "itertools 0.13.0",
  "log",
  "near-tgi",
@@ -6019,6 +6037,7 @@ name = "tearbot-common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-openai",
  "async-trait",
  "base64 0.22.1",
  "bson",

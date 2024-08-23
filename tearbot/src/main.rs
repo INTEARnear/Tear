@@ -18,6 +18,8 @@ use contract_logs::ContractLogsModule;
 use ft_buybot::FtBuybotModule;
 #[cfg(feature = "honey-module")]
 use honey::HoneyModule;
+#[cfg(feature = "image-gen-module")]
+use image_gen::ImageGenModule;
 use log::info;
 use modules::hub::HubModule;
 #[cfg(feature = "near-tgi-module")]
@@ -232,6 +234,12 @@ fn main() -> Result<(), anyhow::Error> {
                 {
                     xeon.state()
                         .add_bot_module(AiModeratorModule::new(xeon.arc_clone_state()).await?)
+                        .await;
+                }
+                #[cfg(feature = "image-gen-module")]
+                {
+                    xeon.state()
+                        .add_bot_module(ImageGenModule::new(xeon.arc_clone_state()).await?)
                         .await;
                 }
             }

@@ -22,7 +22,7 @@ use tearbot_common::{
     bot_commands::PaymentReference,
     teloxide::payloads::BanChatMemberSetters,
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
-    utils::chat::mention_sender,
+    utils::{ai::Model, chat::mention_sender},
 };
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
@@ -38,7 +38,6 @@ use tearbot_common::{
     utils::{chat::expandable_blockquote, store::PersistentCachedStore},
     xeon::{XeonBotModule, XeonState},
 };
-use utils::Model;
 
 const FREE_TRIAL_MESSAGES: u32 = 1000;
 
@@ -46,8 +45,7 @@ pub struct AiModeratorModule {
     bot_configs: Arc<DashMap<UserId, AiModeratorBotConfig>>,
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
-    last_balance_warning_message: HashMap<ChatId, Instant>, // AI_MODERATOR_ACCOUNT_ID
-                                                            // AI_MODERATOR_PRIVATE_KEY
+    last_balance_warning_message: HashMap<ChatId, Instant>,
 }
 
 #[async_trait]

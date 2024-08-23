@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use async_openai::{
     config::OpenAIConfig,
@@ -8,7 +8,7 @@ use async_openai::{
         CreateMessageRequestContent, CreateRunRequestArgs, CreateThreadRequestArgs, FileInput,
         FilePurpose, ImageDetail, ImageFile, InputSource, MessageContent,
         MessageContentImageFileObject, MessageContentInput, MessageRequestContentTextObject,
-        MessageRole, RunObject, RunStatus,
+        MessageRole,
     },
     Client,
 };
@@ -19,10 +19,14 @@ use tearbot_common::{
     teloxide::{
         net::Download,
         prelude::{ChatId, Message, Requester, UserId},
-        types::MessageKind,
+        types::{MessageEntityKind, MessageKind},
+        utils::markdown,
     },
     tgbot::BotData,
-    utils::chat::get_chat_title_cached_5m,
+    utils::{
+        ai::{await_execution, Model},
+        chat::get_chat_title_cached_5m,
+    },
     xeon::XeonState,
 };
 
@@ -53,65 +57,6 @@ pub async fn is_in_moderator_chat_or_dm(
     }
 }
 
-pub async fn await_execution(
-    openai_client: &Client<OpenAIConfig>,
-    mut run: RunObject,
-    thread_id: String,
-) -> Result<MessageContent, anyhow::Error> {
-    let mut interval = tokio::time::interval(Duration::from_secs(1));
-    log::info!("Waiting for run {} to finish", run.id);
-    while matches!(run.status, RunStatus::InProgress | RunStatus::Queued) {
-        interval.tick().await;
-        run = openai_client
-            .threads()
-            .runs(&thread_id)
-            .retrieve(&run.id)
-            .await?;
-    }
-    if let Some(error) = run.last_error {
-        log::error!("Error: {:?} {}", error.code, error.message);
-        return Err(anyhow::anyhow!("Error: {:?} {}", error.code, error.message));
-    }
-    log::info!("Usage: {:?}", run.usage);
-    log::info!("Status: {:?}", run.status);
-    // let total_tokens_spent = run
-    //     .usage
-    //     .as_ref()
-    //     .map(|usage| usage.total_tokens)
-    //     .unwrap_or_default();
-    // let (tokens_used, timestamp_started) = self
-    //     .openai_tokens_used
-    //     .get(&user_id)
-    //     .await
-    //     .unwrap_or((0, Utc::now()));
-    // self.openai_tokens_used
-    //     .insert_or_update(
-    //         user_id,
-    //         (tokens_used + total_tokens_spent, timestamp_started),
-    //     )
-    //     .await?;
-    match run.status {
-        RunStatus::Completed => {
-            let response = openai_client
-                .threads()
-                .messages(&thread_id)
-                .list(&[("limit", "1")])
-                .await?;
-            let message_id = response.data.first().unwrap().id.clone();
-            let message = openai_client
-                .threads()
-                .messages(&thread_id)
-                .retrieve(&message_id)
-                .await?;
-            let Some(content) = message.content.into_iter().next() else {
-                return Err(anyhow::anyhow!("No content"));
-            };
-            Ok(content)
-        }
-        _ => Err(anyhow::anyhow!("Unexpected status: {:?}", run.status)),
-    }
-}
-
 pub async fn get_message_rating(
     bot_id: UserId,
     message: Message,
@@ -121,13 +66,25 @@ pub async fn get_message_rating(
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
 ) -> (ModerationJudgement, Option<String>, String, Option<String>) {
-    let message_text = message
+    let mut message_text = message
         .text()
         .or(message.caption())
         .map(|s| s.to_owned())
         .unwrap_or_else(|| {
             "[No text. Pass this as 'Good' unless you see a suspicious image]".to_string()
         });
+    for entity in message.parse_entities().unwrap_or_default() {
+        if let MessageEntityKind::TextLink { url } = entity.kind() {
+            message_text.replace_range(
+                entity.range(),
+                &format!(
+                    "[{}]({})",
+                    markdown::escape(entity.message_text()),
+                    markdown::escape_link_url(url.as_ref())
+                ),
+            );
+        }
+    }
     let message_image = message
         .photo()
         .map(|photo| photo.last().unwrap().file.id.clone());
@@ -273,20 +230,6 @@ pub async fn get_message_rating(
         Err(err) => {
             log::warn!("Failed to create a moderation run: {err:?}");
             (ModerationJudgement::Good, None, message_text, message_image)
-        }
-    }
-}
-
-pub enum Model {
-    Gpt4oMini,
-    Gpt4o,
-}
-
-impl Model {
-    pub fn get_id(&self) -> &'static str {
-        match self {
-            Self::Gpt4oMini => "gpt-4o-mini",
-            Self::Gpt4o => "gpt-4o-2024-08-06",
         }
     }
 }

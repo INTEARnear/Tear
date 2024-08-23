@@ -9,19 +9,47 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::requests::get_reqwest_client;
 
-pub const RPC_URL: &str = "https://rpc.shitzuapes.xyz";
+pub const RPC_URLS: &[&str] = &[
+    "https://rpc.shitzuapes.xyz",
+    "https://rpc.mainnet.near.org",
+    "https://near.lava.build",
+];
 pub const ARCHIVE_RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
+
+macro_rules! try_rpc {
+    (|$rpc_url: ident| $body: block) => {{
+        let mut i = 0;
+        loop {
+            let result: Result<_, _> = {
+                let $rpc_url = RPC_URLS[i];
+                let res = $body;
+                res
+            };
+            match result {
+                Ok(res) => break Ok(res),
+                Err(err) => {
+                    if i >= RPC_URLS.len() - 1 {
+                        break Err(err);
+                    }
+                    i += 1;
+                }
+            }
+        }
+    }};
+}
 
 pub async fn rpc<I: Serialize, O: DeserializeOwned>(
     data: I,
 ) -> Result<RpcResponse<O>, anyhow::Error> {
-    Ok(get_reqwest_client()
-        .post(RPC_URL)
-        .json(&data)
-        .send()
-        .await?
-        .json::<RpcResponse<O>>()
-        .await?)
+    try_rpc!(|rpc_url| {
+        Ok(get_reqwest_client()
+            .post(rpc_url)
+            .json(&data)
+            .send()
+            .await?
+            .json::<RpcResponse<O>>()
+            .await?)
+    })
 }
 
 pub async fn archive_rpc<I: Serialize, O: DeserializeOwned>(

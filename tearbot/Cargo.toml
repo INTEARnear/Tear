@@ -18,6 +18,7 @@ utilities = { path = "../utilities", optional = true }
 honey = { path = "../xeon-private-modules/honey", optional = true }
 near-tgi = { path = "../near-tgi", optional = true }
 ai-moderator = { path = "../ai-moderator", optional = true }
+image-gen = { path = "../xeon-private-modules/image-gen", optional = true }
 
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
@@ -62,6 +63,7 @@ xeon = [
 ]
 int = [
     "ai-moderator-module",
+    "image-gen-module",
     "all-group-features-need-admin",
     "configure-channels",
 ]
@@ -86,3 +88,4 @@ utilities-module = ["tearbot-common/utilities-module", "utilities"]
 honey-module = ["tearbot-common/honey-module", "honey"]
 near-tgi-module = ["tearbot-common/near-tgi-module", "near-tgi"]
 ai-moderator-module = ["tearbot-common/ai-moderator-module", "ai-moderator"]
+image-gen-module = ["tearbot-common/image-gen-module", "image-gen"]

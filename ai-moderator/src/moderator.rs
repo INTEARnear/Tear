@@ -13,16 +13,19 @@ use tearbot_common::{
         utils::markdown,
     },
     tgbot::{Attachment, BotData, TgCallbackContext},
-    utils::chat::{
-        check_admin_permission_in_chat, expandable_blockquote, get_chat_title_cached_5m, DM_CHAT,
+    utils::{
+        ai::Model,
+        chat::{
+            check_admin_permission_in_chat, expandable_blockquote, get_chat_title_cached_5m,
+            DM_CHAT,
+        },
     },
     xeon::XeonState,
 };
 
 use crate::{
-    setup,
-    utils::{get_message_rating, Model},
-    AiModeratorBotConfig, AiModeratorChatConfig, FREE_TRIAL_MESSAGES,
+    setup, utils::get_message_rating, AiModeratorBotConfig, AiModeratorChatConfig,
+    FREE_TRIAL_MESSAGES,
 };
 
 pub async fn open_main(
