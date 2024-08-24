@@ -98,8 +98,10 @@ impl XeonBotModule for AiModeratorModule {
             return Ok(());
         };
         if !chat_id.is_user() {
+            log::debug!("Moderating message {}", message.id);
             self.moderate_message(bot, chat_id, user_id, message.clone())
                 .await?;
+            log::debug!("Message {} moderated", message.id);
         }
         match command {
             MessageCommand::AiModeratorFirstMessages(target_chat_id) => {
@@ -269,8 +271,13 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 }
                 TgCommand::AiModeratorSetPrompt(target_chat_id) => {
-                    edit::prompt::handle_set_prompt_button(&ctx, target_chat_id, &self.bot_configs)
-                        .await?;
+                    edit::prompt::handle_set_prompt_button(
+                        &ctx,
+                        target_chat_id,
+                        &self.bot_configs,
+                        true,
+                    )
+                    .await?;
                 }
                 TgCommand::AiModeratorUndeleteMessage(
                     moderator_chat,
@@ -288,6 +295,9 @@ impl XeonBotModule for AiModeratorModule {
                         attachment,
                     )
                     .await?;
+                }
+                TgCommand::AiModeratorCancelEditPrompt => {
+                    edit::prompt::handle_cancel_edit_prompt_button(&ctx).await?;
                 }
                 _ => {}
             }
@@ -314,8 +324,13 @@ impl XeonBotModule for AiModeratorModule {
                 edit::moderator_chat::handle_button(&ctx, target_chat_id).await?;
             }
             TgCommand::AiModeratorSetPrompt(target_chat_id) => {
-                edit::prompt::handle_set_prompt_button(&ctx, target_chat_id, &self.bot_configs)
-                    .await?;
+                edit::prompt::handle_set_prompt_button(
+                    &ctx,
+                    target_chat_id,
+                    &self.bot_configs,
+                    false,
+                )
+                .await?;
             }
             TgCommand::AiModeratorSetPromptConfirmAndReturn(target_chat_id, prompt) => {
                 edit::prompt::handle_set_prompt_confirm_and_return_button(
@@ -639,6 +654,15 @@ impl AiModeratorModule {
         user_id: UserId,
         message: Message,
     ) -> Result<(), anyhow::Error> {
+        let is_admin = message
+            .sender_chat
+            .as_ref()
+            .map_or(false, |sender| sender.id == chat_id)
+            || bot
+                .bot()
+                .get_chat_member(chat_id, user_id)
+                .await?
+                .is_privileged();
         let chat_config = if let Some(mut bot_config) = self.bot_configs.get_mut(&bot.id()) {
             if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
                 if bot_config
@@ -646,20 +670,12 @@ impl AiModeratorModule {
                     .await
                     < chat_config.first_messages
                 {
-                    let is_admin = message
-                        .sender_chat
-                        .as_ref()
-                        .map_or(false, |sender| sender.id == chat_id)
-                        || bot
-                            .bot()
-                            .get_chat_member(chat_id, user_id)
-                            .await?
-                            .is_privileged();
                     if !chat_config.debug_mode && is_admin {
                         return Ok(());
                     }
 
                     if !bot_config.decrement_message_balance(chat_id).await {
+                        drop(bot_config);
                         const WARNING_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
                         if self
@@ -685,6 +701,7 @@ impl AiModeratorModule {
         } else {
             return Ok(());
         };
+        log::debug!("Chat config received for message {}", message.id);
         if !chat_config.enabled {
             return Ok(());
         }

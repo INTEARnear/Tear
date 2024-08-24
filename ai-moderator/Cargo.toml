@@ -15,6 +15,7 @@ async-openai = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 serde_json = { workspace = true }
 chrono = { workspace = true }
+lazy_static = { workspace = true }
 
 [features]
 near = []

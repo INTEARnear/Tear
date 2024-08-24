@@ -121,6 +121,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "dashmap",
+ "lazy_static",
  "log",
  "serde",
  "serde_json",

@@ -67,11 +67,9 @@ fn main() -> Result<(), anyhow::Error> {
             let db = get_db().await?;
             let xeon = Xeon::new(db.clone()).await?;
 
-            let is_test_proxy_port_closed = reqwest::get("http://localhost:5555")
-                .await
-                .err()
-                .map_or(false, |err| err.is_connect());
-            let base: Url = if is_test_proxy_port_closed {
+            let base: Url = if cfg!(not(debug_assertions))
+                || reqwest::get("http://localhost:5555").await.is_err()
+            {
                 "https://api.telegram.org".parse().unwrap()
             } else {
                 "http://localhost:5555".parse().unwrap()

@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicI32, Ordering},
+    Arc,
+};
 
 use async_openai::{
     config::OpenAIConfig,
@@ -12,7 +15,9 @@ use async_openai::{
     },
     Client,
 };
+use chrono::Datelike;
 use dashmap::DashMap;
+use lazy_static::lazy_static;
 use serde::Deserialize;
 use tearbot_common::{
     bot_commands::ModerationJudgement,
@@ -55,6 +60,22 @@ pub async fn is_in_moderator_chat_or_dm(
         // can configure all chats in dm
         true
     }
+}
+
+pub fn reached_gpt4o_rate_limit(chat_id: ChatId) -> bool {
+    lazy_static! {
+        static ref CURRENT_DAY: AtomicI32 = AtomicI32::new(chrono::Utc::now().num_days_from_ce());
+        static ref GPT4O_MESSAGES_PER_DAY: DashMap<ChatId, u32> = DashMap::new();
+    }
+    const MAX_GPT4O_MESSAGES_PER_DAY: u32 = 5;
+
+    let current_day = chrono::Utc::now().num_days_from_ce();
+    if CURRENT_DAY.swap(current_day, Ordering::Relaxed) != current_day {
+        GPT4O_MESSAGES_PER_DAY.clear();
+    }
+    let mut messages = GPT4O_MESSAGES_PER_DAY.entry(chat_id).or_insert(0);
+    *messages += 1;
+    *messages > MAX_GPT4O_MESSAGES_PER_DAY
 }
 
 pub async fn get_message_rating(
@@ -200,7 +221,10 @@ pub async fn get_message_rating(
             )
             .await;
     match run {
-        Ok(run) => {
+        Ok(mut run) => {
+            if model == Model::Gpt4o && reached_gpt4o_rate_limit(chat_id) {
+                run.model = Model::Gpt4oMini.get_id().to_string();
+            }
             let result = await_execution(&openai_client, run, new_thread.id).await;
             if let Ok(MessageContent::Text(text)) = result {
                 if let Ok(response) = serde_json::from_str::<ModerationResponse>(&text.text.value) {

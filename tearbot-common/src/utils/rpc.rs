@@ -20,11 +20,12 @@ macro_rules! try_rpc {
     (|$rpc_url: ident| $body: block) => {{
         let mut i = 0;
         loop {
-            let result: Result<_, _> = {
+            let result: Result<_, _> = async {
                 let $rpc_url = RPC_URLS[i];
                 let res = $body;
                 res
-            };
+            }
+            .await;
             match result {
                 Ok(res) => break Ok(res),
                 Err(err) => {

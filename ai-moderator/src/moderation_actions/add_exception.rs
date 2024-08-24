@@ -22,13 +22,13 @@ use tearbot_common::{
     },
     tgbot::{TgCallbackContext, DONT_CARE},
     utils::{
-        ai::await_execution,
+        ai::{await_execution, Model},
         chat::{check_admin_permission_in_chat, expandable_blockquote},
     },
     xeon::XeonState,
 };
 
-use crate::AiModeratorBotConfig;
+use crate::{utils::reached_gpt4o_rate_limit, AiModeratorBotConfig};
 
 pub async fn handle_button(
     ctx: &TgCallbackContext<'_>,
@@ -137,7 +137,10 @@ pub async fn handle_button(
                 )
                 .await;
             match run {
-                Ok(run) => {
+                Ok(mut run) => {
+                    if reached_gpt4o_rate_limit(target_chat_id) {
+                        run.model = Model::Gpt4oMini.get_id().to_string();
+                    }
                     let result =
                         await_execution(&openai_client, run, new_thread.id).await;
                     if let Ok(MessageContent::Text(text)) = result {

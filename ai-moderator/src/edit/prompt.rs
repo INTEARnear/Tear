@@ -20,13 +20,17 @@ use tearbot_common::{
     },
     tgbot::{BotData, TgCallbackContext, DONT_CARE},
     utils::{
-        ai::await_execution,
+        ai::{await_execution, Model},
         chat::{check_admin_permission_in_chat, expandable_blockquote},
     },
     xeon::XeonState,
 };
 
-use crate::{moderator, utils, AiModeratorBotConfig};
+use crate::{
+    moderator,
+    utils::{self, reached_gpt4o_rate_limit},
+    AiModeratorBotConfig,
+};
 
 pub async fn handle_set_prompt_input(
     bot: &BotData,
@@ -67,6 +71,7 @@ pub async fn handle_set_prompt_button(
     ctx: &TgCallbackContext<'_>,
     target_chat_id: ChatId,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    is_in_mod_chat: bool,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
@@ -80,7 +85,11 @@ pub async fn handle_set_prompt_button(
     let buttons = vec![vec![InlineKeyboardButton::callback(
         "⬅️ Cancel",
         ctx.bot()
-            .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+            .to_callback_data(&if is_in_mod_chat {
+                TgCommand::AiModeratorCancelEditPrompt
+            } else {
+                TgCommand::AiModerator(target_chat_id)
+            })
             .await,
     )]];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -225,7 +234,10 @@ pub async fn handle_edit_prompt_input(
                 )
                 .await;
             match run {
-                Ok(run) => {
+                Ok(mut run) => {
+                    if reached_gpt4o_rate_limit(target_chat_id) {
+                        run.model = Model::Gpt4oMini.get_id().to_string();
+                    }
                     let result = await_execution(&openai_client, run, new_thread.id).await;
                     if let Ok(MessageContent::Text(text)) = result {
                         if let Ok(response) =
@@ -355,4 +367,15 @@ pub async fn handle_edit_prompt_button(
 #[derive(Debug, Clone, Deserialize)]
 struct PromptEditorResponse {
     rewritten_prompt: String,
+}
+
+pub async fn handle_cancel_edit_prompt_button(
+    ctx: &TgCallbackContext<'_>,
+) -> Result<(), anyhow::Error> {
+    let message = "Prompt editing was cancelled";
+    let buttons = Vec::<Vec<_>>::new();
+    let reply_markup = InlineKeyboardMarkup::new(buttons);
+    ctx.bot().remove_dm_message_command(&ctx.user_id()).await?;
+    ctx.edit_or_send(message, reply_markup).await?;
+    Ok(())
 }

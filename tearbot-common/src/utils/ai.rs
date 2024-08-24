@@ -65,6 +65,7 @@ pub async fn await_execution(
     }
 }
 
+#[derive(PartialEq)]
 pub enum Model {
     Gpt4oMini,
     Gpt4o,
