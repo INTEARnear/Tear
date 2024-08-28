@@ -14,7 +14,7 @@ use tearbot_common::{
 use crate::AiModeratorBotConfig;
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {

@@ -1395,6 +1395,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "displaydoc"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
+]
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2331,6 +2342,7 @@ dependencies = [
  "anyhow",
  "async-openai",
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "dashmap",
  "log",
@@ -2339,6 +2351,7 @@ dependencies = [
  "serde_json",
  "tearbot-common",
  "tokio",
+ "zip",
 ]
 
 [[package]]
@@ -7351,6 +7364,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.75",
+]
+
+[[package]]
+name = "zip"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc5e4288ea4057ae23afc69a4472434a87a2495cafce6632fd1c4ec9f5cf3494"
+dependencies = [
+ "arbitrary",
+ "crc32fast",
+ "crossbeam-utils",
+ "displaydoc",
+ "indexmap 2.4.0",
+ "memchr",
+ "thiserror",
 ]
 
 [[package]]

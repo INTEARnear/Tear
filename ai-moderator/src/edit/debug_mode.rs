@@ -14,7 +14,7 @@ use tearbot_common::{
 use crate::{moderator, AiModeratorBotConfig};
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     debug_mode: bool,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,

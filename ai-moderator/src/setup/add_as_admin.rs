@@ -34,7 +34,7 @@ pub async fn handle_input(
         bot.send_text_message(chat_id, "Cancelled".to_string(), ReplyMarkup::kb_remove())
             .await?;
         moderator::open_main(
-            &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+            &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
             target_chat_id,
             bot_configs,
         )
@@ -55,7 +55,7 @@ pub async fn handle_input(
             bot.send_text_message(chat_id, message, reply_markup)
                 .await?;
             moderator::open_main(
-                &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+                &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
                 target_chat_id,
                 bot_configs,
             )
@@ -89,7 +89,7 @@ pub async fn handle_input(
 }
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {

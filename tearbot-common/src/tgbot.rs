@@ -29,7 +29,6 @@ use teloxide::{adaptors::CacheMe, payloads::SendVideoSetters};
 use teloxide::{dispatching::UpdateFilterExt, types::ReplyParameters};
 use teloxide::{payloads::SendAnimationSetters, prelude::PreCheckoutQuery};
 use teloxide::{ApiError, Bot, RequestError};
-use tokio::sync::RwLock;
 
 use crate::bot_commands::{MessageCommand, PaymentReference, TgCommand};
 use crate::utils::chat::ChatPermissionLevel;
@@ -756,25 +755,25 @@ impl BotData {
                 .reply_markup(reply_markup)
                 .await
                 .inspect_err(log_parse_error(text))?,
-            Attachment::DocumentUrl(url) => self
+            Attachment::DocumentUrl(url, file_name) => self
                 .bot
-                .send_document(chat_id, InputFile::url(url))
+                .send_document(chat_id, InputFile::url(url).file_name(file_name))
                 .caption(text.clone())
                 .parse_mode(ParseMode::MarkdownV2)
                 .reply_markup(reply_markup)
                 .await
                 .inspect_err(log_parse_error(text))?,
-            Attachment::DocumentText(content) => self
+            Attachment::DocumentText(content, file_name) => self
                 .bot
-                .send_document(chat_id, InputFile::memory(content).file_name("message.txt"))
+                .send_document(chat_id, InputFile::memory(content).file_name(file_name))
                 .caption(text.clone())
                 .parse_mode(ParseMode::MarkdownV2)
                 .reply_markup(reply_markup)
                 .await
                 .inspect_err(log_parse_error(text))?,
-            Attachment::DocumentFileId(file_id) => self
+            Attachment::DocumentFileId(file_id, file_name) => self
                 .bot
-                .send_document(chat_id, InputFile::file_id(file_id))
+                .send_document(chat_id, InputFile::file_id(file_id).file_name(file_name))
                 .caption(text.clone())
                 .parse_mode(ParseMode::MarkdownV2)
                 .reply_markup(reply_markup)
@@ -907,7 +906,7 @@ pub struct TgCallbackContext<'a> {
     bot: &'a BotData,
     user_id: UserId,
     chat_id: ChatId,
-    last_message: RwLock<Option<MessageId>>,
+    last_message: Option<MessageId>,
     data: &'a str,
 }
 
@@ -916,14 +915,14 @@ impl<'a> TgCallbackContext<'a> {
         bot: &'a BotData,
         user_id: UserId,
         chat_id: ChatId,
-        message_id: Option<MessageId>,
+        last_message: Option<MessageId>,
         data: &'a str,
     ) -> Self {
         Self {
             bot,
             user_id,
             chat_id,
-            last_message: RwLock::new(message_id),
+            last_message,
             data,
         }
     }
@@ -940,8 +939,8 @@ impl<'a> TgCallbackContext<'a> {
         self.chat_id
     }
 
-    pub async fn message_id(&self) -> Option<MessageId> {
-        *self.last_message.read().await
+    pub fn message_id(&self) -> Option<MessageId> {
+        self.last_message
     }
 
     pub fn data(&self) -> &str {
@@ -949,25 +948,29 @@ impl<'a> TgCallbackContext<'a> {
     }
 
     pub async fn parse_command(&self) -> Result<TgCommand, anyhow::Error> {
+        if self.data == DONT_CARE {
+            return Err(anyhow::anyhow!("Tried to parse DONT_CARE callback data"));
+        }
         self.bot.parse_callback_data(self.data).await
     }
 
     pub async fn edit_or_send(
-        &self,
+        &mut self,
         text: impl Into<String>,
         reply_markup: InlineKeyboardMarkup,
     ) -> Result<(), anyhow::Error> {
         let text = text.into();
         if text.len() >= 4096 {
+            // Will send as a .txt document
             let message = self.send(text, reply_markup, Attachment::None).await?;
-            self.last_message.write().await.replace(message.id);
+            self.last_message = Some(message.id);
             return Ok(());
         }
-        if let Some(message_id) = self.last_message.read().await.as_ref() {
+        if let Some(message_id) = self.last_message {
             let edit_result = self
                 .bot
                 .bot()
-                .edit_message_text(self.chat_id, *message_id, text.clone())
+                .edit_message_text(self.chat_id, message_id, text.clone())
                 .parse_mode(ParseMode::MarkdownV2)
                 .link_preview_options(LinkPreviewOptions {
                     is_disabled: true,
@@ -982,9 +985,9 @@ impl<'a> TgCallbackContext<'a> {
                 Ok(_) => {}
                 Err(RequestError::Api(ApiError::MessageNotModified)) => {}
                 Err(RequestError::Api(ApiError::Unknown(error_text))) => {
-                    if error_text == *"Bad Request: there is no text in the message to edit" {
+                    if error_text == "Bad Request: there is no text in the message to edit" {
                         let message = self.send(text, reply_markup, Attachment::None).await?;
-                        self.last_message.write().await.replace(message.id);
+                        self.last_message = Some(message.id);
                     } else {
                         return Err(anyhow::anyhow!(
                             "Error editing message: Unknown error: {:?}",
@@ -998,7 +1001,7 @@ impl<'a> TgCallbackContext<'a> {
             }
         } else {
             let message = self.send(text, reply_markup, Attachment::None).await?;
-            self.last_message.write().await.replace(message.id);
+            self.last_message = Some(message.id);
         }
         Ok(())
     }
@@ -1015,20 +1018,20 @@ impl<'a> TgCallbackContext<'a> {
     }
 
     pub async fn send_and_set(
-        &self,
+        &mut self,
         text: impl Into<String>,
         reply_markup: impl Into<ReplyMarkup>,
     ) -> Result<(), anyhow::Error> {
         let message = self.send(text, reply_markup, Attachment::None).await?;
-        self.last_message.write().await.replace(message.id);
+        self.last_message = Some(message.id);
         Ok(())
     }
 
     pub async fn delete_last_message(&self) -> Result<(), anyhow::Error> {
-        if let Some(message_id) = self.last_message.read().await.as_ref() {
+        if let Some(message_id) = self.last_message {
             self.bot
                 .bot()
-                .delete_message(self.chat_id, *message_id)
+                .delete_message(self.chat_id, message_id)
                 .await?;
         }
         Ok(())
@@ -1047,7 +1050,6 @@ impl<'a> TgCallbackContext<'a> {
             .reply_parameters(ReplyParameters {
                 message_id: self
                     .message_id()
-                    .await
                     .ok_or_else(|| anyhow::anyhow!("No message to reply to"))?,
                 allow_sending_without_reply: Some(true),
                 ..Default::default()
@@ -1079,9 +1081,9 @@ pub enum Attachment {
     AudioFileId(String),
     VideoUrl(Url),
     VideoFileId(String),
-    DocumentUrl(Url),
-    DocumentText(String),
-    DocumentFileId(String),
+    DocumentUrl(Url, String),
+    DocumentText(String, String),
+    DocumentFileId(String, String),
 }
 
 pub struct MustAnswerCallbackQuery {

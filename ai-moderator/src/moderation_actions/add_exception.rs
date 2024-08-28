@@ -31,7 +31,7 @@ use tearbot_common::{
 use crate::{utils::reached_gpt4o_rate_limit, AiModeratorBotConfig};
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     message_text: String,
     message_image_openai_file_id: Option<String>,
@@ -75,11 +75,11 @@ pub async fn handle_button(
     let bot_id = ctx.bot().id();
     let user_id = ctx.user_id();
     let chat_id = ctx.chat_id();
-    let message_id = ctx.message_id().await;
+    let message_id = ctx.message_id();
     let xeon = Arc::clone(xeon);
     tokio::spawn(async move {
         let bot = xeon.bot(&bot_id).unwrap();
-        let ctx = TgCallbackContext::new(&bot, user_id, chat_id, message_id, DONT_CARE);
+        let mut ctx = TgCallbackContext::new(&bot, user_id, chat_id, message_id, DONT_CARE);
         let result: Result<(), anyhow::Error> = async {
             let edition_prompt = format!(
                 "Old Prompt: {}\n\nMessage: {}\n\nReasoning:{}",

@@ -11,7 +11,7 @@ use tearbot_common::{
 };
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     message_id: MessageId,
 ) -> Result<(), anyhow::Error> {

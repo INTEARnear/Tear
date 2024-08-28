@@ -40,7 +40,7 @@ pub async fn handle_input(
         return Ok(());
     };
     handle_confirm(
-        &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+        &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
         target_chat_id,
         first_messages,
         bot_configs,
@@ -50,7 +50,7 @@ pub async fn handle_input(
 }
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
@@ -117,7 +117,7 @@ pub async fn handle_button(
 }
 
 pub async fn handle_confirm(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     first_messages: usize,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,

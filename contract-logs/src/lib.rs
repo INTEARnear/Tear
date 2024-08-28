@@ -39,7 +39,7 @@ impl XeonBotModule for ContractLogsModule {
 
     async fn handle_callback<'a>(
         &'a self,
-        context: TgCallbackContext<'a>,
+        mut context: TgCallbackContext<'a>,
         _query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error> {
         if context.bot().bot_type() != BotType::Main {

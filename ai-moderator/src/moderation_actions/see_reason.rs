@@ -4,7 +4,7 @@ use tearbot_common::{
 };
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     reasoning: String,
 ) -> Result<(), anyhow::Error> {
     let message = format!(

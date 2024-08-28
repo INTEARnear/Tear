@@ -5,7 +5,7 @@ use tearbot_common::{
 };
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     moderator_chat_id: ChatId,
     chat_id: ChatId,
     sender_id: ChatId,

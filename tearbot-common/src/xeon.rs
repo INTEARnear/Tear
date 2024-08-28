@@ -255,7 +255,7 @@ pub trait XeonBotModule: Send + Sync + 'static {
 
     async fn handle_callback<'a>(
         &'a self,
-        ctx: TgCallbackContext<'a>,
+        mut ctx: TgCallbackContext<'a>,
         query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error>;
 

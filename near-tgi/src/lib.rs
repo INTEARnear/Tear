@@ -18,7 +18,6 @@ use near_cli_rs::commands::transaction::CliTransactionActions;
 use near_cli_rs::commands::CliTopLevelCommand;
 use near_cli_rs::js_command_match::JsCmd;
 use near_cli_rs::LOG_COLLECTOR;
-use tearbot_common::teloxide::prelude::{ChatId, Message, UserId};
 use tearbot_common::teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::tgbot::{Attachment, BotData, BotType};
@@ -26,6 +25,10 @@ use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     tgbot::{MustAnswerCallbackQuery, TgCallbackContext},
     xeon::XeonBotModule,
+};
+use tearbot_common::{
+    teloxide::prelude::{ChatId, Message, UserId},
+    tgbot::DONT_CARE,
 };
 
 pub struct NearTgiModule;
@@ -271,7 +274,7 @@ impl XeonBotModule for NearTgiModule {
 
                 let chat_id = context.chat_id();
                 let user_id = context.user_id();
-                let message_id = context.message_id().await;
+                let message_id = context.message_id();
                 let bot_id = context.bot().id();
                 let xeon = Arc::clone(context.bot().xeon());
                 tokio::task::spawn_blocking(move || {
@@ -372,12 +375,12 @@ impl XeonBotModule for NearTgiModule {
 
                     tokio::spawn(async move {
                         let bot = xeon.bot(&bot_id).unwrap();
-                        let context = TgCallbackContext::new(
+                        let mut context = TgCallbackContext::new(
                             bot.value(),
                             user_id,
                             chat_id,
                             message_id,
-                            "not used (probably)",
+                            DONT_CARE,
                         );
                         let command_string_clone = command_string.clone();
                         let response_clone = response.clone();
@@ -529,7 +532,7 @@ impl XeonBotModule for NearTgiModule {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::NearTgiAnswer(command, None))
@@ -545,7 +548,7 @@ impl XeonBotModule for NearTgiModule {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::NearTgiAnswer(
@@ -564,7 +567,7 @@ impl XeonBotModule for NearTgiModule {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::NearTgiAnswer(

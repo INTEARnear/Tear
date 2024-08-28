@@ -259,7 +259,7 @@ fn create_prompt(builder: PromptBuilder) -> String {
 }
 
 pub async fn handle_start_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -326,7 +326,7 @@ Is this chat a NEAR project? If so, I can add some trusted projects that will to
 }
 
 pub async fn handle_links_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -381,7 +381,7 @@ pub async fn handle_links_button(
 }
 
 pub async fn handle_add_links_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -437,7 +437,7 @@ pub async fn handle_add_links_input(
         .map(|s| s.trim_end_matches(',').to_owned())
         .collect();
     handle_price_talk_button(
-        &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+        &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
         PromptBuilder {
             links: Some(links),
             ..builder
@@ -448,7 +448,7 @@ pub async fn handle_add_links_input(
 }
 
 pub async fn handle_price_talk_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -505,7 +505,7 @@ pub async fn handle_price_talk_button(
 }
 
 pub async fn handle_scam_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -562,7 +562,7 @@ pub async fn handle_scam_button(
 }
 
 pub async fn handle_ask_dm_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -619,7 +619,7 @@ pub async fn handle_ask_dm_button(
 }
 
 pub async fn handle_profanity_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -683,7 +683,7 @@ pub async fn handle_profanity_button(
 }
 
 pub async fn handle_nsfw_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -740,7 +740,7 @@ pub async fn handle_nsfw_button(
 }
 
 pub async fn handle_other_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
@@ -794,7 +794,7 @@ pub async fn handle_add_other_input(
     }
     let other = text.to_string();
     handle_finish_button(
-        &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+        &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
         PromptBuilder {
             other: Some(other),
             ..builder
@@ -806,7 +806,7 @@ pub async fn handle_add_other_input(
 }
 
 pub async fn handle_finish_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {

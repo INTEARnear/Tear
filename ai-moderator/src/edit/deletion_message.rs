@@ -14,7 +14,7 @@ use tearbot_common::{
 use crate::{moderator, AiModeratorBotConfig};
 
 pub async fn handle_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
@@ -60,7 +60,7 @@ pub async fn handle_input(
     } else if let Some(audio) = message.audio() {
         Attachment::AudioFileId(audio.file.id.clone())
     } else if let Some(document) = message.document() {
-        Attachment::DocumentFileId(document.file.id.clone())
+        Attachment::DocumentFileId(document.file.id.clone(), "file".to_string())
     } else {
         Attachment::None
     };
@@ -77,7 +77,7 @@ pub async fn handle_input(
         }
     }
     moderator::open_main(
-        &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+        &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
         target_chat_id,
         bot_configs,
     )

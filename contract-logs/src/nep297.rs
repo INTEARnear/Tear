@@ -332,7 +332,7 @@ impl XeonBotModule for ContractLogsNep297Module {
 
     async fn handle_callback<'a>(
         &'a self,
-        context: TgCallbackContext<'a>,
+        mut context: TgCallbackContext<'a>,
         _query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error> {
         if context.bot().bot_type() != BotType::Main {
@@ -683,7 +683,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297(
@@ -739,7 +739,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297(
@@ -777,7 +777,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297Edit(
@@ -1006,7 +1006,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297Edit(
@@ -1052,7 +1052,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297Edit(
@@ -1098,7 +1098,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297Edit(
@@ -1144,7 +1144,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297Edit(
@@ -1190,7 +1190,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297Edit(
@@ -1303,7 +1303,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::CustomLogsNotificationsNep297Edit(

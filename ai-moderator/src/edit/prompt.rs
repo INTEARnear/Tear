@@ -49,7 +49,7 @@ pub async fn handle_set_prompt_input(
     let prompt = text.to_string();
     if chat_id.is_user() {
         handle_set_prompt_confirm_and_return_button(
-            &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+            &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
             target_chat_id,
             prompt,
             bot_configs,
@@ -57,7 +57,7 @@ pub async fn handle_set_prompt_input(
         .await?;
     } else {
         handle_set_prompt_confirm_button(
-            &TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+            &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
             target_chat_id,
             prompt,
             bot_configs,
@@ -68,7 +68,7 @@ pub async fn handle_set_prompt_input(
 }
 
 pub async fn handle_set_prompt_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
     is_in_mod_chat: bool,
@@ -104,7 +104,7 @@ pub async fn handle_set_prompt_button(
 }
 
 async fn set_prompt(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     prompt: String,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
@@ -134,7 +134,7 @@ async fn set_prompt(
 }
 
 pub async fn handle_set_prompt_confirm_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     prompt: String,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
@@ -148,7 +148,7 @@ pub async fn handle_set_prompt_confirm_button(
 }
 
 pub async fn handle_set_prompt_confirm_and_return_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     prompt: String,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
@@ -334,7 +334,7 @@ pub async fn handle_edit_prompt_input(
 }
 
 pub async fn handle_edit_prompt_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
@@ -370,7 +370,7 @@ struct PromptEditorResponse {
 }
 
 pub async fn handle_cancel_edit_prompt_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
 ) -> Result<(), anyhow::Error> {
     let message = "Prompt editing was cancelled";
     let buttons = Vec::<Vec<_>>::new();

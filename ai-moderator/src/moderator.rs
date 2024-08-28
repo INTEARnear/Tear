@@ -29,7 +29,7 @@ use crate::{
 };
 
 pub async fn open_main(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
@@ -117,9 +117,9 @@ pub async fn open_main(
             Attachment::AnimationUrl(_) | Attachment::AnimationFileId(_) => "\n+ gif",
             Attachment::AudioUrl(_) | Attachment::AudioFileId(_) => "\n+ audio",
             Attachment::VideoUrl(_) | Attachment::VideoFileId(_) => "\n+ video",
-            Attachment::DocumentUrl(_)
-            | Attachment::DocumentText(_)
-            | Attachment::DocumentFileId(_) => "\n\\+ file",
+            Attachment::DocumentUrl(_, _)
+            | Attachment::DocumentText(_, _)
+            | Attachment::DocumentFileId(_, _) => "\n\\+ file",
         };
     let deletion_message = expandable_blockquote(&deletion_message);
     let balance = format!("{messages} messages");
@@ -338,7 +338,7 @@ pub async fn open_main(
 }
 
 pub async fn handle_test_message_button(
-    ctx: &TgCallbackContext<'_>,
+    ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {

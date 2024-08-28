@@ -471,6 +471,30 @@ pub enum TgCommand {
     ImageGenSetPromptEnhancer(bool),
     #[cfg(feature = "image-gen-module")]
     ImageGenSetNSFWMode(bool),
+    #[cfg(feature = "image-gen-module")]
+    ImageGenCreateLoRA,
+    #[cfg(feature = "image-gen-module")]
+    ImageGenDiscoverLoRAs,
+    #[cfg(feature = "image-gen-module")]
+    ImageGenCreateLoRAChooseType {
+        token: String,
+        is_style: bool,
+    },
+    #[cfg(feature = "image-gen-module")]
+    ImageGenLoRAConfirmation {
+        token: String,
+        images: Vec<(String, String)>,
+        page: usize,
+    },
+    #[cfg(feature = "image-gen-module")]
+    ImageGenLoRAConfirmed {
+        token: String,
+        images: Vec<(String, String)>,
+    },
+    #[cfg(feature = "image-gen-module")]
+    ImageGenLoRAInfo {
+        key: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -590,6 +614,12 @@ pub enum MessageCommand {
     AiModeratorPromptConstructorAddOther(PromptBuilder),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorBuyMessages(ChatId),
+    ImageGenLoRAName,
+    ImageGenLoRAAddImages {
+        token: String,
+        is_style: bool,
+        images: Vec<(String, Option<String>)>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -14,7 +14,7 @@ use tearbot_common::{
         },
         utils::markdown,
     },
-    tgbot::{Attachment, BotData, BotType, MustAnswerCallbackQuery, TgCallbackContext},
+    tgbot::{Attachment, BotData, BotType, MustAnswerCallbackQuery, TgCallbackContext, DONT_CARE},
     utils::{
         chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, ChatPermissionLevel},
         store::PersistentCachedStore,
@@ -71,7 +71,10 @@ impl XeonBotModule for HubModule {
                     .insert_if_not_exists(user_id, DateTime::now())
                     .await?;
                 if data.is_empty() {
-                    self.open_main_menu(bot, user_id, None).await?;
+                    self.open_main_menu(&mut TgCallbackContext::new(
+                        bot, user_id, chat_id, None, DONT_CARE,
+                    ))
+                    .await?;
                 }
             }
             // MessageCommand::ConnectAccountAnonymously => {
@@ -100,7 +103,10 @@ impl XeonBotModule for HubModule {
                         ReplyMarkup::kb_remove(),
                     )
                     .await?;
-                    self.open_main_menu(bot, user_id, None).await?;
+                    self.open_main_menu(&mut TgCallbackContext::new(
+                        bot, user_id, chat_id, None, DONT_CARE,
+                    ))
+                    .await?;
                     return Ok(());
                 }
                 if let Some(ChatShared {
@@ -121,8 +127,11 @@ impl XeonBotModule for HubModule {
                     let reply_markup = ReplyMarkup::kb_remove();
                     bot.send_text_message(chat_id, message, reply_markup)
                         .await?;
-                    self.open_chat_settings(bot, user_id, *target_chat_id, None)
-                        .await?;
+                    self.open_chat_settings(
+                        &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+                        Some(*target_chat_id),
+                    )
+                    .await?;
                 } else {
                     let message = "Please use the 'Choose a chat' button".to_string();
                     let buttons = vec![vec![InlineKeyboardButton::callback(
@@ -143,7 +152,10 @@ impl XeonBotModule for HubModule {
                         ReplyMarkup::kb_remove(),
                     )
                     .await?;
-                    self.open_main_menu(bot, user_id, None).await?;
+                    self.open_main_menu(&mut TgCallbackContext::new(
+                        bot, user_id, chat_id, None, DONT_CARE,
+                    ))
+                    .await?;
                     return Ok(());
                 }
                 let member = bot.bot().get_chat_member(target_chat_id, user_id).await?;
@@ -210,7 +222,7 @@ impl XeonBotModule for HubModule {
 
     async fn handle_callback<'a>(
         &'a self,
-        context: TgCallbackContext<'a>,
+        mut context: TgCallbackContext<'a>,
         _query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error> {
         if context.bot().bot_type() != BotType::Main {
@@ -221,8 +233,7 @@ impl XeonBotModule for HubModule {
         }
         match context.parse_command().await? {
             TgCommand::OpenMainMenu => {
-                self.open_main_menu(context.bot(), context.user_id(), Some(&context))
-                    .await?;
+                self.open_main_menu(&mut context).await?;
             }
             // TgCommand::OpenAccountConnectionMenu => {
             //     self.open_connection_menu(context).await?;
@@ -233,8 +244,8 @@ impl XeonBotModule for HubModule {
             TgCommand::ChooseChat => {
                 self.open_chat_selector(context).await?;
             }
-            TgCommand::ChatSettings(chat_id) => {
-                self.open_chat_settings(context.bot(), context.user_id(), chat_id, Some(&context))
+            TgCommand::ChatSettings(target_chat_id) => {
+                self.open_chat_settings(&mut context, Some(target_chat_id))
                     .await?;
             }
             TgCommand::CancelChat => {
@@ -249,8 +260,7 @@ impl XeonBotModule for HubModule {
                         Attachment::None,
                     )
                     .await?;
-                self.open_main_menu(context.bot(), context.user_id(), Some(&context))
-                    .await?;
+                self.open_main_menu(&mut context).await?;
             }
             // TgCommand::CancelConnectAccountAnonymously => {
             //     context
@@ -261,7 +271,7 @@ impl XeonBotModule for HubModule {
             //         context.bot(),
             //         context.user_id(),
             //         context.chat_id(),
-            //         context.message_id().await,
+            //         context.message_id(),
             //         &context
             //             .bot()
             //             .to_callback_data(&TgCommand::OpenMainMenu)
@@ -445,7 +455,7 @@ impl XeonBotModule for HubModule {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))
@@ -691,7 +701,7 @@ impl XeonBotModule for HubModule {
                         context.bot(),
                         context.user_id(),
                         context.chat_id(),
-                        context.message_id().await,
+                        context.message_id(),
                         &context
                             .bot()
                             .to_callback_data(&TgCommand::ChatPermissionsManageWhitelist(
@@ -714,15 +724,16 @@ impl XeonBotModule for HubModule {
 impl HubModule {
     async fn open_main_menu<'a>(
         &'a self,
-        bot: &'a BotData,
-        user_id: UserId,
-        context: Option<&TgCallbackContext<'a>>,
+        context: &mut TgCallbackContext<'a>,
     ) -> Result<(), anyhow::Error> {
-        if bot.bot_type() != BotType::Main {
+        if context.bot().bot_type() != BotType::Main {
             return Ok(());
         }
-        let chat_id = ChatId(user_id.0 as i64);
-        bot.remove_dm_message_command(&user_id).await?;
+        let chat_id = ChatId(context.user_id().0 as i64);
+        context
+            .bot()
+            .remove_dm_message_command(&context.user_id())
+            .await?;
         #[cfg(feature = "xeon")]
         let message = "
 Welcome to Xeon, a better and faster version of [IntearBot](tg://resolve?domain=intearbot) that can handle the next billion web3 users ⚡️
@@ -755,26 +766,34 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         //             .await?,
         //     )
         // };
-        let mut buttons = create_notificatons_buttons(chat_id, bot).await?;
+        let mut buttons = create_notificatons_buttons(chat_id, context.bot()).await?;
         buttons.extend(vec![vec![InlineKeyboardButton::callback(
             "📣 Tools for chats and communities 💬",
-            bot.to_callback_data(&TgCommand::ChooseChat).await,
+            context.bot().to_callback_data(&TgCommand::ChooseChat).await,
         )]]);
         #[cfg(feature = "utilities-module")]
         buttons.push(vec![
             InlineKeyboardButton::callback(
                 "💷 Token Info",
-                bot.to_callback_data(&TgCommand::UtilitiesFtHolders).await,
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::UtilitiesFtHolders)
+                    .await,
             ),
             InlineKeyboardButton::callback(
                 "👤 Account Info",
-                bot.to_callback_data(&TgCommand::UtilitiesAccountInfo).await,
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::UtilitiesAccountInfo)
+                    .await,
             ),
         ]);
         #[cfg(feature = "near-tgi-module")]
         buttons.push(vec![InlineKeyboardButton::callback(
             "💻 Near TGI",
-            bot.to_callback_data(&TgCommand::NearTgi("near".to_string()))
+            context
+                .bot()
+                .to_callback_data(&TgCommand::NearTgi("near".to_string()))
                 .await,
         )]);
         #[cfg(any(feature = "tear", feature = "xeon"))]
@@ -793,18 +812,13 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             // vec![connection_button],
         ]);
         let reply_markup = InlineKeyboardMarkup::new(buttons);
-        if let Some(context) = context {
-            context.edit_or_send(message, reply_markup).await?;
-        } else {
-            bot.send_text_message(chat_id, message, reply_markup)
-                .await?;
-        }
+        context.edit_or_send(message, reply_markup).await?;
         Ok(())
     }
 
     // async fn open_connection_menu(
     //     &self,
-    //     context: TgCallbackContext<'_>,
+    //     mut context: TgCallbackContext<'_>,
     // ) -> Result<(), anyhow::Error> {
     //     if context.bot().bot_type() != BotType::Main {
     //         return Ok(());
@@ -882,7 +896,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
 
     // async fn disconnect_account(
     //     &self,
-    //     context: TgCallbackContext<'_>,
+    //     mut context: TgCallbackContext<'_>,
     // ) -> Result<(), anyhow::Error> {
     //     if context.bot().bot_type() != BotType::Main {
     //         return Ok(());
@@ -1065,37 +1079,45 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         Ok(())
     }
 
-    async fn open_chat_settings(
-        &self,
-        bot: &BotData,
-        user_id: UserId,
-        target_chat_id: ChatId,
-        context: Option<&TgCallbackContext<'_>>,
+    async fn open_chat_settings<'a>(
+        &'a self,
+        context: &mut TgCallbackContext<'a>,
+        target_chat_id: Option<ChatId>,
     ) -> Result<(), anyhow::Error> {
-        if bot.bot_type() != BotType::Main {
+        if context.bot().bot_type() != BotType::Main {
             return Ok(());
         }
-        if target_chat_id.is_user() {
-            self.open_main_menu(bot, user_id, context).await?;
+        let Some(target_chat_id) = target_chat_id else {
+            self.open_main_menu(context).await?;
+            return Ok(());
+        };
+        if context.chat_id().is_user() {
+            log::warn!(
+                "User {} tried to access chat settings for chat {} which is a DM chat",
+                context.user_id(),
+                target_chat_id
+            );
             return Ok(());
         }
         let chat_name = markdown::escape(
-            &get_chat_title_cached_5m(bot.bot(), target_chat_id)
+            &get_chat_title_cached_5m(context.bot().bot(), target_chat_id)
                 .await?
                 .unwrap_or("DM".to_string()),
         );
         let message = format!("Settings for *{chat_name}*");
-        let mut buttons = create_notificatons_buttons(target_chat_id, bot).await?;
+        let mut buttons = create_notificatons_buttons(target_chat_id, context.bot()).await?;
         #[cfg(feature = "ai-moderator-module")]
         {
-            let chat = bot.bot().get_chat(target_chat_id).await?;
+            let chat = context.bot().bot().get_chat(target_chat_id).await?;
             if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
                 if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
                 | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
                 {
                     buttons.push(vec![InlineKeyboardButton::callback(
                         "🤖 AI Moderator",
-                        bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::AiModerator(target_chat_id))
                             .await,
                     )]);
                 }
@@ -1103,20 +1125,20 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         }
         buttons.push(vec![InlineKeyboardButton::callback(
             "👤 Permissions",
-            bot.to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))
+            context
+                .bot()
+                .to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))
                 .await,
         )]);
         buttons.push(vec![InlineKeyboardButton::callback(
             "⬅️ Back",
-            bot.to_callback_data(&TgCommand::OpenMainMenu).await,
+            context
+                .bot()
+                .to_callback_data(&TgCommand::OpenMainMenu)
+                .await,
         )]);
         let reply_markup = InlineKeyboardMarkup::new(buttons);
-        if let Some(context) = context {
-            context.edit_or_send(message, reply_markup).await?;
-        } else {
-            bot.send_text_message(ChatId(user_id.0 as i64), message, reply_markup)
-                .await?;
-        }
+        context.edit_or_send(message, reply_markup).await?;
         Ok(())
     }
 }

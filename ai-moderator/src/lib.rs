@@ -211,7 +211,7 @@ impl XeonBotModule for AiModeratorModule {
 
     async fn handle_callback<'a>(
         &'a self,
-        ctx: TgCallbackContext<'a>,
+        mut ctx: TgCallbackContext<'a>,
         _query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error> {
         if ctx.bot().bot_type() != BotType::Main {
@@ -227,7 +227,7 @@ impl XeonBotModule for AiModeratorModule {
                     reasoning,
                 ) => {
                     moderation_actions::add_exception::handle_button(
-                        &ctx,
+                        &mut ctx,
                         target_chat_id,
                         message_text,
                         message_image_openai_file_id,
@@ -240,7 +240,7 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 TgCommand::AiModeratorSetPromptConfirm(target_chat_id, prompt) => {
                     edit::prompt::handle_set_prompt_confirm_button(
-                        &ctx,
+                        &mut ctx,
                         target_chat_id,
                         prompt,
                         &self.bot_configs,
@@ -248,23 +248,35 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 }
                 TgCommand::AiModeratorUnban(target_chat_id, target_user_id) => {
-                    moderation_actions::unban::handle_button(&ctx, target_chat_id, target_user_id)
-                        .await?;
+                    moderation_actions::unban::handle_button(
+                        &mut ctx,
+                        target_chat_id,
+                        target_user_id,
+                    )
+                    .await?;
                 }
                 TgCommand::AiModeratorSeeReason(reasoning) => {
-                    moderation_actions::see_reason::handle_button(&ctx, reasoning).await?;
+                    moderation_actions::see_reason::handle_button(&mut ctx, reasoning).await?;
                 }
                 TgCommand::AiModeratorUnmute(target_chat_id, target_user_id) => {
-                    moderation_actions::unmute::handle_button(&ctx, target_chat_id, target_user_id)
-                        .await?;
+                    moderation_actions::unmute::handle_button(
+                        &mut ctx,
+                        target_chat_id,
+                        target_user_id,
+                    )
+                    .await?;
                 }
                 TgCommand::AiModeratorBan(target_chat_id, target_user_id) => {
-                    moderation_actions::ban::handle_button(&ctx, target_chat_id, target_user_id)
-                        .await?;
+                    moderation_actions::ban::handle_button(
+                        &mut ctx,
+                        target_chat_id,
+                        target_user_id,
+                    )
+                    .await?;
                 }
                 TgCommand::AiModeratorDelete(target_chat_id, message_id) => {
                     moderation_actions::delete_message::handle_button(
-                        &ctx,
+                        &mut ctx,
                         target_chat_id,
                         message_id,
                     )
@@ -272,7 +284,7 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 TgCommand::AiModeratorSetPrompt(target_chat_id) => {
                     edit::prompt::handle_set_prompt_button(
-                        &ctx,
+                        &mut ctx,
                         target_chat_id,
                         &self.bot_configs,
                         true,
@@ -287,7 +299,7 @@ impl XeonBotModule for AiModeratorModule {
                     attachment,
                 ) => {
                     moderation_actions::undelete_message::handle_button(
-                        &ctx,
+                        &mut ctx,
                         moderator_chat,
                         chat_id,
                         sender_id,
@@ -297,7 +309,7 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 }
                 TgCommand::AiModeratorCancelEditPrompt => {
-                    edit::prompt::handle_cancel_edit_prompt_button(&ctx).await?;
+                    edit::prompt::handle_cancel_edit_prompt_button(&mut ctx).await?;
                 }
                 _ => {}
             }
@@ -306,14 +318,14 @@ impl XeonBotModule for AiModeratorModule {
 
         match ctx.parse_command().await? {
             TgCommand::AiModerator(target_chat_id) => {
-                moderator::open_main(&ctx, target_chat_id, &self.bot_configs).await?;
+                moderator::open_main(&mut ctx, target_chat_id, &self.bot_configs).await?;
             }
             TgCommand::AiModeratorFirstMessages(target_chat_id) => {
-                edit::first_messages::handle_button(&ctx, target_chat_id).await?;
+                edit::first_messages::handle_button(&mut ctx, target_chat_id).await?;
             }
             TgCommand::AiModeratorFirstMessagesConfirm(target_chat_id, first_messages) => {
                 edit::first_messages::handle_confirm(
-                    &ctx,
+                    &mut ctx,
                     target_chat_id,
                     first_messages,
                     &self.bot_configs,
@@ -321,11 +333,11 @@ impl XeonBotModule for AiModeratorModule {
                 .await?;
             }
             TgCommand::AiModeratorRequestModeratorChat(target_chat_id) => {
-                edit::moderator_chat::handle_button(&ctx, target_chat_id).await?;
+                edit::moderator_chat::handle_button(&mut ctx, target_chat_id).await?;
             }
             TgCommand::AiModeratorSetPrompt(target_chat_id) => {
                 edit::prompt::handle_set_prompt_button(
-                    &ctx,
+                    &mut ctx,
                     target_chat_id,
                     &self.bot_configs,
                     false,
@@ -334,7 +346,7 @@ impl XeonBotModule for AiModeratorModule {
             }
             TgCommand::AiModeratorSetPromptConfirmAndReturn(target_chat_id, prompt) => {
                 edit::prompt::handle_set_prompt_confirm_and_return_button(
-                    &ctx,
+                    &mut ctx,
                     target_chat_id,
                     prompt,
                     &self.bot_configs,
@@ -343,7 +355,7 @@ impl XeonBotModule for AiModeratorModule {
             }
             TgCommand::AiModeratorSetDebugMode(target_chat_id, debug_mode) => {
                 edit::debug_mode::handle_button(
-                    &ctx,
+                    &mut ctx,
                     target_chat_id,
                     debug_mode,
                     &self.bot_configs,
@@ -352,7 +364,7 @@ impl XeonBotModule for AiModeratorModule {
             }
             TgCommand::AiModeratorSetAction(target_chat_id, judgement, action) => {
                 edit::actions::handle_button(
-                    &ctx,
+                    &mut ctx,
                     target_chat_id,
                     judgement,
                     action,
@@ -361,58 +373,62 @@ impl XeonBotModule for AiModeratorModule {
                 .await?;
             }
             TgCommand::AiModeratorSetSilent(target_chat_id, silent) => {
-                edit::silent::handle_button(&ctx, target_chat_id, silent, &self.bot_configs)
+                edit::silent::handle_button(&mut ctx, target_chat_id, silent, &self.bot_configs)
                     .await?;
             }
             TgCommand::AiModeratorSetEnabled(target_chat_id, enabled) => {
-                edit::enabled::handle_button(&ctx, target_chat_id, enabled, &self.bot_configs)
+                edit::enabled::handle_button(&mut ctx, target_chat_id, enabled, &self.bot_configs)
                     .await?;
             }
             TgCommand::AiModeratorAddAsAdmin(target_chat_id) => {
-                setup::add_as_admin::handle_button(&ctx, target_chat_id).await?;
+                setup::add_as_admin::handle_button(&mut ctx, target_chat_id).await?;
             }
             TgCommand::AiModeratorEditPrompt(target_chat_id) => {
-                edit::prompt::handle_edit_prompt_button(&ctx, target_chat_id, &self.bot_configs)
-                    .await?;
+                edit::prompt::handle_edit_prompt_button(
+                    &mut ctx,
+                    target_chat_id,
+                    &self.bot_configs,
+                )
+                .await?;
             }
             TgCommand::AiModeratorPromptConstructor(builder) => {
-                setup::builder::handle_start_button(&ctx, builder).await?;
+                setup::builder::handle_start_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorLinks(builder) => {
-                setup::builder::handle_links_button(&ctx, builder).await?;
+                setup::builder::handle_links_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorAddLinks(builder) => {
-                setup::builder::handle_add_links_button(&ctx, builder).await?;
+                setup::builder::handle_add_links_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorPriceTalk(builder) => {
-                setup::builder::handle_price_talk_button(&ctx, builder).await?;
+                setup::builder::handle_price_talk_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorScam(builder) => {
-                setup::builder::handle_scam_button(&ctx, builder).await?;
+                setup::builder::handle_scam_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorAskDM(builder) => {
-                setup::builder::handle_ask_dm_button(&ctx, builder).await?;
+                setup::builder::handle_ask_dm_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorProfanity(builder) => {
-                setup::builder::handle_profanity_button(&ctx, builder).await?;
+                setup::builder::handle_profanity_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorNsfw(builder) => {
-                setup::builder::handle_nsfw_button(&ctx, builder).await?;
+                setup::builder::handle_nsfw_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorOther(builder) => {
-                setup::builder::handle_other_button(&ctx, builder).await?;
+                setup::builder::handle_other_button(&mut ctx, builder).await?;
             }
             TgCommand::AiModeratorPromptConstructorFinish(builder) => {
-                setup::builder::handle_finish_button(&ctx, builder, &self.bot_configs).await?;
+                setup::builder::handle_finish_button(&mut ctx, builder, &self.bot_configs).await?;
             }
             TgCommand::AiModeratorSetMessage(target_chat_id) => {
-                edit::deletion_message::handle_button(&ctx, target_chat_id).await?;
+                edit::deletion_message::handle_button(&mut ctx, target_chat_id).await?;
             }
             TgCommand::AiModeratorTest(target_chat_id) => {
-                moderator::handle_test_message_button(&ctx, target_chat_id).await?;
+                moderator::handle_test_message_button(&mut ctx, target_chat_id).await?;
             }
             TgCommand::AiModeratorAddBalance(target_chat_id) => {
-                billing::add_balance::handle_button(&ctx, target_chat_id).await?;
+                billing::add_balance::handle_button(&mut ctx, target_chat_id).await?;
             }
             TgCommand::AiModeratorBuyMessages(target_chat_id, messages) => {
                 billing::add_balance::handle_buy_messages(
@@ -770,7 +786,7 @@ impl AiModeratorModule {
                 } else if let Some(document) = message.document() {
                     // TODO moderate document
                     (
-                        Attachment::DocumentFileId(document.file.id.clone()),
+                        Attachment::DocumentFileId(document.file.id.clone(), "file".to_string()),
                         None,
                     )
                 } else if let Some(animation) = message.animation() {
