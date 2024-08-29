@@ -214,7 +214,7 @@ impl BotData {
             while let Some(msg) = msg_receiver.recv().await {
                 let xeon = Arc::clone(&xeon);
                 tokio::spawn(async move {
-                    let text = msg.text().unwrap_or_default();
+                    let text = msg.text().or(msg.caption()).unwrap_or_default();
                     for module in xeon.bot_modules().await.iter() {
                         let bot = xeon.bot(&me).unwrap();
                         let result = if text.starts_with("/start") {

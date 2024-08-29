@@ -452,13 +452,9 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorUndeleteMessage(ChatId, ChatId, ChatId, String, Attachment),
     #[cfg(feature = "image-gen-module")]
-    ImageGenGenerateAnother(String, FluxModel),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenReplaceObject(reqwest::Url),
+    ImageGenGenerateAnother(String, Option<(reqwest::Url, f64)>, FluxModel),
     #[cfg(feature = "image-gen-module")]
     ImageGenUpscale(reqwest::Url),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenCreateSimilar(reqwest::Url),
     #[cfg(feature = "image-gen-module")]
     CreateLoRA(reqwest::Url, String),
     #[cfg(feature = "image-gen-module")]
