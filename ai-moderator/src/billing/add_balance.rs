@@ -91,23 +91,23 @@ pub async fn handle_buy_messages(
     bot: &BotData,
     chat_id: ChatId,
     target_chat_id: ChatId,
-    number: u32,
+    messages: u32,
 ) -> Result<(), anyhow::Error> {
     bot.bot()
         .send_invoice(
             chat_id,
-            format!("{number} AI moderated messages"),
-            format!("{number} credits that can be used for Tear's AI Moderator service"),
+            format!("{messages} AI moderated messages"),
+            format!("{messages} credits that can be used for Tear's AI Moderator service"),
             bot.to_payment_payload(&PaymentReference::AiModeratorBuyingMessages(
                 target_chat_id,
-                number,
+                messages,
             ))
             .await,
             "".to_string(),
             "XTR",
             vec![LabeledPrice::new(
                 "Messages",
-                (0.0015 * number as f64).ceil() as u32,
+                (0.0015 * messages as f64).ceil() as u32,
             )],
         )
         .await?;

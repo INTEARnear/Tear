@@ -452,7 +452,7 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorUndeleteMessage(ChatId, ChatId, ChatId, String, Attachment),
     #[cfg(feature = "image-gen-module")]
-    ImageGenGenerateAnother(String),
+    ImageGenGenerateAnother(String, FluxModel),
     #[cfg(feature = "image-gen-module")]
     ImageGenReplaceObject(reqwest::Url),
     #[cfg(feature = "image-gen-module")]
@@ -1033,4 +1033,12 @@ pub enum ProfanityLevel {
     NotAllowed,
     LightProfanityAllowed,
     Allowed,
+}
+
+#[cfg(feature = "image-gen-module")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FluxModel {
+    Schnell,
+    Dev,
+    Pro,
 }
