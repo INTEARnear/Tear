@@ -495,6 +495,8 @@ pub enum TgCommand {
     ImageGenLoRAInfo {
         key: String,
     },
+    #[cfg(feature = "image-gen-module")]
+    ImageGen,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
