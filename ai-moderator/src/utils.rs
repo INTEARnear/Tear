@@ -100,7 +100,7 @@ pub async fn get_message_rating(
                 entity.range(),
                 &format!(
                     "[{}]({})",
-                    markdown::escape(entity.message_text()),
+                    markdown::escape(&message_text[entity.range()]),
                     markdown::escape_link_url(url.as_ref())
                 ),
             );
