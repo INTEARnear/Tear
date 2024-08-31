@@ -15,7 +15,7 @@ use std::{
 
 use async_openai::{config::OpenAIConfig, Client};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
@@ -46,6 +46,7 @@ pub struct AiModeratorModule {
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
     last_balance_warning_message: HashMap<ChatId, Instant>,
+    messages_moderated: DashMap<ChatId, (u32, u32)>,
 }
 
 #[async_trait]
@@ -660,6 +661,7 @@ impl AiModeratorModule {
             openai_client,
             xeon,
             last_balance_warning_message: HashMap::new(),
+            messages_moderated: DashMap::new(),
         })
     }
 
@@ -722,12 +724,32 @@ impl AiModeratorModule {
             return Ok(());
         }
 
+        const FREE_GPT4O_MESSAGES_PER_GROUP_PER_DAY: u32 = 10;
+
+        let current_day: u32 = Utc::now().day();
+        if let Some(entry) = self.messages_moderated.get(&chat_id) {
+            if current_day != entry.value().0 {
+                self.messages_moderated.remove(&chat_id);
+            }
+        }
+        let messages_moderated = self
+            .messages_moderated
+            .entry(chat_id)
+            .and_modify(|(_, count)| *count += 1)
+            .or_insert((current_day, 1))
+            .1;
+        let model = if messages_moderated >= FREE_GPT4O_MESSAGES_PER_GROUP_PER_DAY {
+            Model::Gpt4oMini
+        } else {
+            Model::Gpt4o
+        };
+
         let rating_future = utils::get_message_rating(
             bot.id(),
             message.clone(),
             chat_config.clone(),
             chat_id,
-            Model::Gpt4oMini,
+            model,
             self.openai_client.clone(),
             Arc::clone(&self.xeon),
         );
