@@ -1,7 +1,6 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use dashmap::DashMap;
 use itertools::Itertools;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
@@ -31,7 +30,7 @@ use tearbot_common::{
 
 pub struct ContractLogsNep297Module {
     xeon: Arc<XeonState>,
-    bot_configs: Arc<DashMap<UserId, ContractLogsNep297Config>>,
+    bot_configs: Arc<HashMap<UserId, ContractLogsNep297Config>>,
 }
 
 #[async_trait]
@@ -52,14 +51,17 @@ impl IndexerEventHandler for ContractLogsNep297Module {
 
 impl ContractLogsNep297Module {
     pub async fn new(xeon: Arc<XeonState>) -> Result<Self, anyhow::Error> {
-        let bot_configs = Arc::new(DashMap::new());
+        let mut bot_configs = HashMap::new();
         for bot in xeon.bots() {
             let bot_id = bot.id();
             let config = ContractLogsNep297Config::new(xeon.db(), bot_id).await?;
             bot_configs.insert(bot_id, config);
             log::info!("Contract logs nep297 config loaded for bot {bot_id}");
         }
-        Ok(Self { bot_configs, xeon })
+        Ok(Self {
+            bot_configs: Arc::new(bot_configs),
+            xeon,
+        })
     }
 
     async fn on_new_log_nep297(
@@ -68,9 +70,7 @@ impl ContractLogsNep297Module {
         is_testnet: bool,
     ) -> Result<(), anyhow::Error> {
         let log_serialized = serde_json::to_string_pretty(&event.event_data)?;
-        for bot in self.bot_configs.iter() {
-            let bot_id = *bot.key();
-            let config = bot.value();
+        for (bot_id, config) in self.bot_configs.iter() {
             for subscriber in config.subscribers.values().await? {
                 let chat_id = *subscriber.key();
                 let subscriber = subscriber.value();
@@ -83,6 +83,7 @@ impl ContractLogsNep297Module {
                         let standard = event.event_standard.clone();
                         let version = event.event_version.clone();
                         let event = event.event_event.clone();
+                        let bot_id = *bot_id;
                         tokio::spawn(async move {
                             let Some(bot) = xeon.bot(&bot_id) else {
                                 return;

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     teloxide::{
@@ -19,7 +19,7 @@ pub async fn handle_input(
     chat_id: ChatId,
     target_chat_id: ChatId,
     text: &str,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !chat_id.is_user() {
         return Ok(());
@@ -120,7 +120,7 @@ pub async fn handle_confirm(
     ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     first_messages: usize,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());

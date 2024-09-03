@@ -1,7 +1,6 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use dashmap::DashMap;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
@@ -29,7 +28,7 @@ use tearbot_common::{
 
 pub struct ContractLogsTextModule {
     xeon: Arc<XeonState>,
-    bot_configs: Arc<DashMap<UserId, ContractLogsNep297Config>>,
+    bot_configs: Arc<HashMap<UserId, ContractLogsNep297Config>>,
 }
 
 #[async_trait]
@@ -46,14 +45,17 @@ impl IndexerEventHandler for ContractLogsTextModule {
 
 impl ContractLogsTextModule {
     pub async fn new(xeon: Arc<XeonState>) -> Result<Self, anyhow::Error> {
-        let bot_configs = Arc::new(DashMap::new());
+        let mut bot_configs = HashMap::new();
         for bot in xeon.bots() {
             let bot_id = bot.id();
             let config = ContractLogsNep297Config::new(xeon.db(), bot_id).await?;
             bot_configs.insert(bot_id, config);
             log::info!("Contract logs text config loaded for bot {bot_id}");
         }
-        Ok(Self { bot_configs, xeon })
+        Ok(Self {
+            bot_configs: Arc::new(bot_configs),
+            xeon,
+        })
     }
 
     async fn on_new_log_text(
@@ -61,9 +63,7 @@ impl ContractLogsTextModule {
         event: &LogTextEventData,
         is_testnet: bool,
     ) -> Result<(), anyhow::Error> {
-        for bot in self.bot_configs.iter() {
-            let bot_id = *bot.key();
-            let config = bot.value();
+        for (bot_id, config) in self.bot_configs.iter() {
             for subscriber in config.subscribers.values().await? {
                 let chat_id = *subscriber.key();
                 let subscriber = subscriber.value();
@@ -73,6 +73,7 @@ impl ContractLogsTextModule {
                         let account_id = event.account_id.clone();
                         let log_text = event.log_text.clone();
                         let transaction_id = event.transaction_id;
+                        let bot_id = *bot_id;
                         tokio::spawn(async move {
                             let Some(bot) = xeon.bot(&bot_id) else {
                                 return;

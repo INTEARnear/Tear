@@ -202,11 +202,11 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
 
             for handler in state.indexer_event_handlers().await.iter() {
                 let now = std::time::Instant::now();
-                log::debug!("Handling event {event:?}");
+                log::debug!(target: "indexer_events", "Handling event {event:?}");
                 if let Err(err) = handler.handle_event(&event).await {
                     log::error!("Failed to handle event {event:?}: {err:?}");
                 }
-                log::debug!("Handled");
+                log::debug!(target: "indexer_events", "Event Handled");
                 let elapsed = now.elapsed();
                 const HANDLER_WARNING_THRESHOLD: std::time::Duration =
                     std::time::Duration::from_millis(10);

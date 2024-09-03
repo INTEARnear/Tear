@@ -225,7 +225,7 @@ impl BotData {
                             }
                             .to_string();
                             log::debug!("Start command: {data}");
-                            module
+                            let res = module
                                 .handle_message(
                                     &bot,
                                     msg.from.as_ref().map(|u| u.id),
@@ -234,7 +234,9 @@ impl BotData {
                                     text,
                                     &msg,
                                 )
-                                .await
+                                .await;
+                            log::debug!("Start command {text} handled");
+                            res
                         } else if let Some(ref from_id) =
                             msg.from.as_ref().map(|u| u.id.0).or_else(|| {
                                 if msg.chat.id.is_user() {
@@ -250,18 +252,26 @@ impl BotData {
                                     "Received payment: {payment:?} for module {}",
                                     module.name()
                                 );
-                                match bot.parse_payment_payload(&payment.invoice_payload).await {
-                                    Ok(payload) => {
-                                        module
-                                            .handle_payment(&bot, from_id, msg.chat.id, payload)
-                                            .await
-                                    }
-                                    Err(err) => Err(err),
-                                }
+                                let res =
+                                    match bot.parse_payment_payload(&payment.invoice_payload).await
+                                    {
+                                        Ok(payload) => {
+                                            module
+                                                .handle_payment(&bot, from_id, msg.chat.id, payload)
+                                                .await
+                                        }
+                                        Err(err) => Err(err),
+                                    };
+                                log::debug!("Payment {} handled", payment.invoice_payload);
+                                res
                             } else if let Some(command) = bot.get_dm_message_command(&from_id).await
                             {
-                                log::debug!("DM command: {command:?}, module: {}", module.name());
-                                module
+                                log::debug!(
+                                    "chat={:?} (command {command:?}): {text}, module: {}",
+                                    msg.chat.id,
+                                    module.name()
+                                );
+                                let res = module
                                     .handle_message(
                                         &bot,
                                         Some(from_id),
@@ -270,13 +280,16 @@ impl BotData {
                                         text,
                                         &msg,
                                     )
-                                    .await
+                                    .await;
+                                log::debug!("Message with command handled");
+                                res
                             } else {
                                 log::debug!(
-                                    "DM message (no command): {text}, module: {}",
+                                    "chat={:?} message (no command): {text}, module: {}",
+                                    msg.chat.id,
                                     module.name()
                                 );
-                                module
+                                let res = module
                                     .handle_message(
                                         &bot,
                                         Some(from_id),
@@ -285,7 +298,9 @@ impl BotData {
                                         text,
                                         &msg,
                                     )
-                                    .await
+                                    .await;
+                                log::debug!("Message with no command handled");
+                                res
                             }
                         } else {
                             Ok(())

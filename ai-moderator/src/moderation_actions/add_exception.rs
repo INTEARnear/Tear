@@ -11,8 +11,8 @@ use async_openai::{
     },
     Client,
 };
-use dashmap::DashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::TgCommand,
     teloxide::{
@@ -36,7 +36,7 @@ pub async fn handle_button(
     message_text: String,
     message_image_openai_file_id: Option<String>,
     reasoning: String,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
     openai_client: &Client<OpenAIConfig>,
     xeon: &Arc<XeonState>,
 ) -> Result<(), anyhow::Error> {

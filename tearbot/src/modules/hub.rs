@@ -1096,7 +1096,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             self.open_main_menu(context).await?;
             return Ok(());
         };
-        if context.chat_id().is_user() {
+        if target_chat_id.is_user() {
             log::warn!(
                 "User {} tried to access chat settings for chat {} which is a DM chat",
                 context.user_id(),

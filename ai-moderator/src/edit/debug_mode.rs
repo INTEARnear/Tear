@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::TgCommand,
     teloxide::{
@@ -17,7 +17,7 @@ pub async fn handle_button(
     ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     debug_mode: bool,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());

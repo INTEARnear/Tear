@@ -52,6 +52,14 @@ fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Info)
         .with_module_level("near_teach_me", log::LevelFilter::Off)
+        .with_module_level(
+            "tearbot_common",
+            if std::env::var("DEBUG").is_ok() {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Info
+            },
+        )
         .env()
         .init()?;
     rustls::crypto::aws_lc_rs::default_provider()

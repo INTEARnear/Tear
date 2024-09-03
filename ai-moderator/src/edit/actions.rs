@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::{ModerationAction, ModerationJudgement},
     teloxide::prelude::{ChatId, UserId},
@@ -15,7 +15,7 @@ pub async fn handle_button(
     target_chat_id: ChatId,
     judgement: ModerationJudgement,
     action: ModerationAction,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if judgement == ModerationJudgement::Good {
         return Ok(());

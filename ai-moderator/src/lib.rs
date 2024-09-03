@@ -38,11 +38,12 @@ use tearbot_common::{
     utils::{chat::expandable_blockquote, store::PersistentCachedStore},
     xeon::{XeonBotModule, XeonState},
 };
+use tokio::sync::RwLock;
 
 const FREE_TRIAL_MESSAGES: u32 = 1000;
 
 pub struct AiModeratorModule {
-    bot_configs: Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: Arc<HashMap<UserId, AiModeratorBotConfig>>,
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
     last_balance_warning_message: HashMap<ChatId, Instant>,
@@ -62,10 +63,8 @@ impl XeonBotModule for AiModeratorModule {
             let mut interval = tokio::time::interval(Duration::from_secs(5));
             loop {
                 interval.tick().await;
-                for mut bot_config in bot_configs.iter_mut() {
-                    let bot_id = *bot_config.key();
-                    let bot = xeon.bot(&bot_id).expect("Bot not found");
-                    let bot_config = bot_config.value_mut();
+                for (bot_id, bot_config) in bot_configs.iter() {
+                    let bot = xeon.bot(bot_id).expect("Bot not found");
                     for MessageToDelete {
                         chat_id,
                         message_id,
@@ -92,6 +91,7 @@ impl XeonBotModule for AiModeratorModule {
         text: &str,
         message: &Message,
     ) -> Result<(), anyhow::Error> {
+        log::debug!("Handling message {} in {chat_id} from {user_id:?} with command {command:?} and text `{text}`", message.id);
         if bot.bot_type() != BotType::Main {
             return Ok(());
         }
@@ -474,7 +474,7 @@ impl XeonBotModule for AiModeratorModule {
 struct AiModeratorBotConfig {
     chat_configs: PersistentCachedStore<ChatId, AiModeratorChatConfig>,
     message_autodeletion_scheduled: PersistentCachedStore<MessageToDelete, DateTime<Utc>>,
-    message_autodeletion_queue: VecDeque<MessageToDelete>,
+    message_autodeletion_queue: RwLock<VecDeque<MessageToDelete>>,
     messages_sent: PersistentCachedStore<ChatUser, usize>,
     pub messages_balance: PersistentCachedStore<ChatId, u32>,
 }
@@ -558,24 +558,27 @@ impl AiModeratorBotConfig {
         Ok(Self {
             chat_configs,
             message_autodeletion_scheduled,
-            message_autodeletion_queue,
+            message_autodeletion_queue: RwLock::new(message_autodeletion_queue),
             messages_sent,
             messages_balance,
         })
     }
 
     async fn schedule_message_autodeletion(
-        &mut self,
+        &self,
         chat_id: ChatId,
         message_id: MessageId,
         datetime: DateTime<Utc>,
     ) -> Result<(), anyhow::Error> {
         // There should be no entries with wrong order, but even if there are,
         // it's not a big deal, these messages exist for just 1 minute.
-        self.message_autodeletion_queue.push_back(MessageToDelete {
-            chat_id,
-            message_id,
-        });
+        self.message_autodeletion_queue
+            .write()
+            .await
+            .push_back(MessageToDelete {
+                chat_id,
+                message_id,
+            });
         self.message_autodeletion_scheduled
             .insert_or_update(
                 MessageToDelete {
@@ -588,16 +591,19 @@ impl AiModeratorBotConfig {
         Ok(())
     }
 
-    async fn get_pending_autodelete_messages(&mut self) -> Vec<MessageToDelete> {
+    async fn get_pending_autodelete_messages(&self) -> Vec<MessageToDelete> {
         let now = Utc::now();
         let mut to_delete = Vec::new();
-        while let Some(message_id) = self.message_autodeletion_queue.front() {
-            if let Some(datetime) = self.message_autodeletion_scheduled.get(message_id).await {
-                if datetime > now {
-                    break;
+        {
+            let mut queue = self.message_autodeletion_queue.write().await;
+            while let Some(message_id) = queue.front() {
+                if let Some(datetime) = self.message_autodeletion_scheduled.get(message_id).await {
+                    if datetime > now {
+                        break;
+                    }
                 }
+                to_delete.push(queue.pop_front().unwrap());
             }
-            to_delete.push(self.message_autodeletion_queue.pop_front().unwrap());
         }
         if let Err(err) = self
             .message_autodeletion_scheduled
@@ -609,7 +615,7 @@ impl AiModeratorBotConfig {
         to_delete
     }
 
-    async fn get_and_increment_messages_sent(&mut self, chat_id: ChatId, user_id: UserId) -> usize {
+    async fn get_and_increment_messages_sent(&self, chat_id: ChatId, user_id: UserId) -> usize {
         let chat_user = ChatUser { chat_id, user_id };
         let messages_sent = self.messages_sent.get(&chat_user).await.unwrap_or_default();
         if let Err(err) = self
@@ -622,7 +628,7 @@ impl AiModeratorBotConfig {
         messages_sent
     }
 
-    async fn decrement_message_balance(&mut self, chat_id: ChatId) -> bool {
+    async fn decrement_message_balance(&self, chat_id: ChatId) -> bool {
         let balance = self
             .messages_balance
             .get(&chat_id)
@@ -644,7 +650,7 @@ impl AiModeratorBotConfig {
 
 impl AiModeratorModule {
     pub async fn new(xeon: Arc<XeonState>) -> Result<Self, anyhow::Error> {
-        let bot_configs = Arc::new(DashMap::new());
+        let mut bot_configs = HashMap::new();
         for bot in xeon.bots() {
             let bot_id = bot.id();
             let config = AiModeratorBotConfig::new(xeon.db(), bot_id).await?;
@@ -657,7 +663,7 @@ impl AiModeratorModule {
         );
 
         Ok(Self {
-            bot_configs,
+            bot_configs: Arc::new(bot_configs),
             openai_client,
             xeon,
             last_balance_warning_message: HashMap::new(),
@@ -681,7 +687,7 @@ impl AiModeratorModule {
                 .get_chat_member(chat_id, user_id)
                 .await?
                 .is_privileged();
-        let chat_config = if let Some(mut bot_config) = self.bot_configs.get_mut(&bot.id()) {
+        let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
             if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
                 if bot_config
                     .get_and_increment_messages_sent(chat_id, user_id)
@@ -693,7 +699,6 @@ impl AiModeratorModule {
                     }
 
                     if !bot_config.decrement_message_balance(chat_id).await {
-                        drop(bot_config);
                         const WARNING_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
                         if self
@@ -1227,8 +1232,8 @@ impl AiModeratorModule {
                     let message = bot
                         .send(chat_id, message, reply_markup, attachment)
                         .await?;
-                    if let Some(mut bot_config) =
-                        bot_configs.get_mut(&bot.id())
+                    if let Some(bot_config) =
+                        bot_configs.get(&bot.id())
                     {
                         bot_config
                             .schedule_message_autodeletion(

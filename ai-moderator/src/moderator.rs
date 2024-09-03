@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_openai::{config::OpenAIConfig, Client};
-use dashmap::DashMap;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::{
         MessageCommand, ModerationAction, ModerationJudgement, PromptBuilder, TgCommand,
@@ -31,7 +31,7 @@ use crate::{
 pub async fn open_main(
     ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     ctx.bot().remove_dm_message_command(&ctx.user_id()).await?;
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
@@ -368,7 +368,7 @@ pub async fn handle_test_message_input(
     chat_id: ChatId,
     target_chat_id: ChatId,
     message: &Message,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
     openai_client: &Client<OpenAIConfig>,
     xeon: &Arc<XeonState>,
 ) -> Result<(), anyhow::Error> {

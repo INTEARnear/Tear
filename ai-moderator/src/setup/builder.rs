@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::{MessageCommand, ProfanityLevel, PromptBuilder, TgCommand},
     teloxide::{
@@ -784,7 +784,7 @@ pub async fn handle_add_other_input(
     chat_id: ChatId,
     builder: PromptBuilder,
     text: &str,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !chat_id.is_user() {
         return Ok(());
@@ -808,7 +808,7 @@ pub async fn handle_add_other_input(
 pub async fn handle_finish_button(
     ctx: &mut TgCallbackContext<'_>,
     builder: PromptBuilder,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), builder.chat_id, ctx.user_id()).await {
         return Ok(());

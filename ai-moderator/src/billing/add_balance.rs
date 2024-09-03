@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::{MessageCommand, PaymentReference, TgCommand},
     teloxide::{
@@ -119,7 +119,7 @@ pub async fn handle_buying_messages(
     chat_id: ChatId,
     target_chat_id: ChatId,
     number: u32,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if let Some(config) = bot_configs.get(&bot.id()) {
         let Some(messages) = config.messages_balance.get(&target_chat_id).await else {

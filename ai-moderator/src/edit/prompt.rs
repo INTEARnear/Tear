@@ -9,8 +9,8 @@ use async_openai::{
     },
     Client,
 };
-use dashmap::DashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     teloxide::{
@@ -38,7 +38,7 @@ pub async fn handle_set_prompt_input(
     chat_id: ChatId,
     target_chat_id: ChatId,
     text: &str,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
         return Ok(());
@@ -70,7 +70,7 @@ pub async fn handle_set_prompt_input(
 pub async fn handle_set_prompt_button(
     ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
     is_in_mod_chat: bool,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
@@ -107,7 +107,7 @@ async fn set_prompt(
     ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     prompt: String,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
@@ -137,7 +137,7 @@ pub async fn handle_set_prompt_confirm_button(
     ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     prompt: String,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     set_prompt(ctx, target_chat_id, prompt, bot_configs).await?;
     let message = "The prompt was updated\\. You can now test the new prompt on a message in DM of this bot using \"🍥 Test\" button".to_string();
@@ -151,7 +151,7 @@ pub async fn handle_set_prompt_confirm_and_return_button(
     ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
     prompt: String,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     set_prompt(ctx, target_chat_id, prompt, bot_configs).await?;
     moderator::open_main(ctx, target_chat_id, bot_configs).await?;
@@ -164,7 +164,7 @@ pub async fn handle_edit_prompt_input(
     chat_id: ChatId,
     target_chat_id: ChatId,
     text: &str,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
     openai_client: &Client<OpenAIConfig>,
     xeon: &Arc<XeonState>,
 ) -> Result<(), anyhow::Error> {
@@ -336,7 +336,7 @@ pub async fn handle_edit_prompt_input(
 pub async fn handle_edit_prompt_button(
     ctx: &mut TgCallbackContext<'_>,
     target_chat_id: ChatId,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());

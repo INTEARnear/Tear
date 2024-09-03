@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     teloxide::{
@@ -25,7 +25,7 @@ pub async fn handle_input(
     chat_id: ChatId,
     target_chat_id: ChatId,
     message: &Message,
-    bot_configs: &Arc<DashMap<UserId, AiModeratorBotConfig>>,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if !chat_id.is_user() {
         return Ok(());

@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::{AtomicI32, Ordering},
-    Arc,
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicI32, Ordering},
+        Arc,
+    },
 };
 
 use async_openai::{
@@ -41,7 +44,7 @@ pub async fn is_in_moderator_chat_or_dm(
     chat_id: ChatId,
     target_chat_id: ChatId,
     bot: &BotData,
-    bot_configs: &DashMap<UserId, AiModeratorBotConfig>,
+    bot_configs: &HashMap<UserId, AiModeratorBotConfig>,
 ) -> bool {
     if !chat_id.is_user() {
         if let Some(bot_config) = bot_configs.get(&bot.id()) {
