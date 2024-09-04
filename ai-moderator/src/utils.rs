@@ -182,6 +182,7 @@ pub async fn get_message_rating(
             .create(
                 create_run
                     .model(model.get_id())
+                    .max_completion_tokens(1000u32) // usually less than 50
                     .assistant_id(
                         std::env::var("OPENAI_MODERATE_ASSISTANT_ID")
                             .expect("OPENAI_MODERATE_ASSISTANT_ID not set"),
