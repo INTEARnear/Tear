@@ -732,10 +732,14 @@ impl AiModeratorModule {
         const FREE_GPT4O_MESSAGES_PER_GROUP_PER_DAY: u32 = 10;
 
         let current_day: u32 = Utc::now().day();
+        let mut remove = false;
         if let Some(entry) = self.messages_moderated.get(&chat_id) {
             if current_day != entry.value().0 {
-                self.messages_moderated.remove(&chat_id);
+                remove = true;
             }
+        }
+        if remove {
+            self.messages_moderated.remove(&chat_id);
         }
         let messages_moderated = self
             .messages_moderated
