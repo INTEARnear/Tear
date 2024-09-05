@@ -12,15 +12,34 @@ use crate::tgbot::{BotData, TgBot};
 
 pub const DM_CHAT: &str = "you in DM";
 
-async fn _internal_get_chat_title<R: Requester>(
+async fn _internal_get_chat<R: Requester>(
     bot: &R,
     chat_id: ChatId,
-) -> Result<Option<String>, anyhow::Error>
+) -> Result<teloxide::types::Chat, anyhow::Error>
 where
     <R as Requester>::Err: Send + Sync + 'static,
 {
-    let chat = bot.get_chat(chat_id).await?;
-    Ok(chat.title().map(|s| s.to_owned()))
+    Ok(bot.get_chat(chat_id).await?)
+}
+
+#[cached(
+    result = true,
+    convert = "{ chat_id.0 }",
+    ty = "TimedSizedCache<i64, teloxide::types::Chat>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 300) }"
+)]
+pub async fn get_chat_cached_5m(
+    bot: &TgBot,
+    chat_id: ChatId,
+) -> Result<teloxide::types::Chat, anyhow::Error> {
+    _internal_get_chat(bot, chat_id).await
+}
+
+pub async fn get_chat_not_cached(
+    bot: &TgBot,
+    chat_id: ChatId,
+) -> Result<teloxide::types::Chat, anyhow::Error> {
+    _internal_get_chat(bot, chat_id).await
 }
 
 #[cached(
@@ -33,14 +52,18 @@ pub async fn get_chat_title_cached_5m(
     bot: &TgBot,
     chat_id: ChatId,
 ) -> Result<Option<String>, anyhow::Error> {
-    _internal_get_chat_title(bot, chat_id).await
+    _internal_get_chat(bot, chat_id)
+        .await
+        .map(|chat| chat.title().map(|s| s.to_owned()))
 }
 
 pub async fn get_chat_title_not_cached(
     bot: &TgBot,
     chat_id: ChatId,
 ) -> Result<Option<String>, anyhow::Error> {
-    _internal_get_chat_title(bot, chat_id).await
+    _internal_get_chat(bot, chat_id)
+        .await
+        .map(|chat| chat.title().map(|s| s.to_owned()))
 }
 
 pub async fn check_admin_permission_in_chat(

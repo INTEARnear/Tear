@@ -22,7 +22,10 @@ use tearbot_common::{
     bot_commands::PaymentReference,
     teloxide::payloads::BanChatMemberSetters,
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
-    utils::{ai::Model, chat::mention_sender},
+    utils::{
+        ai::Model,
+        chat::{get_chat_cached_5m, mention_sender},
+    },
 };
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
@@ -678,15 +681,21 @@ impl AiModeratorModule {
         user_id: UserId,
         message: Message,
     ) -> Result<(), anyhow::Error> {
-        let is_admin = message
-            .sender_chat
-            .as_ref()
-            .map_or(false, |sender| sender.id == chat_id)
-            || bot
-                .bot()
-                .get_chat_member(chat_id, user_id)
-                .await?
-                .is_privileged();
+        let mut is_admin = false;
+        if let Some(sender_chat) = message.sender_chat.as_ref() {
+            if sender_chat.id == chat_id {
+                is_admin = true;
+            }
+            let chat = get_chat_cached_5m(bot.bot(), chat_id).await?;
+            if let Some(linked_chat_id) = chat.linked_chat_id() {
+                if ChatId(linked_chat_id) == sender_chat.id {
+                    is_admin = true;
+                }
+            }
+        } else {
+            let chat_member = bot.bot().get_chat_member(chat_id, user_id).await?;
+            is_admin = chat_member.is_privileged();
+        }
         let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
             if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
                 if bot_config
