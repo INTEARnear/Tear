@@ -203,7 +203,7 @@ fn create_prompt(builder: PromptBuilder) -> String {
         Some(true) => AiModeratorPreset::NearProject,
         _ => AiModeratorPreset::JustChat,
     };
-    let mut prompt = preset.get_base().to_string();
+    let mut prompt = preset.get_base().to_string() + "\n";
     if let Some(allowed_links) = builder.links {
         prompt += &preset.not_allow_links(allowed_links);
         prompt += "\n";
