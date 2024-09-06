@@ -163,7 +163,10 @@ pub fn produce_warnings(warnings: &mut Vec<&str>, bot_member: &ChatMember) -> bo
         warnings.push("⚠️ The bot is not an admin in the chat. The bot needs to have the permissions necessary to moderate messages");
         true
     } else if !bot_member.can_restrict_members() {
-        warnings.push("⚠️ The bot does not have permission to restrict members. The bot needs to have permission to restrict members to moderate messages");
+        warnings.push("⚠️ The bot does not have permission to restrict members. The bot needs to have permission to restrict members to moderate the chat");
+        true
+    } else if !bot_member.can_delete_messages() {
+        warnings.push("⚠️ The bot does not have permission to delete messages. The bot needs to have permission to delete mesasges to moderate the chat");
         true
     } else {
         false
