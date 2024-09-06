@@ -23,7 +23,7 @@ use tearbot_common::{
     teloxide::payloads::BanChatMemberSetters,
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
     utils::{
-        ai::Model,
+        ai::OpenAIModel,
         chat::{get_chat_cached_5m, mention_sender},
     },
 };
@@ -757,9 +757,9 @@ impl AiModeratorModule {
             .or_insert((current_day, 1))
             .1;
         let model = if messages_moderated >= FREE_GPT4O_MESSAGES_PER_GROUP_PER_DAY {
-            Model::Gpt4oMini
+            OpenAIModel::Gpt4oMini
         } else {
-            Model::Gpt4o
+            OpenAIModel::Gpt4o
         };
 
         let rating_future = utils::get_message_rating(

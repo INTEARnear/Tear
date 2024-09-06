@@ -22,7 +22,7 @@ use tearbot_common::{
     },
     tgbot::{TgCallbackContext, DONT_CARE},
     utils::{
-        ai::{await_execution, Model},
+        ai::{await_execution, OpenAIModel},
         chat::{check_admin_permission_in_chat, expandable_blockquote},
     },
     xeon::XeonState,
@@ -139,7 +139,7 @@ pub async fn handle_button(
             match run {
                 Ok(mut run) => {
                     if reached_gpt4o_rate_limit(target_chat_id) {
-                        run.model = Model::Gpt4oMini.get_id().to_string();
+                        run.model = OpenAIModel::Gpt4oMini.get_id().to_string();
                     }
                     let result =
                         await_execution(&openai_client, run, new_thread.id).await;

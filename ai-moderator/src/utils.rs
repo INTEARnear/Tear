@@ -10,11 +10,11 @@ use async_openai::{
     config::OpenAIConfig,
     types::{
         AssistantsApiResponseFormat, AssistantsApiResponseFormatOption,
-        AssistantsApiResponseFormatType, CreateFileRequestArgs, CreateMessageRequest,
-        CreateMessageRequestContent, CreateRunRequestArgs, CreateThreadRequestArgs, FileInput,
-        FilePurpose, ImageDetail, ImageFile, InputSource, MessageContent,
-        MessageContentImageFileObject, MessageContentInput, MessageRequestContentTextObject,
-        MessageRole,
+        AssistantsApiResponseFormatType, CreateChatCompletionResponse, CreateFileRequestArgs,
+        CreateMessageRequest, CreateMessageRequestContent, CreateRunRequestArgs,
+        CreateThreadRequestArgs, FileInput, FilePurpose, ImageDetail, ImageFile, InputSource,
+        MessageContent, MessageContentImageFileObject, MessageContentInput,
+        MessageRequestContentTextObject, MessageRole,
     },
     Client,
 };
@@ -32,8 +32,9 @@ use tearbot_common::{
     },
     tgbot::BotData,
     utils::{
-        ai::{await_execution, Model},
+        ai::{await_execution, OpenAIModel},
         chat::get_chat_title_cached_5m,
+        requests::get_reqwest_client,
     },
     xeon::XeonState,
 };
@@ -86,7 +87,7 @@ pub async fn get_message_rating(
     message: Message,
     config: AiModeratorChatConfig,
     chat_id: ChatId,
-    model: Model,
+    model: OpenAIModel,
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
 ) -> (ModerationJudgement, Option<String>, String, Option<String>) {
@@ -157,6 +158,110 @@ pub async fn get_message_rating(
     if message_text.is_empty() {
         return (ModerationJudgement::Good, None, message_text, message_image);
     }
+
+    let title = get_chat_title_cached_5m(bot.bot(), chat_id).await;
+    let additional_instructions = format!(
+        "{}{}\n\nAdmins have set these rules:\n\n{}",
+        if message_image.is_some() {
+            concat!("\nReply in json format with the following schema, without formatting, ready to parse:\n", include_str!("../schema/moderate.schema.json"), "\n")
+        } else {
+            ""
+        },
+        if let Ok(Some(title)) = title {
+            format!("\nChat title: {title}")
+        } else {
+            "".to_string()
+        },
+        config.prompt
+    );
+
+    if
+    /*model == OpenAIModel::Gpt4oMini
+    &&*/
+    message_image.is_none() && std::env::var("CEREBRAS_API_KEY").is_ok() {
+        log::info!("Moderating with Cerebras");
+        let api_key = std::env::var("CEREBRAS_API_KEY").unwrap();
+        // Try Cerebras
+        let url = "https://api.cerebras.ai/v1/chat/completions";
+        let model_id = "llama3.1-70b";
+        let messages = serde_json::json!([
+            {
+                "role": "system",
+                "content": "You don't have the context or the previous conversation, but if you even slightly feel that a message can be useful in some context, you should moderate it as 'Good'.
+If you are unsure about a message and don't have the context to evaluate it, pass it as 'MoreContextNeeded'.
+If the content of the message is not allowed, but it could be a real person sending it without knowing the rules, it's 'Inform'.
+If you're pretty sure that a message is harmful, but it doesn't have an obvious intent to harm users, moderate it as 'Suspicious'.
+If a message is clearly something that is explicitly not allowed in the chat rules, moderate it as 'Harmful'.
+If a message includes 'spam' or 'scam' or anything that is not allowed as a literal word, but is not actually spam or scam, moderate it as 'MoreContextNeeded'. It may be someone reporting spam or scam to admins by replying to the message, but you don't have the context to know that.
+Note that if something can be harmful, but is not explicitly mentioned in the rules, you should moderate it as 'MoreContextNeeded'.".to_string()
+                + &additional_instructions
+                + concat!("\nReply in json format with the following schema, without formatting, ready to parse:\n", include_str!("../schema/moderate.schema.json"), "\n")
+            },
+            {
+                "role": "user",
+                "content": message_text
+            }
+        ]);
+        let max_tokens = 1000u32; // usually less than 50
+        let response_format = serde_json::json!({ "type": "json_object" });
+        let data = serde_json::json!({
+            "model": model_id,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "response_format": response_format,
+        });
+        let authorization = format!("Bearer {api_key}");
+        let response = get_reqwest_client()
+            .post(url)
+            .header("Authorization", authorization)
+            .json(&data)
+            .send()
+            .await;
+        match response {
+            Ok(response) => {
+                if let Ok(text) = response.text().await {
+                    if let Ok(response) =
+                        serde_json::from_str::<CreateChatCompletionResponse>(&text)
+                    {
+                        let Some(choice) = response.choices.first() else {
+                            log::error!(
+                                "Cerebras moderation response has no choices, passing as Good"
+                            );
+                            return (ModerationJudgement::Good, None, message_text, message_image);
+                        };
+                        if let Ok(result) = serde_json::from_str::<ModerationResponse>(
+                            choice.message.content.as_deref().unwrap_or(""),
+                        ) {
+                            log::info!(
+                                "Cerebras response for moderation from {}: {response:?}",
+                                if let Some(from) = message.from.as_ref() {
+                                    format!("{name}#{id}", name = from.full_name(), id = from.id)
+                                } else {
+                                    "Unknown".to_string()
+                                },
+                            );
+                            return (
+                                result.judgement,
+                                Some(result.reasoning),
+                                message_text,
+                                message_image,
+                            );
+                        } else {
+                            log::warn!("Failed to parse Cerebras moderation response, defaulting to Gpt-4o-mini: {text}");
+                        }
+                    } else {
+                        log::warn!("Failed to parse Cerebras chat completion response, defaulting to Gpt-4o-mini: {text}");
+                    }
+                } else {
+                    log::warn!("Failed to get Cerebras moderation response as text, defaulting to Gpt-4o-mini");
+                }
+            }
+            Err(err) => {
+                log::warn!("Failed to create a Cerebras moderation run, defaulting to Gpt-4o-mini: {err:?}");
+            }
+        }
+    }
+
     let Ok(new_thread) = openai_client
         .threads()
         .create(CreateThreadRequestArgs::default().build().unwrap())
@@ -175,59 +280,45 @@ pub async fn get_message_rating(
             },
         ))
     }
-    let title = get_chat_title_cached_5m(bot.bot(), chat_id).await;
     let run = openai_client
-            .threads()
-            .runs(&new_thread.id)
-            .create(
-                create_run
-                    .model(model.get_id())
-                    .max_completion_tokens(1000u32) // usually less than 50
-                    .assistant_id(
-                        std::env::var("OPENAI_MODERATE_ASSISTANT_ID")
-                            .expect("OPENAI_MODERATE_ASSISTANT_ID not set"),
-                    )
-                    .additional_instructions(format!(
-                        "{}{}\n\nAdmins have set these rules:\n\n{}",
-                        if message_image.is_some() {
-                            concat!("\nReply in json format with the following schema, without formatting, ready to parse:\n", include_str!("../schema/moderate.schema.json"), "\n")
-                        } else {
-                            ""
-                        },
-                        if let Ok(Some(title)) = title {
-                            format!("\nChat title: {title}")
-                        } else {
-                            "".to_string()
-                        },
-                        config.prompt
-                    ))
-                    .additional_messages(vec![CreateMessageRequest {
-                        role: MessageRole::User,
-                        content: if let Some(file_id) = message_image.as_ref() {
-                            CreateMessageRequestContent::ContentArray(vec![
-                                MessageContentInput::Text(MessageRequestContentTextObject {
-                                    text: message_text.clone(),
-                                }),
-                                MessageContentInput::ImageFile(MessageContentImageFileObject {
-                                    image_file: ImageFile {
-                                        file_id: file_id.clone(),
-                                        detail: Some(ImageDetail::Low),
-                                    },
-                                }),
-                            ])
-                        } else {
-                            CreateMessageRequestContent::Content(message_text.clone())
-                        },
-                        ..Default::default()
-                    }])
-                    .build()
-                    .expect("Failed to build CreateRunRequestArgs"),
-            )
-            .await;
+        .threads()
+        .runs(&new_thread.id)
+        .create(
+            create_run
+                .model(model.get_id())
+                .max_completion_tokens(1000u32) // usually less than 50
+                .assistant_id(
+                    std::env::var("OPENAI_MODERATE_ASSISTANT_ID")
+                        .expect("OPENAI_MODERATE_ASSISTANT_ID not set"),
+                )
+                .additional_instructions(additional_instructions)
+                .additional_messages(vec![CreateMessageRequest {
+                    role: MessageRole::User,
+                    content: if let Some(file_id) = message_image.as_ref() {
+                        CreateMessageRequestContent::ContentArray(vec![
+                            MessageContentInput::Text(MessageRequestContentTextObject {
+                                text: message_text.clone(),
+                            }),
+                            MessageContentInput::ImageFile(MessageContentImageFileObject {
+                                image_file: ImageFile {
+                                    file_id: file_id.clone(),
+                                    detail: Some(ImageDetail::Low),
+                                },
+                            }),
+                        ])
+                    } else {
+                        CreateMessageRequestContent::Content(message_text.clone())
+                    },
+                    ..Default::default()
+                }])
+                .build()
+                .expect("Failed to build CreateRunRequestArgs"),
+        )
+        .await;
     match run {
         Ok(mut run) => {
-            if model == Model::Gpt4o && reached_gpt4o_rate_limit(chat_id) {
-                run.model = Model::Gpt4oMini.get_id().to_string();
+            if model == OpenAIModel::Gpt4o && reached_gpt4o_rate_limit(chat_id) {
+                run.model = OpenAIModel::Gpt4oMini.get_id().to_string();
             }
             let result = await_execution(&openai_client, run, new_thread.id).await;
             if let Ok(MessageContent::Text(text)) = result {

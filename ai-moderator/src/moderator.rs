@@ -14,7 +14,7 @@ use tearbot_common::{
     },
     tgbot::{Attachment, BotData, TgCallbackContext},
     utils::{
-        ai::Model,
+        ai::OpenAIModel,
         chat::{
             check_admin_permission_in_chat, expandable_blockquote, get_chat_title_cached_5m,
             DM_CHAT,
@@ -400,7 +400,7 @@ pub async fn handle_test_message_input(
         message.clone(),
         chat_config.clone(),
         target_chat_id,
-        Model::Gpt4oMini,
+        OpenAIModel::Gpt4oMini,
         openai_client.clone(),
         Arc::clone(xeon),
     );
@@ -409,7 +409,7 @@ pub async fn handle_test_message_input(
         message.clone(),
         chat_config.clone(),
         target_chat_id,
-        Model::Gpt4o,
+        OpenAIModel::Gpt4o,
         openai_client.clone(),
         Arc::clone(xeon),
     );

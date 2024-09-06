@@ -66,12 +66,12 @@ pub async fn await_execution(
 }
 
 #[derive(PartialEq)]
-pub enum Model {
+pub enum OpenAIModel {
     Gpt4oMini,
     Gpt4o,
 }
 
-impl Model {
+impl OpenAIModel {
     pub fn get_id(&self) -> &'static str {
         match self {
             Self::Gpt4oMini => "gpt-4o-mini",
