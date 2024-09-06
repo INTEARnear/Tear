@@ -877,6 +877,7 @@ impl AiModeratorModule {
                     ModerationAction::Ban => {
                         if !chat_config.debug_mode {
                             let result = if let Some(user_id) = sender_id.as_user() {
+                                let _ = bot.bot().delete_message(chat_id, message.id).await;
                                 bot
                                     .bot()
                                     .ban_chat_member(chat_id, user_id)
