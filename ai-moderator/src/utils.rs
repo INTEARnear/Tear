@@ -175,10 +175,10 @@ pub async fn get_message_rating(
         config.prompt
     );
 
-    if
-    /*model == OpenAIModel::Gpt4oMini
-    &&*/
-    message_image.is_none() && std::env::var("CEREBRAS_API_KEY").is_ok() {
+    if model == OpenAIModel::Gpt4oMini
+        && message_image.is_none()
+        && std::env::var("CEREBRAS_API_KEY").is_ok()
+    {
         log::info!("Moderating with Cerebras");
         let api_key = std::env::var("CEREBRAS_API_KEY").unwrap();
         // Try Cerebras
