@@ -493,6 +493,16 @@ pub enum TgCommand {
     },
     #[cfg(feature = "image-gen-module")]
     ImageGen,
+    #[cfg(feature = "burrow-liquidations-module")]
+    BurrowLiquidationsSettings(ChatId),
+    #[cfg(feature = "burrow-liquidations-module")]
+    BurrowLiquidationsRemove(ChatId, AccountId),
+    #[cfg(feature = "burrow-liquidations-module")]
+    BurrowLiquidationsRemoveAll(ChatId),
+    #[cfg(feature = "burrow-liquidations-module")]
+    BurrowLiquidationsAddAccount(ChatId),
+    #[cfg(feature = "burrow-liquidations-module")]
+    BurrowLiquidationsAddAccountConfirm(ChatId, AccountId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -612,18 +622,23 @@ pub enum MessageCommand {
     AiModeratorPromptConstructorAddOther(PromptBuilder),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorBuyMessages(ChatId),
+    #[cfg(feature = "image-gen-module")]
     ImageGenLoRAName,
+    #[cfg(feature = "image-gen-module")]
     ImageGenLoRAAddImages {
         token: String,
         is_style: bool,
         images: Vec<(String, Option<String>)>,
     },
+    #[cfg(feature = "burrow-liquidations-module")]
+    BurrowLiquidationsAddAccount(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PaymentReference {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorBuyingMessages(ChatId, u32),
+    #[cfg(feature = "image-gen-module")]
     ImageGenBuyingCredits(u32),
 }
 

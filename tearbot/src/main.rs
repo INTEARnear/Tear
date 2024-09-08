@@ -6,6 +6,8 @@ use std::time::Duration;
 
 #[cfg(feature = "ai-moderator-module")]
 use ai_moderator::AiModeratorModule;
+#[cfg(feature = "burrow-liquidations")]
+use burrow_liquidations::BurrowLiquidationsModule;
 // #[cfg(feature = "airdrops")]
 // use airdrops::AirdropsModule;
 #[cfg(feature = "contract-logs-module")]
@@ -246,6 +248,21 @@ fn main() -> Result<(), anyhow::Error> {
                 {
                     xeon.state()
                         .add_bot_module(ImageGenModule::new(xeon.arc_clone_state()).await?)
+                        .await;
+                }
+                #[cfg(feature = "burrow-liquidations")]
+                {
+                    let burrow_liquidations_module =
+                        Arc::new(BurrowLiquidationsModule::new(xeon.arc_clone_state()).await?);
+                    xeon.state()
+                        .add_bot_module::<BurrowLiquidationsModule>(Arc::clone(
+                            &burrow_liquidations_module,
+                        ))
+                        .await;
+                    xeon.state()
+                        .add_indexer_event_handler::<BurrowLiquidationsModule>(Arc::clone(
+                            &burrow_liquidations_module,
+                        ))
                         .await;
                 }
             }

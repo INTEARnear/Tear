@@ -58,6 +58,7 @@ honey-module = []
 near-tgi-module = ["inquire"]
 ai-moderator-module = ["async-openai"]
 image-gen-module = ["async-openai"]
+burrow-liquidations-module = []
 
 redis-events = ["redis", "inevents-redis"]
 websocket-events = ["tokio-tungstenite"]

@@ -19,6 +19,7 @@ honey = { path = "../xeon-private-modules/honey", optional = true }
 near-tgi = { path = "../near-tgi", optional = true }
 ai-moderator = { path = "../ai-moderator", optional = true }
 image-gen = { path = "../xeon-private-modules/image-gen", optional = true }
+burrow-liquidations = { path = "../burrow-liquidations", optional = true }
 
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
@@ -43,6 +44,7 @@ tear = [
     "ai-moderator-module",
     "ai-moderator/near",
     "websocket-events",
+    "burrow-liquidations-module",
 ]
 xeon = [
     "contract-logs-module",
@@ -60,6 +62,7 @@ xeon = [
     "ai-moderator/near",
     "redis-events",
     "configure-channels",
+    "burrow-liquidations-module",
 ]
 int = [
     "ai-moderator-module",
@@ -89,3 +92,7 @@ honey-module = ["tearbot-common/honey-module", "honey"]
 near-tgi-module = ["tearbot-common/near-tgi-module", "near-tgi"]
 ai-moderator-module = ["tearbot-common/ai-moderator-module", "ai-moderator"]
 image-gen-module = ["tearbot-common/image-gen-module", "image-gen"]
+burrow-liquidations-module = [
+    "tearbot-common/burrow-liquidations-module",
+    "burrow-liquidations",
+]

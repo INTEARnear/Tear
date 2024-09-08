@@ -1096,12 +1096,16 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             self.open_main_menu(context).await?;
             return Ok(());
         };
-        if target_chat_id.is_user() {
-            log::warn!(
-                "User {} tried to access chat settings for chat {} which is a DM chat",
-                context.user_id(),
-                target_chat_id
-            );
+        if let Some(target_user_id) = target_chat_id.as_user() {
+            if target_user_id == context.user_id() {
+                self.open_main_menu(context).await?;
+            } else {
+                log::warn!(
+                    "User {} tried to access chat settings for chat {} which is a DM chat",
+                    context.user_id(),
+                    target_chat_id
+                );
+            }
             return Ok(());
         }
         let chat_name = markdown::escape(
@@ -1203,6 +1207,12 @@ async fn create_notificatons_buttons(
             target_chat_id,
         ))
         .await,
+    ));
+    #[cfg(feature = "burrow-liquidations-module")]
+    buttons.push(InlineKeyboardButton::callback(
+        "🏦 Burrow Liquidations",
+        bot.to_callback_data(&TgCommand::BurrowLiquidationsSettings(target_chat_id))
+            .await,
     ));
     let buttons = buttons
         .into_iter()
