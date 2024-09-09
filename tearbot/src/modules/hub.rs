@@ -63,7 +63,7 @@ impl XeonBotModule for HubModule {
         }
         if !chat_id.is_user() {
             if text == "/setup" || text == "/start" {
-                let message = "Click here to setup the bot".to_string();
+                let message = "Click here to set up the bot".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -85,7 +85,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "ft-buybot-module")]
             if text == "/buybot" {
-                let message = "Click here to setup buybot".to_string();
+                let message = "Click here to set up buybot".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -107,7 +107,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "nft-buybot-module")]
             if text == "/nftbuybot" {
-                let message = "Click here to setup NFT buybot".to_string();
+                let message = "Click here to set up NFT buybot".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -129,7 +129,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "potlock-module")]
             if text == "/potlock" {
-                let message = "Click here to setup potlock donation alerts".to_string();
+                let message = "Click here to set up potlock donation alerts".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Potlock Bot",
                     format!(
@@ -151,7 +151,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "price-alerts-module")]
             if text == "/pricealerts" {
-                let message = "Click here to setup price alerts".to_string();
+                let message = "Click here to set up price alerts".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -173,7 +173,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "new-tokens-module")]
             if text == "/newtokens" {
-                let message = "Click here to setup new token notifications".to_string();
+                let message = "Click here to set up new token notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -195,7 +195,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "new-liquidity-pools-module")]
             if text == "/lp" || text == "/pools" || text == "/liquiditypools" {
-                let message = "Click here to setup new liquidity pool notifications".to_string();
+                let message = "Click here to set up new liquidity pool notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -217,7 +217,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "socialdb-module")]
             if text == "/nearsocial" {
-                let message = "Click here to setup Near Social notifications".to_string();
+                let message = "Click here to set up Near Social notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -239,7 +239,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "contract-logs-module")]
             if text == "/contractlogs" || text == "/logs" {
-                let message = "Click here to setup contract logs notifications".to_string();
+                let message = "Click here to set up contract logs notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -261,7 +261,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "contract-logs-module")]
             if text == "/textlogs" {
-                let message = "Click here to setup text logs notifications".to_string();
+                let message = "Click here to set up text logs notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Text Logs Bot",
                     format!(
@@ -283,7 +283,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "contract-logs-module")]
             if text == "/nep297" {
-                let message = "Click here to setup NEP\\-297 logs notifications".to_string();
+                let message = "Click here to set up NEP\\-297 logs notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -305,7 +305,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "ai-moderator-module")]
             if text == "/mod" || text == "/aimod" {
-                let message = "Click here to setup AI moderator".to_string();
+                let message = "Click here to set up AI moderator".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
