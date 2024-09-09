@@ -2505,7 +2505,7 @@ dependencies = [
 [[package]]
 name = "inquire"
 version = "0.7.5"
-source = "git+https://github.com/mikaelmello/inquire#0e39b4591072bf3e2d25d3070699b94b3d5c793a"
+source = "git+https://github.com/mikaelmello/inquire#c6d2cf864f9c855f36656ced5dc311bf47e6084d"
 dependencies = [
  "bitflags 2.6.0",
  "crossterm",
@@ -6113,8 +6113,7 @@ dependencies = [
 
 [[package]]
 name = "teloxide"
-version = "0.12.2"
-source = "git+https://github.com/syrtcevvi/teloxide?rev=fe8d9f80e43539ab38e8e92cebc1bc105b65a226#fe8d9f80e43539ab38e8e92cebc1bc105b65a226"
+version = "0.13.0"
 dependencies = [
  "aquamarine",
  "bytes",
@@ -6137,8 +6136,7 @@ dependencies = [
 
 [[package]]
 name = "teloxide-core"
-version = "0.9.1"
-source = "git+https://github.com/syrtcevvi/teloxide?rev=fe8d9f80e43539ab38e8e92cebc1bc105b65a226#fe8d9f80e43539ab38e8e92cebc1bc105b65a226"
+version = "0.10.1"
 dependencies = [
  "bitflags 1.3.2",
  "bytes",

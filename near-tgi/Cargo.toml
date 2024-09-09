@@ -17,7 +17,7 @@ interactive-clap = "0.3"
 interactive-clap-derive = "0.3"
 color-eyre = "0.6.3"
 shell-words = "1.1.0"
-inquire = "0.7.5"
+inquire = { workspace = true }
 tokio = { workspace = true }
 
 [build-dependencies]

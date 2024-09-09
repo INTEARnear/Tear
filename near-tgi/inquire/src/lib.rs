@@ -62,8 +62,8 @@ impl<'a, T> CustomType<'a, T> {
             }
         });
         if let Some(answer) = answer {
-            return Ok((self.parser)(&answer)
-                .map_err(|_| inquire::error::InquireError::Custom(self.error_message.into()))?);
+            return (self.parser)(&answer)
+                .map_err(|_| inquire::error::InquireError::Custom(self.error_message.into()));
         }
         CURRENT_PROMPT.with(|prompt| {
             let mut prompt = prompt.borrow_mut();
@@ -293,8 +293,8 @@ pub enum PromptAnswer {
 }
 
 thread_local! {
-    pub static CURRENT_PROMPT_ANSWER: RefCell<Option<PromptAnswer>> = RefCell::new(None);
-    pub static CURRENT_PROMPT: RefCell<Option<Prompt>> = RefCell::new(None);
+    pub static CURRENT_PROMPT_ANSWER: RefCell<Option<PromptAnswer>> = const { RefCell::new(None) };
+    pub static CURRENT_PROMPT: RefCell<Option<Prompt>> = const { RefCell::new(None) };
 }
 
 // Just to make sure that if they're ever used, the actual implementation won't be used

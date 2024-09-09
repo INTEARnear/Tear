@@ -22,7 +22,7 @@ rand = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-teloxide = { git = "https://github.com/syrtcevvi/teloxide", rev = "fe8d9f80e43539ab38e8e92cebc1bc105b65a226", features = [
+teloxide = { workspace = true, features = [
     "throttle",
     "cache-me",
 ] }
@@ -41,7 +41,7 @@ semver = { workspace = true, optional = true }
 tokio-tungstenite = { version = "0.23.1", features = [
     "rustls-tls-native-roots",
 ], optional = true }
-inquire = { version = "0.7.5", optional = true }
+inquire = { workspace = true, optional = true }
 async-openai = { workspace = true, optional = true }
 
 [features]

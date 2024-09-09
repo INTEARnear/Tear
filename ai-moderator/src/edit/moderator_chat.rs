@@ -8,6 +8,7 @@ use tearbot_common::{
         types::{
             ButtonRequest, ChatAdministratorRights, ChatShared, InlineKeyboardButton,
             InlineKeyboardMarkup, KeyboardButton, KeyboardButtonRequestChat, ReplyMarkup,
+            RequestId,
         },
         utils::markdown,
     },
@@ -111,7 +112,7 @@ pub async fn handle_button(
         vec![KeyboardButton {
             text: "Choose a chat".to_owned(),
             request: Some(ButtonRequest::RequestChat(KeyboardButtonRequestChat {
-                request_id: 69,
+                request_id: RequestId(69),
                 chat_is_channel: false,
                 chat_is_forum: None,
                 chat_has_username: None,

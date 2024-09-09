@@ -3,8 +3,7 @@ resolver = "2"
 members = ["tearbot"]
 exclude = [
     "near-tgi/near-cli-rs",
-    "near-tgi/interactive-clap",
-    "near-tgi/interactive-clap-derive",
+    "near-tgi/keyring",
     "ai-moderator/async-openai-patched",
     "teloxide"
 ]
@@ -43,12 +42,7 @@ dotenvy = "0.15.7"
 itertools = "0.13.0"
 simple_logger = "5.0.0"
 urlencoding = "2.1.3"
-async-openai = "0.23.4"
 bigdecimal = "0.4.5"
-
-[patch.crates-io]
 inquire = { path = "./near-tgi/inquire" }
-#interactive-clap = { path = "./near-tgi/interactive-clap" }
-#interactive-clap-derive = { path = "./near-tgi/interactive-clap/interactive-clap-derive" }
 keyring = { path = "./near-tgi/keyring" }
 async-openai = { path = "./ai-moderator/async-openai-patched/async-openai" }

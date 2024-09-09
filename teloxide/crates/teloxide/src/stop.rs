@@ -55,7 +55,6 @@ impl Future for StopFlag {
     fn poll(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> task::Poll<Self::Output> {
         self.project().0.poll(cx).map(|res| match res {
             Err(_aborted) => (),
-            Ok(unreachable) => match unreachable {},
         })
     }
 }

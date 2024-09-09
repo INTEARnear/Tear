@@ -12,7 +12,7 @@ use tearbot_common::{
         types::{
             ButtonRequest, ChatAdministratorRights, ChatShared, InlineKeyboardButton,
             InlineKeyboardMarkup, KeyboardButton, KeyboardButtonRequestChat,
-            KeyboardButtonRequestUsers, ReplyMarkup, UsersShared,
+            KeyboardButtonRequestUsers, ReplyMarkup, RequestId, UsersShared,
         },
         utils::markdown,
     },
@@ -85,7 +85,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "ft-buybot-module")]
             if text == "/buybot" {
-                let message = "Click here to setup buy bot".to_string();
+                let message = "Click here to setup buybot".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -107,7 +107,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "nft-buybot-module")]
             if text == "/nftbuybot" {
-                let message = "Click here to setup NFT buy bot".to_string();
+                let message = "Click here to setup NFT buybot".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -129,7 +129,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "potlock-module")]
             if text == "/potlock" {
-                let message = "Click here to setup potlock bot".to_string();
+                let message = "Click here to setup potlock donation alerts".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Potlock Bot",
                     format!(
@@ -151,7 +151,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "price-alerts-module")]
             if text == "/pricealerts" {
-                let message = "Click here to setup price alerts bot".to_string();
+                let message = "Click here to setup price alerts".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -173,7 +173,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "new-tokens-module")]
             if text == "/newtokens" {
-                let message = "Click here to setup new tokens bot".to_string();
+                let message = "Click here to setup new token notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -195,7 +195,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "new-liquidity-pools-module")]
             if text == "/lp" || text == "/pools" || text == "/liquiditypools" {
-                let message = "Click here to setup LP bot".to_string();
+                let message = "Click here to setup new liquidity pool notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -217,7 +217,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "socialdb-module")]
             if text == "/nearsocial" {
-                let message = "Click here to setup Near Social bot".to_string();
+                let message = "Click here to setup Near Social notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -239,7 +239,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "contract-logs-module")]
             if text == "/contractlogs" || text == "/logs" {
-                let message = "Click here to setup contract logs bot".to_string();
+                let message = "Click here to setup contract logs notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -261,7 +261,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "contract-logs-module")]
             if text == "/textlogs" {
-                let message = "Click here to setup text logs bot".to_string();
+                let message = "Click here to setup text logs notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Text Logs Bot",
                     format!(
@@ -283,11 +283,33 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "contract-logs-module")]
             if text == "/nep297" {
-                let message = "Click here to setup NEP\\-297 logs bot".to_string();
+                let message = "Click here to setup NEP\\-297 logs notifications".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
                         "tg://resolve?domain={bot_username}&start=nep297-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "ai-moderator-module")]
+            if text == "/mod" || text == "/aimod" {
+                let message = "Click here to setup AI moderator".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=aimod-{chat_id}",
                         bot_username = bot
                             .bot()
                             .get_me()
@@ -721,7 +743,8 @@ impl XeonBotModule for HubModule {
                         bot, user_id, chat_id, None, DONT_CARE,
                     ))
                     .await?;
-                } else if let Some(target_chat_id) = data.strip_prefix("setup-") {
+                }
+                if let Some(target_chat_id) = data.strip_prefix("setup-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         self.open_chat_settings(
                             &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
@@ -729,7 +752,9 @@ impl XeonBotModule for HubModule {
                         )
                         .await?;
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("buybot-") {
+                }
+                #[cfg(feature = "ft-buybot-module")]
+                if let Some(target_chat_id) = data.strip_prefix("buybot-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -749,7 +774,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("nftbuybot-") {
+                }
+                #[cfg(feature = "nft-buybot-module")]
+                if let Some(target_chat_id) = data.strip_prefix("nftbuybot-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -771,7 +798,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("potlock-") {
+                }
+                #[cfg(feature = "potlock-module")]
+                if let Some(target_chat_id) = data.strip_prefix("potlock-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -793,7 +822,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("pricealerts-") {
+                }
+                #[cfg(feature = "price-alerts-module")]
+                if let Some(target_chat_id) = data.strip_prefix("pricealerts-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -815,7 +846,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("newtokens-") {
+                }
+                #[cfg(feature = "new-tokens-module")]
+                if let Some(target_chat_id) = data.strip_prefix("newtokens-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -837,7 +870,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("lp-") {
+                }
+                #[cfg(feature = "new-liquidity-pools-module")]
+                if let Some(target_chat_id) = data.strip_prefix("lp-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -859,7 +894,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("nearsocial-") {
+                }
+                #[cfg(feature = "socialdb-module")]
+                if let Some(target_chat_id) = data.strip_prefix("nearsocial-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -881,7 +918,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("contractlogs-") {
+                }
+                #[cfg(feature = "contract-logs-module")]
+                if let Some(target_chat_id) = data.strip_prefix("contractlogs-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -903,7 +942,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("textlogs-") {
+                }
+                #[cfg(feature = "contract-logs-module")]
+                if let Some(target_chat_id) = data.strip_prefix("textlogs-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -925,7 +966,9 @@ impl XeonBotModule for HubModule {
                                 .await?;
                         }
                     }
-                } else if let Some(target_chat_id) = data.strip_prefix("nep297-") {
+                }
+                #[cfg(feature = "contract-logs-module")]
+                if let Some(target_chat_id) = data.strip_prefix("nep297-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         for module in bot.xeon().bot_modules().await.iter() {
                             module
@@ -940,6 +983,28 @@ impl XeonBotModule for HubModule {
                                                 target_chat_id,
                                             )),
                                         )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                }
+                #[cfg(feature = "ai-moderator-module")]
+                if let Some(target_chat_id) = data.strip_prefix("aimod-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(&TgCommand::AiModerator(ChatId(
+                                            target_chat_id,
+                                        )))
                                         .await,
                                     ),
                                     &mut None,
@@ -1503,7 +1568,7 @@ impl XeonBotModule for HubModule {
                 let reply_markup = ReplyMarkup::keyboard(vec![
                     vec![KeyboardButton::new("Choose admins to add").request(
                         ButtonRequest::RequestUsers(KeyboardButtonRequestUsers {
-                            request_id: 0,
+                            request_id: RequestId(0),
                             user_is_bot: None,
                             user_is_premium: None,
                             max_quantity: 10,
@@ -1883,7 +1948,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         let mut chat_selection = vec![KeyboardButton {
             text: "Group chat".into(),
             request: Some(ButtonRequest::RequestChat(KeyboardButtonRequestChat {
-                request_id: 69,
+                request_id: RequestId(69),
                 chat_is_channel: false,
                 chat_is_forum: None,
                 chat_has_username: None,
@@ -1913,7 +1978,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             chat_selection.push(KeyboardButton {
                 text: "Channel".into(),
                 request: Some(ButtonRequest::RequestChat(KeyboardButtonRequestChat {
-                    request_id: 42,
+                    request_id: RequestId(42),
                     chat_is_channel: true,
                     chat_is_forum: None,
                     chat_has_username: None,
