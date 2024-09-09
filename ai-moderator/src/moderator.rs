@@ -312,7 +312,7 @@ pub async fn open_main(
         )],
         vec![InlineKeyboardButton::url(
             "📖 Guide",
-            "https://telegra.ph/AI-Moderator-08-22".parse().unwrap(),
+            "https://telegra.ph/AI-Moderator-09-09".parse().unwrap(),
         )],
         vec![InlineKeyboardButton::callback(
             "⬅️ Back",
