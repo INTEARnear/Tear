@@ -169,7 +169,7 @@ impl XeonBotModule for UtilitiesModule {
         }
         let xeon = Arc::clone(&self.xeon);
         match context.parse_command().await? {
-            TgCommand::UtilitiesFtHolders => {
+            TgCommand::UtilitiesFtInfo => {
                 let message = "Please enter the token name, ticker, or contract address";
                 let buttons =
                     InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
@@ -463,6 +463,11 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                         "Failed to get information, please try again later or report in @intearchat"
                             .to_string()
                     }
+                };
+                let staked_near = if staked_near.is_empty() {
+                    "Not staking".to_string()
+                } else {
+                    staked_near
                 };
 
                 let spamlist = xeon.get_spamlist().await;

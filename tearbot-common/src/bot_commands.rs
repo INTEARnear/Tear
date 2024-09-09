@@ -83,8 +83,6 @@ pub enum TgCommand {
     #[cfg(feature = "potlock-module")]
     CancelPotlockNotificationsAttachment(ChatId),
     #[cfg(feature = "utilities-module")]
-    UtilitiesFtHolders,
-    #[cfg(feature = "utilities-module")]
     UtilitiesTokenInfo(AccountId),
     #[cfg(feature = "utilities-module")]
     UtilitiesFt100Holders(AccountId),

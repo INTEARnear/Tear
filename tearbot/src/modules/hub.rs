@@ -2,6 +2,8 @@ use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
 use itertools::Itertools;
+#[allow(unused_imports)]
+use tearbot_common::near_primitives::types::AccountId;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     mongodb::bson::DateTime,
@@ -60,12 +62,656 @@ impl XeonBotModule for HubModule {
             return Ok(());
         }
         if !chat_id.is_user() {
+            if text == "/setup" || text == "/start" {
+                let message = "Click here to setup the bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=setup-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "ft-buybot-module")]
+            if text == "/buybot" {
+                let message = "Click here to setup buy bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=buybot-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "nft-buybot-module")]
+            if text == "/nftbuybot" {
+                let message = "Click here to setup NFT buy bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=nftbuybot-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "potlock-module")]
+            if text == "/potlock" {
+                let message = "Click here to setup potlock bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Potlock Bot",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=potlock-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "price-alerts-module")]
+            if text == "/pricealerts" {
+                let message = "Click here to setup price alerts bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=pricealerts-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "new-tokens-module")]
+            if text == "/newtokens" {
+                let message = "Click here to setup new tokens bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=newtokens-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "new-liquidity-pools-module")]
+            if text == "/lp" || text == "/pools" || text == "/liquiditypools" {
+                let message = "Click here to setup LP bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=lp-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "socialdb-module")]
+            if text == "/nearsocial" {
+                let message = "Click here to setup Near Social bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=nearsocial-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "contract-logs-module")]
+            if text == "/contractlogs" || text == "/logs" {
+                let message = "Click here to setup contract logs bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=contractlogs-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "contract-logs-module")]
+            if text == "/textlogs" {
+                let message = "Click here to setup text logs bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Text Logs Bot",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=textlogs-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            #[cfg(feature = "contract-logs-module")]
+            if text == "/nep297" {
+                let message = "Click here to setup NEP\\-297 logs bot".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Setup",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=nep297-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
             return Ok(());
         }
         let Some(user_id) = user_id else {
             return Ok(());
         };
         match command {
+            MessageCommand::None => {
+                #[cfg(feature = "utilities-module")]
+                if text == "/token" || text == "/ft" {
+                    // Uses set_dm_message_command, but UtilitiesModule goes after HubModule,
+                    // so avoid handling this message as input to /token
+                    let xeon = Arc::clone(bot.xeon());
+                    let bot_id = bot.id();
+                    tokio::spawn(async move {
+                        let bot = xeon.bot(&bot_id).unwrap();
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            if let Err(err) = module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        &bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(&TgCommand::UtilitiesFtInfo).await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await
+                            {
+                                log::warn!("Failed to handle /token: {err:?}");
+                            }
+                        }
+                    });
+                }
+                #[cfg(feature = "utilities-module")]
+                if let (Some(token_id), None) | (None, Some(token_id)) = (
+                    text.strip_prefix("/token ").map(str::trim),
+                    text.strip_prefix("/ft ").map(str::trim),
+                ) {
+                    if token_id.ends_with(".near") || token_id.ends_with(".tg") {
+                        if let Ok(token_id) = token_id.parse::<AccountId>() {
+                            for module in bot.xeon().bot_modules().await.iter() {
+                                module
+                                    .handle_callback(
+                                        TgCallbackContext::new(
+                                            bot,
+                                            user_id,
+                                            chat_id,
+                                            None,
+                                            &bot.to_callback_data(
+                                                &TgCommand::UtilitiesFtInfoSelected(
+                                                    token_id.clone(),
+                                                ),
+                                            )
+                                            .await,
+                                        ),
+                                        &mut None,
+                                    )
+                                    .await?;
+                            }
+                            return Ok(());
+                        }
+                    }
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_message(
+                                bot,
+                                Some(user_id),
+                                chat_id,
+                                MessageCommand::UtilitiesFtInfo,
+                                token_id,
+                                message,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "utilities-module")]
+                if text == "/holders" {
+                    // Uses set_dm_message_command, but UtilitiesModule goes after HubModule,
+                    // so avoid handling this message as input to /holders
+                    let xeon = Arc::clone(bot.xeon());
+                    let bot_id = bot.id();
+                    tokio::spawn(async move {
+                        let bot = xeon.bot(&bot_id).unwrap();
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            if let Err(err) = module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        &bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(&TgCommand::UtilitiesFtInfo).await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await
+                            {
+                                log::warn!("Failed to handle /holders: {err:?}");
+                            }
+                        }
+                    });
+                }
+                #[cfg(feature = "utilities-module")]
+                if let Some(token_id) = text.strip_prefix("/holders ").map(str::trim) {
+                    if token_id.ends_with(".near") || token_id.ends_with(".tg") {
+                        if let Ok(token_id) = token_id.parse::<AccountId>() {
+                            for module in bot.xeon().bot_modules().await.iter() {
+                                module
+                                    .handle_callback(
+                                        TgCallbackContext::new(
+                                            bot,
+                                            user_id,
+                                            chat_id,
+                                            None,
+                                            &bot.to_callback_data(
+                                                &TgCommand::UtilitiesFt100Holders(token_id.clone()),
+                                            )
+                                            .await,
+                                        ),
+                                        &mut None,
+                                    )
+                                    .await?;
+                            }
+                            return Ok(());
+                        }
+                    }
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_message(
+                                bot,
+                                Some(user_id),
+                                chat_id,
+                                MessageCommand::UtilitiesFtInfo,
+                                token_id,
+                                message,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "utilities-module")]
+                if text == "/account" || text == "/acc" {
+                    // Uses set_dm_message_command, but UtilitiesModule goes after HubModule,
+                    // so avoid handling this message as input to /account
+                    let xeon = Arc::clone(bot.xeon());
+                    let bot_id = bot.id();
+                    tokio::spawn(async move {
+                        let bot = xeon.bot(&bot_id).unwrap();
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            if let Err(err) = module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        &bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(&TgCommand::UtilitiesAccountInfo)
+                                            .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await
+                            {
+                                log::warn!("Failed to handle /account: {err:?}");
+                            }
+                        }
+                    });
+                }
+                #[cfg(feature = "utilities-module")]
+                if let (Some(account_id), None) | (None, Some(account_id)) = (
+                    text.strip_prefix("/account ").map(str::trim),
+                    text.strip_prefix("/acc ").map(str::trim),
+                ) {
+                    if let Ok(account_id) = account_id.parse::<AccountId>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::UtilitiesAccountInfoAccount(
+                                                account_id.clone(),
+                                            ),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    } else {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_message(
+                                    bot,
+                                    Some(user_id),
+                                    chat_id,
+                                    MessageCommand::UtilitiesAccountInfo,
+                                    account_id,
+                                    message,
+                                )
+                                .await?;
+                        }
+                    }
+                }
+                #[cfg(feature = "ft-buybot-module")]
+                if text == "/buybot" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::FtNotificationsSettings(
+                                        chat_id,
+                                    ))
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "nft-buybot-module")]
+                if text == "/nftbuybot" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::NftNotificationsSettings(
+                                        chat_id,
+                                    ))
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "potlock-module")]
+                if text == "/potlock" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(
+                                        &TgCommand::PotlockNotificationsSettings(chat_id),
+                                    )
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "price-alerts-module")]
+                if text == "/pricealerts" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(
+                                        &TgCommand::PriceAlertsNotificationsSettings(chat_id),
+                                    )
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "new-tokens-module")]
+                if text == "/newtokens" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(
+                                        &TgCommand::NewTokenNotificationsSettings(chat_id),
+                                    )
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "new-liquidity-pools-module")]
+                if text == "/lp" || text == "/pools" || text == "/liquiditypools" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::NewLPNotificationsSettings(
+                                        chat_id,
+                                    ))
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "socialdb-module")]
+                if text == "/nearsocial" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(
+                                        &TgCommand::SocialDBNotificationsSettings(chat_id),
+                                    )
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "contract-logs-module")]
+                if text == "/contractlogs" || text == "/logs" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(
+                                        &TgCommand::ContractLogsNotificationsSettings(chat_id),
+                                    )
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "contract-logs-module")]
+                if text == "/textlogs" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::CustomLogsNotificationsText(
+                                        chat_id,
+                                    ))
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "contract-logs-module")]
+                if text == "/nep297" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(
+                                        &TgCommand::CustomLogsNotificationsNep297(chat_id),
+                                    )
+                                    .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+            }
             MessageCommand::Start(data) => {
                 self.users_first_interaction
                     .insert_if_not_exists(user_id, DateTime::now())
@@ -75,6 +721,232 @@ impl XeonBotModule for HubModule {
                         bot, user_id, chat_id, None, DONT_CARE,
                     ))
                     .await?;
+                } else if let Some(target_chat_id) = data.strip_prefix("setup-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        self.open_chat_settings(
+                            &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+                            Some(ChatId(target_chat_id)),
+                        )
+                        .await?;
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("buybot-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(&TgCommand::FtNotificationsSettings(
+                                            ChatId(target_chat_id),
+                                        ))
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("nftbuybot-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::NftNotificationsSettings(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("potlock-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::PotlockNotificationsSettings(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("pricealerts-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::PriceAlertsNotificationsSettings(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("newtokens-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::NewTokenNotificationsSettings(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("lp-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::NewLPNotificationsSettings(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("nearsocial-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::SocialDBNotificationsSettings(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("contractlogs-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::ContractLogsNotificationsSettings(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("textlogs-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::CustomLogsNotificationsText(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                } else if let Some(target_chat_id) = data.strip_prefix("nep297-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::CustomLogsNotificationsNep297(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
                 }
             }
             // MessageCommand::ConnectAccountAnonymously => {
@@ -115,9 +987,6 @@ impl XeonBotModule for HubModule {
                 }) = message.shared_chat()
                 {
                     bot.remove_dm_message_command(&user_id).await?;
-                    if !check_admin_permission_in_chat(bot, *target_chat_id, user_id).await {
-                        return Ok(());
-                    }
                     let chat_name = markdown::escape(
                         &get_chat_title_cached_5m(bot.bot(), *target_chat_id)
                             .await?
@@ -777,7 +1646,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 "💷 Token Info",
                 context
                     .bot()
-                    .to_callback_data(&TgCommand::UtilitiesFtHolders)
+                    .to_callback_data(&TgCommand::UtilitiesFtInfo)
                     .await,
             ),
             InlineKeyboardButton::callback(
@@ -1106,6 +1975,9 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     target_chat_id
                 );
             }
+            return Ok(());
+        }
+        if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id()).await {
             return Ok(());
         }
         let chat_name = markdown::escape(
