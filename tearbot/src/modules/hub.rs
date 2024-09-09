@@ -1037,7 +1037,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     can_delete_stories: None,
                 }),
                 bot_administrator_rights: Some(requested_bot_rights.clone()),
-                bot_is_member: true,
+                bot_is_member: false,
             })),
         }];
         if cfg!(feature = "configure-channels") {
@@ -1067,7 +1067,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                         can_delete_stories: None,
                     }),
                     bot_administrator_rights: Some(requested_bot_rights),
-                    bot_is_member: true,
+                    bot_is_member: false,
                 })),
             });
         }
