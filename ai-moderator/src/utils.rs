@@ -233,7 +233,7 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
                             choice.message.content.as_deref().unwrap_or(""),
                         ) {
                             log::info!(
-                                "Cerebras response for moderation from {}: {response:?}",
+                                "Cerebras response for moderation from {}:\n\nMessage:{message_text}\n\nPrompt: {additional_instructions}\n\nResponse: {result:?}\n\n",
                                 if let Some(from) = message.from.as_ref() {
                                     format!("{name}#{id}", name = from.full_name(), id = from.id)
                                 } else {
