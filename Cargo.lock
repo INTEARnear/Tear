@@ -6067,6 +6067,7 @@ dependencies = [
  "new-liquidity-pools",
  "new-tokens",
  "nft-buybot",
+ "openssl",
  "potlock",
  "price-alerts",
  "reqwest 0.11.27",

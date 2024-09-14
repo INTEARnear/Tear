@@ -723,6 +723,12 @@ impl PoolId {
         }
     }
 
+    pub fn get_name(&self) -> String {
+        match self {
+            PoolId::Ref(id) => format!("Ref#{id}"),
+        }
+    }
+
     pub fn get_exchange(&self) -> Exchange {
         match self {
             PoolId::Ref(_) => Exchange::RefFinance,
