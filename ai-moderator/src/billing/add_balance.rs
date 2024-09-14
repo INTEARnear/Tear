@@ -107,7 +107,7 @@ pub async fn handle_buy_messages(
             "XTR",
             vec![LabeledPrice::new(
                 "Messages",
-                (0.0015 * messages as f64).ceil() as u32,
+                (0.015 * messages as f64).ceil() as u32,
             )],
         )
         .await?;
