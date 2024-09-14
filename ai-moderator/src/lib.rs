@@ -437,6 +437,7 @@ impl XeonBotModule for AiModeratorModule {
             TgCommand::AiModeratorBuyMessages(target_chat_id, messages) => {
                 billing::add_balance::handle_buy_messages(
                     ctx.bot(),
+                    ctx.user_id(),
                     ctx.chat_id(),
                     target_chat_id,
                     messages,

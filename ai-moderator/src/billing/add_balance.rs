@@ -83,16 +83,18 @@ pub async fn handle_input(
         return Ok(());
     };
     bot.remove_dm_message_command(&user_id).await?;
-    handle_buy_messages(bot, chat_id, target_chat_id, number).await?;
+    handle_buy_messages(bot, user_id, chat_id, target_chat_id, number).await?;
     Ok(())
 }
 
 pub async fn handle_buy_messages(
     bot: &BotData,
+    user_id: UserId,
     chat_id: ChatId,
     target_chat_id: ChatId,
     messages: u32,
 ) -> Result<(), anyhow::Error> {
+    bot.remove_dm_message_command(&user_id).await?;
     bot.bot()
         .send_invoice(
             chat_id,
