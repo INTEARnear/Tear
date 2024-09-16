@@ -45,6 +45,14 @@ impl XeonBotModule for UtilitiesModule {
         "Utilities"
     }
 
+    fn supports_migration(&self) -> bool {
+        false
+    }
+
+    fn supports_pause(&self) -> bool {
+        false
+    }
+
     async fn handle_message(
         &self,
         bot: &BotData,

@@ -83,6 +83,14 @@ impl XeonBotModule for NearTgiModule {
         "near-tgi"
     }
 
+    fn supports_migration(&self) -> bool {
+        false
+    }
+
+    fn supports_pause(&self) -> bool {
+        false
+    }
+
     async fn handle_message(
         &self,
         bot: &BotData,

@@ -105,6 +105,20 @@ pub async fn open_main(
             "⚠️ The bot is currently disabled. Click the 'Disabled' button below to enable it",
         );
     }
+    let moderator_chat_name = if let Some(moderator_chat) = chat_config.moderator_chat {
+        if let Ok(chat_name) = get_chat_title_cached_5m(ctx.bot().bot(), moderator_chat).await {
+            if let Some(chat_name) = chat_name {
+                chat_name
+            } else {
+                "Invalid".to_string()
+            }
+        } else {
+            warnings.push("⚠️ The moderator chat is deleted, or the bot is not in the moderator chat. Please set the moderator chat again");
+            "Invalid".to_string()
+        }
+    } else {
+        "⚠️ Not Set".to_string()
+    };
     let warnings = if !warnings.is_empty() {
         format!("\n\n{}", markdown::escape(&warnings.join("\n")))
     } else {
@@ -170,16 +184,7 @@ pub async fn open_main(
                 .await,
         )],
         vec![InlineKeyboardButton::callback(
-            format!(
-                "👤 Moderator Chat: {}",
-                if let Some(moderator_chat) = chat_config.moderator_chat {
-                    get_chat_title_cached_5m(ctx.bot().bot(), moderator_chat)
-                        .await?
-                        .unwrap_or("Invalid".to_string())
-                } else {
-                    "⚠️ Not Set".to_string()
-                }
-            ),
+            format!("👤 Moderator Chat: {moderator_chat_name}"),
             ctx.bot()
                 .to_callback_data(&TgCommand::AiModeratorRequestModeratorChat(target_chat_id))
                 .await,

@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use itertools::Itertools;
@@ -16,7 +19,10 @@ use tearbot_common::{
         },
         utils::markdown,
     },
-    tgbot::{Attachment, BotData, BotType, MustAnswerCallbackQuery, TgCallbackContext, DONT_CARE},
+    tgbot::{
+        Attachment, BotData, BotType, MigrationData, MustAnswerCallbackQuery, TgCallbackContext,
+        DONT_CARE,
+    },
     utils::{
         chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, ChatPermissionLevel},
         store::PersistentCachedStore,
@@ -49,6 +55,14 @@ impl XeonBotModule for HubModule {
         "Hub"
     }
 
+    fn supports_migration(&self) -> bool {
+        false
+    }
+
+    fn supports_pause(&self) -> bool {
+        false
+    }
+
     async fn handle_message(
         &self,
         bot: &BotData,
@@ -60,6 +74,15 @@ impl XeonBotModule for HubModule {
     ) -> Result<(), anyhow::Error> {
         if bot.bot_type() != BotType::Main {
             return Ok(());
+        }
+        if text == "/migrate" {
+            if let Some(user_id) = user_id {
+                if let Ok(old_bot_id) = std::env::var("MIGRATION_OLD_BOT_ID") {
+                    if bot.id().0 == old_bot_id.parse::<u64>().unwrap() {
+                        start_migration(bot, chat_id, user_id).await?;
+                    }
+                }
+            }
         }
         if !chat_id.is_user() {
             if text == "/setup" || text == "/start" {
@@ -743,6 +766,87 @@ impl XeonBotModule for HubModule {
                         bot, user_id, chat_id, None, DONT_CARE,
                     ))
                     .await?;
+                }
+                if let Some(migration_hash) = data.strip_prefix("migrate-") {
+                    if let Ok(migration) = bot.parse_migration_data(migration_hash).await {
+                        let chat = bot.bot().get_chat(migration.chat_id).await;
+                        if chat.is_err() {
+                            let message = "I don't have access to the chat you are trying to migrate\\. Please add me to this chat and try again\\.";
+                            let buttons = vec![vec![InlineKeyboardButton::url(
+                                "♻️ Try again",
+                                format!(
+                                    "tg://resolve?domain={bot_username}&start=migrate-{migration_hash}",
+                                    bot_username = bot
+                                        .bot()
+                                        .get_me()
+                                        .await?
+                                        .username
+                                        .as_ref()
+                                        .expect("Bot has no username"),
+                                )
+                                .parse()
+                                .unwrap(),
+                            )]];
+                            let reply_markup = InlineKeyboardMarkup::new(buttons);
+                            bot.send_text_message(chat_id, message.to_string(), reply_markup)
+                                .await?;
+                            return Ok(());
+                        }
+                        if !check_admin_permission_in_chat(bot, migration.chat_id, user_id).await {
+                            return Ok(());
+                        }
+                        let mut has_settings = false;
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            if module.supports_migration() {
+                                let settings =
+                                    module.export_settings(bot.id(), migration.chat_id).await?;
+                                if !settings.is_null() {
+                                    has_settings = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if has_settings {
+                            let chat_name = markdown::escape(
+                                &get_chat_title_cached_5m(bot.bot(), migration.chat_id)
+                                    .await?
+                                    .unwrap_or("DM".to_string()),
+                            );
+                            let message = format!(
+                                "You are about to overwrite all settings for {chat_name}\\. Are you sure?",
+                                chat_name = markdown::escape(&chat_name)
+                            );
+                            let chat_id = migration.chat_id;
+                            let buttons = vec![vec![
+                                InlineKeyboardButton::callback(
+                                    "Yes",
+                                    bot.to_callback_data(&TgCommand::MigrateConfirm(migration))
+                                        .await,
+                                ),
+                                InlineKeyboardButton::callback(
+                                    "No",
+                                    bot.to_callback_data(&TgCommand::ChatSettings(chat_id))
+                                        .await,
+                                ),
+                            ]];
+                            let reply_markup = InlineKeyboardMarkup::new(buttons);
+                            bot.send_text_message(chat_id, message, reply_markup)
+                                .await?;
+                        } else {
+                            self.handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::MigrateConfirm(migration))
+                                        .await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                        }
+                    }
                 }
                 if let Some(target_chat_id) = data.strip_prefix("setup-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
@@ -1648,6 +1752,47 @@ impl XeonBotModule for HubModule {
                 )
                 .await?;
             }
+            TgCommand::MigrateToNewBot(target_chat_id) => {
+                if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
+                    .await
+                {
+                    return Ok(());
+                }
+                if context.chat_id().as_user() != Some(context.user_id()) {
+                    return Ok(());
+                }
+                start_migration(context.bot(), target_chat_id, context.user_id()).await?;
+            }
+            TgCommand::MigrateConfirm(mut migration_data) => {
+                log::info!("Migrating {migration_data:?}");
+                for module in context.bot().xeon().bot_modules().await.iter() {
+                    if module.supports_migration() {
+                        if let Some(settings) = migration_data.settings.remove(module.name()) {
+                            if !settings.is_null() {
+                                module
+                                    .import_settings(
+                                        context.bot().id(),
+                                        migration_data.chat_id,
+                                        settings,
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
+                }
+                let message =
+                    "Migration complete\\. Now you can use this bot instead of the old one"
+                        .to_string();
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::ChatSettings(migration_data.chat_id))
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                context.edit_or_send(message, reply_markup).await?;
+            }
             #[allow(unreachable_patterns)]
             _ => {}
         }
@@ -2090,8 +2235,8 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
 }
 
 async fn create_notificatons_buttons(
-    #[allow(unused_variables)] target_chat_id: ChatId,
-    #[allow(unused_variables)] bot: &BotData,
+    target_chat_id: ChatId,
+    bot: &BotData,
 ) -> Result<Vec<Vec<InlineKeyboardButton>>, anyhow::Error> {
     #[allow(unused_mut)]
     let mut buttons = Vec::new();
@@ -2151,11 +2296,72 @@ async fn create_notificatons_buttons(
         bot.to_callback_data(&TgCommand::BurrowLiquidationsSettings(target_chat_id))
             .await,
     ));
-    let buttons = buttons
+    let mut buttons = buttons
         .into_iter()
         .chunks(2)
         .into_iter()
         .map(|chunk| chunk.collect())
-        .collect();
+        .collect::<Vec<_>>();
+    if let Ok(old_bot_id) = std::env::var("MIGRATION_OLD_BOT_ID") {
+        if bot.id().0 == old_bot_id.parse::<u64>().unwrap() {
+            buttons.insert(
+                0,
+                vec![InlineKeyboardButton::callback(
+                    "⬆️ Migrate to new bot",
+                    bot.to_callback_data(&TgCommand::MigrateToNewBot(target_chat_id))
+                        .await,
+                )],
+            );
+        }
+    }
     Ok(buttons)
+}
+
+async fn start_migration(
+    bot: &BotData,
+    target_chat_id: ChatId,
+    user_id: UserId,
+) -> Result<(), anyhow::Error> {
+    if let Ok(new_bot_username) = std::env::var("MIGRATION_NEW_BOT_USERNAME") {
+        let message = "Migrate all settings of this chat to the new bot? This will remove all settings and alerts from this chat and add them to the new bot\\.".to_string();
+        let mut migrated_settings = HashMap::new();
+        for module in bot.xeon().bot_modules().await.iter() {
+            if module.supports_migration() {
+                let data = module
+                    .export_settings(bot.id(), target_chat_id)
+                    .await
+                    .unwrap_or_default();
+                migrated_settings.insert(module.name().to_owned(), data);
+                if module.supports_pause() {
+                    module.pause(bot.id(), target_chat_id).await?;
+                }
+            }
+        }
+        let migration_data = MigrationData {
+            settings: migrated_settings,
+            chat_id: target_chat_id,
+        };
+        log::info!("{user_id} has exported {migration_data:?}");
+        let reply_markup = InlineKeyboardMarkup::new(vec![
+            vec![InlineKeyboardButton::url(
+                "Yes",
+                format!(
+                    "tg://resolve?domain={new_bot_username}&start=migrate-{}",
+                    bot.to_migration_data(&migration_data).await
+                )
+                .parse()
+                .unwrap(),
+            )],
+            vec![InlineKeyboardButton::callback(
+                "No",
+                bot.to_callback_data(&TgCommand::ChatSettings(target_chat_id))
+                    .await,
+            )],
+        ]);
+        bot.send_text_message(ChatId(user_id.0 as i64), message, reply_markup)
+            .await?;
+    } else {
+        log::warn!("MIGRATION_NEW_BOT_USERNAME is not set");
+    }
+    Ok(())
 }

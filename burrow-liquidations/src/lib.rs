@@ -89,6 +89,9 @@ impl BurrowLiquidationsModule {
         };
         for (bot_id, config) in self.bot_configs.iter() {
             for subscriber in config.subscribers.values().await? {
+                if !subscriber.enabled {
+                    continue;
+                }
                 for event_data in event_data.iter() {
                     let chat_id = *subscriber.key();
                     let subscriber = subscriber.value();
@@ -159,6 +162,86 @@ impl BurrowLiquidationsModule {
 impl XeonBotModule for BurrowLiquidationsModule {
     fn name(&self) -> &'static str {
         "Burrow Liquidations"
+    }
+
+    fn supports_migration(&self) -> bool {
+        true
+    }
+
+    async fn export_settings(
+        &self,
+        bot_id: UserId,
+        chat_id: ChatId,
+    ) -> Result<serde_json::Value, anyhow::Error> {
+        let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
+                chat_config
+            } else {
+                return Ok(serde_json::Value::Null);
+            }
+        } else {
+            return Ok(serde_json::Value::Null);
+        };
+        Ok(serde_json::to_value(chat_config)?)
+    }
+
+    async fn import_settings(
+        &self,
+        bot_id: UserId,
+        chat_id: ChatId,
+        settings: serde_json::Value,
+    ) -> Result<(), anyhow::Error> {
+        let chat_config = serde_json::from_value(settings)?;
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
+                log::warn!("Chat config already exists, overwriting: {config:?}");
+            }
+            bot_config
+                .subscribers
+                .insert_or_update(chat_id, chat_config)
+                .await?;
+        }
+        Ok(())
+    }
+
+    fn supports_pause(&self) -> bool {
+        true
+    }
+
+    async fn pause(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
+                bot_config
+                    .subscribers
+                    .insert_or_update(
+                        chat_id,
+                        BurrowLiqudationsSubscriberConfig {
+                            enabled: false,
+                            ..config.clone()
+                        },
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn resume(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
+                bot_config
+                    .subscribers
+                    .insert_or_update(
+                        chat_id,
+                        BurrowLiqudationsSubscriberConfig {
+                            enabled: true,
+                            ..chat_config.clone()
+                        },
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
     }
 
     async fn handle_message(
@@ -424,6 +507,7 @@ impl XeonBotModule for BurrowLiquidationsModule {
                     } else {
                         BurrowLiqudationsSubscriberConfig {
                             accounts: HashSet::from_iter([account_id]),
+                            enabled: true,
                         }
                     };
                     bot_config
@@ -473,4 +557,10 @@ impl BurrowLiquidationsConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct BurrowLiqudationsSubscriberConfig {
     accounts: HashSet<AccountId>,
+    #[serde(default = "default_enable")]
+    enabled: bool,
+}
+
+fn default_enable() -> bool {
+    true
 }

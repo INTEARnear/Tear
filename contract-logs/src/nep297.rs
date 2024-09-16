@@ -72,6 +72,9 @@ impl ContractLogsNep297Module {
         let log_serialized = serde_json::to_string_pretty(&event.event_data)?;
         for (bot_id, config) in self.bot_configs.iter() {
             for subscriber in config.subscribers.values().await? {
+                if !subscriber.enabled {
+                    continue;
+                }
                 let chat_id = *subscriber.key();
                 let subscriber = subscriber.value();
                 for filter in subscriber.filters.iter() {
@@ -130,6 +133,86 @@ impl ContractLogsNep297Module {
 impl XeonBotModule for ContractLogsNep297Module {
     fn name(&self) -> &'static str {
         "Contract Logs NEP-297"
+    }
+
+    fn supports_migration(&self) -> bool {
+        true
+    }
+
+    async fn export_settings(
+        &self,
+        bot_id: UserId,
+        chat_id: ChatId,
+    ) -> Result<serde_json::Value, anyhow::Error> {
+        let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
+                chat_config
+            } else {
+                return Ok(serde_json::Value::Null);
+            }
+        } else {
+            return Ok(serde_json::Value::Null);
+        };
+        Ok(serde_json::to_value(chat_config)?)
+    }
+
+    async fn import_settings(
+        &self,
+        bot_id: UserId,
+        chat_id: ChatId,
+        settings: serde_json::Value,
+    ) -> Result<(), anyhow::Error> {
+        let chat_config = serde_json::from_value(settings)?;
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
+                log::warn!("Chat config already exists, overwriting: {config:?}");
+            }
+            bot_config
+                .subscribers
+                .insert_or_update(chat_id, chat_config)
+                .await?;
+        }
+        Ok(())
+    }
+
+    fn supports_pause(&self) -> bool {
+        true
+    }
+
+    async fn pause(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
+                bot_config
+                    .subscribers
+                    .insert_or_update(
+                        chat_id,
+                        ContractLogsNep297SubscriberConfig {
+                            enabled: false,
+                            ..config.clone()
+                        },
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn resume(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
+                bot_config
+                    .subscribers
+                    .insert_or_update(
+                        chat_id,
+                        ContractLogsNep297SubscriberConfig {
+                            enabled: true,
+                            ..chat_config.clone()
+                        },
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
     }
 
     async fn handle_message(
@@ -368,9 +451,13 @@ impl XeonBotModule for ContractLogsNep297Module {
                 };
                 let subscriber = if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
                 {
-                    (bot_config.subscribers.get(&target_chat_id).await).unwrap_or_default()
+                    bot_config
+                        .subscribers
+                        .get(&target_chat_id)
+                        .await
+                        .unwrap_or_default()
                 } else {
-                    return Ok(());
+                    Default::default()
                 };
                 let mut message = format!("NEP\\-297 event notifications{for_chat_name}");
                 let mut buttons = vec![vec![InlineKeyboardButton::callback(
@@ -765,7 +852,10 @@ impl XeonBotModule for ContractLogsNep297Module {
                     if let Some(subscriber) = bot_config.subscribers.get(&target_chat_id).await {
                         subscriber
                     } else {
-                        ContractLogsNep297SubscriberConfig { filters: vec![] }
+                        ContractLogsNep297SubscriberConfig {
+                            filters: vec![],
+                            enabled: true,
+                        }
                     };
                 let index = subscriber.filters.len();
                 subscriber.filters.push(Nep297LogFilter::default());
@@ -1339,6 +1429,12 @@ impl ContractLogsNep297Config {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct ContractLogsNep297SubscriberConfig {
     filters: Vec<Nep297LogFilter>,
+    #[serde(default = "default_enable")]
+    enabled: bool,
+}
+
+fn default_enable() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -1,6 +1,9 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use dashmap::DashMap;
 use log::warn;
@@ -30,12 +33,15 @@ use teloxide::{dispatching::UpdateFilterExt, types::ReplyParameters};
 use teloxide::{payloads::SendAnimationSetters, prelude::PreCheckoutQuery};
 use teloxide::{ApiError, Bot, RequestError};
 
-use crate::bot_commands::{MessageCommand, PaymentReference, TgCommand};
 use crate::utils::chat::ChatPermissionLevel;
 use crate::utils::format_duration;
 use crate::utils::requests::fetch_file_cached_1d;
 use crate::utils::store::PersistentCachedStore;
 use crate::xeon::XeonState;
+use crate::{
+    bot_commands::{MessageCommand, PaymentReference, TgCommand},
+    utils::store::PersistentUncachedStore,
+};
 
 pub type TgBot = CacheMe<Throttle<Bot>>;
 
@@ -51,6 +57,7 @@ pub struct BotData {
     animation_file_id_cache: PersistentCachedStore<String, String>,
     audio_file_id_cache: PersistentCachedStore<String, String>,
     callback_data_cache: PersistentCachedStore<String, String>,
+    global_callback_data_storage: PersistentUncachedStore<String, String>,
     // connected_accounts: PersistentCachedStore<UserId, ConnectedAccount>,
     dm_message_commands: PersistentCachedStore<UserId, MessageCommand>, // TODO add message_commands for group chats
     messages_sent_in_5m: Arc<DashMap<ChatId, AtomicUsize>>,
@@ -142,6 +149,11 @@ impl BotData {
             callback_data_cache: PersistentCachedStore::new(
                 db.clone(),
                 &format!("bot{bot_id}_callback_data_cache"),
+            )
+            .await?,
+            global_callback_data_storage: PersistentUncachedStore::new(
+                db.clone(),
+                "global_callback_data_storage",
             )
             .await?,
             // connected_accounts: PersistentCachedStore::new(
@@ -576,6 +588,18 @@ impl BotData {
         Ok(b58)
     }
 
+    pub async fn create_global_hash_reference(
+        &self,
+        data: String,
+    ) -> Result<String, anyhow::Error> {
+        let hash = CryptoHash::hash_bytes(data.as_bytes());
+        let b58 = format!("{hash}");
+        self.global_callback_data_storage
+            .insert_or_update(hash.to_string(), data)
+            .await?;
+        Ok(b58)
+    }
+
     pub async fn to_callback_data(&self, data: &TgCommand) -> String {
         let data = serde_json::to_string(data).unwrap();
         self.create_hash_reference(data)
@@ -587,12 +611,26 @@ impl BotData {
         let data = serde_json::to_string(data).unwrap();
         self.create_hash_reference(data)
             .await
-            .expect("Error creating callback data")
+            .expect("Error creating payment payload")
+    }
+
+    pub async fn to_migration_data(&self, data: &MigrationData) -> String {
+        let data = serde_json::to_string(data).unwrap();
+        self.create_global_hash_reference(data)
+            .await
+            .expect("Error creating migration data")
     }
 
     pub async fn get_hash_reference(&self, b58: &str) -> Option<String> {
         let hash: CryptoHash = b58.parse().ok()?;
         self.callback_data_cache.get(&hash.to_string()).await
+    }
+
+    pub async fn get_global_hash_reference(&self, b58: &str) -> Option<String> {
+        let hash: CryptoHash = b58.parse().ok()?;
+        self.global_callback_data_storage
+            .get(&hash.to_string())
+            .await
     }
 
     pub async fn parse_callback_data(&self, b58: &str) -> Result<TgCommand, anyhow::Error> {
@@ -611,6 +649,14 @@ impl BotData {
             .get_hash_reference(b58)
             .await
             .ok_or_else(|| anyhow::anyhow!("Payment callback cannot be restored"))?;
+        Ok(serde_json::from_str(&data)?)
+    }
+
+    pub async fn parse_migration_data(&self, b58: &str) -> Result<MigrationData, anyhow::Error> {
+        let data = self
+            .get_global_hash_reference(b58)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Migration data cannot be restored"))?;
         Ok(serde_json::from_str(&data)?)
     }
 
@@ -917,6 +963,12 @@ impl BotData {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MigrationData {
+    pub settings: HashMap<String, serde_json::Value>,
+    pub chat_id: ChatId,
+}
+
 pub struct TgCallbackContext<'a> {
     bot: &'a BotData,
     user_id: UserId,
@@ -1133,7 +1185,7 @@ impl Drop for MustAnswerCallbackQuery {
 fn log_parse_error(text: impl Into<String>) -> impl FnOnce(&RequestError) {
     let text = text.into();
     move |err| {
-        println!("{err:?}");
+        log::warn!("{err:?}");
         if let RequestError::Api(ApiError::CantParseEntities(s)) = err {
             log::warn!("Can't parse entities in message: {s}\n{text:?}");
         }

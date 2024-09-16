@@ -65,6 +65,9 @@ impl ContractLogsTextModule {
     ) -> Result<(), anyhow::Error> {
         for (bot_id, config) in self.bot_configs.iter() {
             for subscriber in config.subscribers.values().await? {
+                if !subscriber.enabled {
+                    continue;
+                }
                 let chat_id = *subscriber.key();
                 let subscriber = subscriber.value();
                 for filter in subscriber.filters.iter() {
@@ -113,6 +116,86 @@ impl ContractLogsTextModule {
 impl XeonBotModule for ContractLogsTextModule {
     fn name(&self) -> &'static str {
         "Contract Logs Text"
+    }
+
+    fn supports_migration(&self) -> bool {
+        true
+    }
+
+    async fn export_settings(
+        &self,
+        bot_id: UserId,
+        chat_id: ChatId,
+    ) -> Result<serde_json::Value, anyhow::Error> {
+        let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
+                chat_config
+            } else {
+                return Ok(serde_json::Value::Null);
+            }
+        } else {
+            return Ok(serde_json::Value::Null);
+        };
+        Ok(serde_json::to_value(chat_config)?)
+    }
+
+    async fn import_settings(
+        &self,
+        bot_id: UserId,
+        chat_id: ChatId,
+        settings: serde_json::Value,
+    ) -> Result<(), anyhow::Error> {
+        let chat_config = serde_json::from_value(settings)?;
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
+                log::warn!("Chat config already exists, overwriting: {config:?}");
+            }
+            bot_config
+                .subscribers
+                .insert_or_update(chat_id, chat_config)
+                .await?;
+        }
+        Ok(())
+    }
+
+    fn supports_pause(&self) -> bool {
+        true
+    }
+
+    async fn pause(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
+                bot_config
+                    .subscribers
+                    .insert_or_update(
+                        chat_id,
+                        ContractLogsTextSubscriberConfig {
+                            enabled: false,
+                            ..config.clone()
+                        },
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn resume(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
+                bot_config
+                    .subscribers
+                    .insert_or_update(
+                        chat_id,
+                        ContractLogsTextSubscriberConfig {
+                            enabled: true,
+                            ..chat_config.clone()
+                        },
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
     }
 
     async fn handle_message(
@@ -404,7 +487,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 {
                     (bot_config.subscribers.get(&target_chat_id).await).unwrap_or_default()
                 } else {
-                    return Ok(());
+                    Default::default()
                 };
                 let mut message = format!("Text log notifications{for_chat_name}");
                 let mut buttons = vec![vec![InlineKeyboardButton::callback(
@@ -1105,6 +1188,7 @@ impl XeonBotModule for ContractLogsTextModule {
                                 text_contains: None,
                                 is_testnet: None,
                             }],
+                            enabled: true,
                         }
                     };
                     bot_config
@@ -1540,6 +1624,12 @@ impl ContractLogsNep297Config {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct ContractLogsTextSubscriberConfig {
     filters: Vec<TextLogFilter>,
+    #[serde(default = "default_enable")]
+    enabled: bool,
+}
+
+fn default_enable() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

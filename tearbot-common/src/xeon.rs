@@ -269,4 +269,35 @@ pub trait XeonBotModule: Send + Sync + 'static {
     ) -> Result<(), anyhow::Error> {
         Ok(())
     }
+
+    /// If true, implement `export_settings` and `import_settings` methods
+    fn supports_migration(&self) -> bool;
+
+    async fn export_settings(
+        &self,
+        _bot_id: UserId,
+        _chat_id: ChatId,
+    ) -> Result<serde_json::Value, anyhow::Error> {
+        unimplemented!("supports_migration is true, but export_settings is not implemented")
+    }
+
+    async fn import_settings(
+        &self,
+        _bot_id: UserId,
+        _chat_id: ChatId,
+        _settings: serde_json::Value,
+    ) -> Result<(), anyhow::Error> {
+        unimplemented!("supports_migration is true, but import_settings is not implemented")
+    }
+
+    /// If true, implement `pause` and `resume` methods
+    fn supports_pause(&self) -> bool;
+
+    async fn pause(&self, _bot_id: UserId, _chat_id: ChatId) -> Result<(), anyhow::Error> {
+        unimplemented!("supports_pause is true, but pause is not implemented")
+    }
+
+    async fn resume(&self, _bot_id: UserId, _chat_id: ChatId) -> Result<(), anyhow::Error> {
+        unimplemented!("supports_pause is true, but resume is not implemented")
+    }
 }

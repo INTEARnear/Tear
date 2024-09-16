@@ -4,7 +4,10 @@ use near_primitives::types::AccountId;
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::{ChatId, UserId};
 
-use crate::{tgbot::Attachment, utils::chat::ChatPermissionLevel};
+use crate::{
+    tgbot::{Attachment, MigrationData},
+    utils::chat::ChatPermissionLevel,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TgCommand {
@@ -501,6 +504,8 @@ pub enum TgCommand {
     BurrowLiquidationsAddAccount(ChatId),
     #[cfg(feature = "burrow-liquidations-module")]
     BurrowLiquidationsAddAccountConfirm(ChatId, AccountId),
+    MigrateToNewBot(ChatId),
+    MigrateConfirm(MigrationData),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

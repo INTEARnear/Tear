@@ -59,6 +59,86 @@ impl XeonBotModule for AiModeratorModule {
         "AI Moderator"
     }
 
+    fn supports_migration(&self) -> bool {
+        true
+    }
+
+    async fn export_settings(
+        &self,
+        bot_id: UserId,
+        chat_id: ChatId,
+    ) -> Result<serde_json::Value, anyhow::Error> {
+        let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
+                chat_config
+            } else {
+                return Ok(serde_json::Value::Null);
+            }
+        } else {
+            return Ok(serde_json::Value::Null);
+        };
+        Ok(serde_json::to_value(chat_config)?)
+    }
+
+    async fn import_settings(
+        &self,
+        bot_id: UserId,
+        chat_id: ChatId,
+        settings: serde_json::Value,
+    ) -> Result<(), anyhow::Error> {
+        let chat_config = serde_json::from_value(settings)?;
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
+                log::warn!("Chat config already exists, overwriting: {chat_config:?}");
+            }
+            bot_config
+                .chat_configs
+                .insert_or_update(chat_id, chat_config)
+                .await?;
+        }
+        Ok(())
+    }
+
+    fn supports_pause(&self) -> bool {
+        true
+    }
+
+    async fn pause(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
+                bot_config
+                    .chat_configs
+                    .insert_or_update(
+                        chat_id,
+                        AiModeratorChatConfig {
+                            enabled: false,
+                            ..chat_config.clone()
+                        },
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn resume(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
+            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
+                bot_config
+                    .chat_configs
+                    .insert_or_update(
+                        chat_id,
+                        AiModeratorChatConfig {
+                            enabled: true,
+                            ..chat_config.clone()
+                        },
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
     async fn start(&self) -> Result<(), anyhow::Error> {
         let bot_configs = Arc::clone(&self.bot_configs);
         let xeon = Arc::clone(&self.xeon);

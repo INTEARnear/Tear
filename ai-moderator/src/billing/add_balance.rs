@@ -95,6 +95,20 @@ pub async fn handle_buy_messages(
     messages: u32,
 ) -> Result<(), anyhow::Error> {
     bot.remove_dm_message_command(&user_id).await?;
+    if let Ok(old_bot_id) = std::env::var("MIGRATION_OLD_BOT_ID") {
+        if bot.id().0 == old_bot_id.parse::<u64>().unwrap() {
+            let message = "Please migrate to the new bot to buy messages";
+            let buttons = vec![vec![InlineKeyboardButton::callback(
+                "⬆️ Migrate",
+                bot.to_callback_data(&TgCommand::MigrateToNewBot(target_chat_id))
+                    .await,
+            )]];
+            let reply_markup = InlineKeyboardMarkup::new(buttons);
+            bot.send_text_message(chat_id, message.to_owned(), reply_markup)
+                .await?;
+            return Ok(());
+        }
+    }
     bot.bot()
         .send_invoice(
             chat_id,
