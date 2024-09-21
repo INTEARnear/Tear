@@ -323,7 +323,7 @@ impl XeonBotModule for BurrowLiquidationsModule {
                 }
                 context
                     .bot()
-                    .remove_dm_message_command(&context.user_id())
+                    .remove_message_command(&context.user_id())
                     .await?;
 
                 let for_chat_name = if target_chat_id.is_user() {
@@ -480,7 +480,7 @@ impl XeonBotModule for BurrowLiquidationsModule {
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::BurrowLiquidationsAddAccount(target_chat_id),
                     )

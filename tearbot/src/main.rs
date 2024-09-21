@@ -23,6 +23,7 @@ use honey::HoneyModule;
 #[cfg(feature = "image-gen-module")]
 use image_gen::ImageGenModule;
 use log::info;
+#[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
 use modules::hub::HubModule;
 #[cfg(feature = "near-tgi-module")]
 use near_tgi::NearTgiModule;
@@ -129,6 +130,7 @@ fn main() -> Result<(), anyhow::Error> {
                     xeon.state().add_bot(old_main_bot).await?;
                 }
 
+                #[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
                 xeon.state()
                     .add_bot_module(HubModule::new(xeon.arc_clone_state()).await)
                     .await;

@@ -32,7 +32,7 @@ pub async fn handle_input(
         return Ok(());
     }
     if message.text() == Some(CANCEL_TEXT) {
-        bot.remove_dm_message_command(&user_id).await?;
+        bot.remove_message_command(&user_id).await?;
         bot.send_text_message(chat_id, "Cancelled".to_string(), ReplyMarkup::kb_remove())
             .await?;
         moderator::open_main(
@@ -59,7 +59,7 @@ pub async fn handle_input(
                 .await?;
             return Ok(());
         }
-        bot.remove_dm_message_command(&user_id).await?;
+        bot.remove_message_command(&user_id).await?;
         if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
             return Ok(());
         }
@@ -161,7 +161,7 @@ pub async fn handle_button(
     ];
     let reply_markup = ReplyMarkup::keyboard(buttons);
     ctx.bot()
-        .set_dm_message_command(
+        .set_message_command(
             ctx.user_id(),
             MessageCommand::AiModeratorSetModeratorChat(target_chat_id),
         )

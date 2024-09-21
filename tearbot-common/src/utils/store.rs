@@ -149,14 +149,18 @@ where
         Ok(())
     }
 
-    pub async fn remove(&self, key: &K) -> Result<(), anyhow::Error> {
+    pub async fn remove(&self, key: &K) -> Result<Option<V>, anyhow::Error> {
         let removed = self.cache.remove(key);
         if self.cached_all.load(Ordering::Relaxed) && removed.is_none() {
-            return Ok(());
+            return Ok(None);
         }
-        let key_bson = bson::to_bson(key)?;
-        self.db.delete_one(bson::doc! { "key": key_bson }).await?;
-        Ok(())
+        if let Some(value) = self.get(key).await {
+            let key_bson = bson::to_bson(key)?;
+            self.db.delete_one(bson::doc! { "key": key_bson }).await?;
+            Ok(Some(value))
+        } else {
+            Ok(None)
+        }
     }
 
     pub async fn values(&self) -> Result<impl Iterator<Item = RefMulti<K, V>>, anyhow::Error> {

@@ -94,7 +94,7 @@ pub async fn handle_set_prompt_button(
     )]];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.bot()
-        .set_dm_message_command(
+        .set_message_command(
             ctx.user_id(),
             MessageCommand::AiModeratorSetPrompt(target_chat_id),
         )
@@ -355,7 +355,7 @@ pub async fn handle_edit_prompt_button(
     )]];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.bot()
-        .set_dm_message_command(
+        .set_message_command(
             ctx.user_id(),
             MessageCommand::AiModeratorEditPrompt(target_chat_id),
         )
@@ -375,7 +375,7 @@ pub async fn handle_cancel_edit_prompt_button(
     let message = "Prompt editing was cancelled";
     let buttons = Vec::<Vec<_>>::new();
     let reply_markup = InlineKeyboardMarkup::new(buttons);
-    ctx.bot().remove_dm_message_command(&ctx.user_id()).await?;
+    ctx.bot().remove_message_command(&ctx.user_id()).await?;
     ctx.edit_or_send(message, reply_markup).await?;
     Ok(())
 }

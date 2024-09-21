@@ -468,7 +468,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .remove_dm_message_command(&context.user_id())
+                    .remove_message_command(&context.user_id())
                     .await?;
 
                 let for_chat_name = if target_chat_id.is_user() {
@@ -595,7 +595,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .remove_dm_message_command(&context.user_id())
+                    .remove_message_command(&context.user_id())
                     .await?;
                 let subscriber = if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
                 {
@@ -883,7 +883,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsTextAddFilter(target_chat_id),
                     )
@@ -907,7 +907,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsTextEditAccountId(
                             target_chat_id,
@@ -940,7 +940,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsTextEditPredecessorId(
                             target_chat_id,
@@ -985,7 +985,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsTextEditStartsWith(
                             target_chat_id,
@@ -1030,7 +1030,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsTextEditEndsWith(
                             target_chat_id,
@@ -1075,7 +1075,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsTextEditExactMatch(
                             target_chat_id,
@@ -1120,7 +1120,7 @@ impl XeonBotModule for ContractLogsTextModule {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsTextEditContains(
                             target_chat_id,

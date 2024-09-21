@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
 use std::collections::HashMap;
+use tearbot_common::near_primitives::types::Balance;
+use tearbot_common::tgbot::{stars_to_usd, usd_to_stars};
+use tearbot_common::utils::tokens::USDT_TOKEN;
 use tearbot_common::{
     bot_commands::{MessageCommand, PaymentReference, TgCommand},
     teloxide::{
@@ -11,7 +14,9 @@ use tearbot_common::{
     utils::chat::check_admin_permission_in_chat,
 };
 
-use crate::AiModeratorBotConfig;
+use crate::{AiModeratorBotConfig, FREE_TRIAL_MESSAGES};
+
+const MESSAGES_IN_1_USD: u32 = 1000;
 
 pub async fn handle_button(
     ctx: &mut TgCallbackContext<'_>,
@@ -59,7 +64,7 @@ pub async fn handle_button(
     ];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.bot()
-        .set_dm_message_command(
+        .set_message_command(
             ctx.user_id(),
             MessageCommand::AiModeratorBuyMessages(target_chat_id),
         )
@@ -82,7 +87,7 @@ pub async fn handle_input(
             .await?;
         return Ok(());
     };
-    bot.remove_dm_message_command(&user_id).await?;
+    bot.remove_message_command(&user_id).await?;
     handle_buy_messages(bot, user_id, chat_id, target_chat_id, number).await?;
     Ok(())
 }
@@ -94,7 +99,7 @@ pub async fn handle_buy_messages(
     target_chat_id: ChatId,
     messages: u32,
 ) -> Result<(), anyhow::Error> {
-    bot.remove_dm_message_command(&user_id).await?;
+    bot.remove_message_command(&user_id).await?;
     if let Ok(old_bot_id) = std::env::var("MIGRATION_OLD_BOT_ID") {
         if bot.id().0 == old_bot_id.parse::<u64>().unwrap() {
             let message = "Please migrate to the new bot to buy messages";
@@ -109,6 +114,8 @@ pub async fn handle_buy_messages(
             return Ok(());
         }
     }
+    let price_usd = messages as f64 / MESSAGES_IN_1_USD as f64;
+    let price_stars = usd_to_stars(price_usd);
     bot.bot()
         .send_invoice(
             chat_id,
@@ -121,34 +128,48 @@ pub async fn handle_buy_messages(
             .await,
             "".to_string(),
             "XTR",
-            vec![LabeledPrice::new(
-                "Messages",
-                (0.015 * messages as f64).ceil() as u32,
-            )],
+            vec![LabeledPrice::new("Messages", price_stars)],
         )
         .await?;
     Ok(())
 }
 
-pub async fn handle_buying_messages(
+pub async fn handle_bought_messages(
     bot: &BotData,
     chat_id: ChatId,
+    user_id: UserId,
     target_chat_id: ChatId,
-    number: u32,
+    messages_bought: u32,
     bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if let Some(config) = bot_configs.get(&bot.id()) {
-        let Some(messages) = config.messages_balance.get(&target_chat_id).await else {
-            log::warn!("No message balance found for chat {chat_id} but payment of {number} messagse received");
-            return Ok(());
+        let existing_messages = match config.messages_balance.get(&target_chat_id).await {
+            Some(messages) => messages,
+            None => {
+                log::warn!("No message balance found for chat {chat_id} but payment of {messages_bought} messages received. Defaulting to {FREE_TRIAL_MESSAGES}");
+                FREE_TRIAL_MESSAGES
+            }
         };
-        let new_messages = messages + number;
+        let new_messages = existing_messages + messages_bought;
         config
             .messages_balance
             .insert_or_update(target_chat_id, new_messages)
             .await?;
+
+        // Double conversion to preserve precision loss
+        let cost_usd = messages_bought as f64 / MESSAGES_IN_1_USD as f64;
+        let cost_stars = usd_to_stars(cost_usd);
+        let cost_usd = stars_to_usd(cost_stars);
+        bot.user_spent(
+            user_id,
+            USDT_TOKEN.parse().unwrap(),
+            (cost_usd * 10e6).floor() as Balance,
+        )
+        .await;
     } else {
-        log::warn!("No config found for chat {chat_id} but payment of {number} messagse received");
+        log::warn!(
+            "No config found for chat {chat_id} but payment of {messages_bought} messagse received"
+        );
         return Ok(());
     }
     let buttons = vec![vec![InlineKeyboardButton::callback(
@@ -159,7 +180,7 @@ pub async fn handle_buying_messages(
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     bot.send_text_message(
         chat_id,
-        format!("You have bought {number} AI moderated messages",),
+        format!("You have bought {messages_bought} AI moderated messages",),
         reply_markup,
     )
     .await?;

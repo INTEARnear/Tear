@@ -434,7 +434,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 }
                 context
                     .bot()
-                    .remove_dm_message_command(&context.user_id())
+                    .remove_message_command(&context.user_id())
                     .await?;
 
                 let for_chat_name = if target_chat_id.is_user() {
@@ -566,7 +566,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 }
                 context
                     .bot()
-                    .remove_dm_message_command(&context.user_id())
+                    .remove_message_command(&context.user_id())
                     .await?;
                 let subscriber = if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
                 {
@@ -889,7 +889,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsNep297EditAccountId(
                             target_chat_id,
@@ -922,7 +922,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsNep297EditPredecessorId(
                             target_chat_id,
@@ -967,7 +967,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsNep297EditStandard(
                             target_chat_id,
@@ -1012,7 +1012,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsNep297EditVersion(
                             target_chat_id,
@@ -1042,7 +1042,7 @@ impl XeonBotModule for ContractLogsNep297Module {
                 }
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::CustomLogsNotificationsNep297EditEvent(
                             target_chat_id,

@@ -153,7 +153,7 @@ impl XeonBotModule for NearTgiModule {
                 }
             }
             MessageCommand::NearTgiText(command) => {
-                bot.remove_dm_message_command(&user_id).await?;
+                bot.remove_message_command(&user_id).await?;
                 self.handle_callback(
                     TgCallbackContext::new(
                         bot,
@@ -171,7 +171,7 @@ impl XeonBotModule for NearTgiModule {
                 .await?;
             }
             MessageCommand::NearTgiCustomType(command) => {
-                bot.remove_dm_message_command(&user_id).await?;
+                bot.remove_message_command(&user_id).await?;
                 self.handle_callback(
                     TgCallbackContext::new(
                         bot,
@@ -425,7 +425,7 @@ impl XeonBotModule for NearTgiModule {
                                         };
                                         context
                                             .bot()
-                                            .set_dm_message_command(
+                                            .set_message_command(
                                                 context.user_id(),
                                                 MessageCommand::NearTgiText(command_string),
                                             )
@@ -499,7 +499,7 @@ impl XeonBotModule for NearTgiModule {
                                         };
                                         context
                                             .bot()
-                                            .set_dm_message_command(
+                                            .set_message_command(
                                                 context.user_id(),
                                                 MessageCommand::NearTgiCustomType(command_string),
                                             )

@@ -134,7 +134,7 @@ impl XeonBotModule for UtilitiesModule {
             }
             MessageCommand::UtilitiesAccountInfo => {
                 if let Ok(account_id) = text.parse() {
-                    bot.remove_dm_message_command(&user_id).await?;
+                    bot.remove_message_command(&user_id).await?;
                     self.handle_callback(
                         TgCallbackContext::new(
                             bot,
@@ -189,14 +189,14 @@ impl XeonBotModule for UtilitiesModule {
                     )]]);
                 context
                     .bot()
-                    .set_dm_message_command(context.user_id(), MessageCommand::UtilitiesFtInfo)
+                    .set_message_command(context.user_id(), MessageCommand::UtilitiesFtInfo)
                     .await?;
                 context.edit_or_send(message, buttons).await?;
             }
             TgCommand::UtilitiesFtInfoSelected(token_id) => {
                 context
                     .bot()
-                    .remove_dm_message_command(&context.user_id())
+                    .remove_message_command(&context.user_id())
                     .await?;
                 let metadata = if let Ok(metadata) = get_ft_metadata(&token_id).await {
                     metadata
@@ -419,7 +419,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                     )]]);
                 context
                     .bot()
-                    .set_dm_message_command(context.user_id(), MessageCommand::UtilitiesAccountInfo)
+                    .set_message_command(context.user_id(), MessageCommand::UtilitiesAccountInfo)
                     .await?;
                 context.edit_or_send(message, buttons).await?;
             }

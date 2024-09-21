@@ -1,5 +1,5 @@
+#![allow(unused_imports)]
 use mongodb::bson::Bson;
-#[allow(unused_imports)]
 use near_primitives::types::AccountId;
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::{ChatId, UserId};
@@ -222,17 +222,23 @@ pub enum TgCommand {
     #[cfg(feature = "new-tokens-module")]
     NewTokenNotificationsDisableAll(ChatId),
     #[cfg(feature = "honey-module")]
-    HoneyOpenMenu,
+    HoneyOpenMenu {
+        referrer: Option<UserId>,
+    },
     #[cfg(feature = "honey-module")]
-    HoneyRegister,
+    HoneyRegister {
+        referrer: Option<UserId>,
+    },
     #[cfg(feature = "honey-module")]
     HoneyConfirm {
+        referrer: Option<UserId>,
         account_id: AccountId,
         name: String,
         location: String,
     },
     #[cfg(feature = "honey-module")]
     HoneyClaimFirst {
+        referrer: Option<UserId>,
         account_id: AccountId,
         name: String,
         location: String,
@@ -506,6 +512,11 @@ pub enum TgCommand {
     BurrowLiquidationsAddAccountConfirm(ChatId, AccountId),
     MigrateToNewBot(ChatId),
     MigrateConfirm(MigrationData),
+    ReferralDashboard,
+    ReferralWithdraw,
+    OpenAccountConnectionMenu,
+    DisconnectAccount,
+    SetReferralNotifications(bool),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -558,13 +569,17 @@ pub enum MessageCommand {
     #[cfg(feature = "price-alerts-module")]
     PriceAlertsAddTokenAlert(ChatId, AccountId),
     #[cfg(feature = "honey-module")]
-    HoneyEnterAccountId,
+    HoneyEnterAccountId {
+        referrer: Option<UserId>,
+    },
     #[cfg(feature = "honey-module")]
     HoneyEnterName {
+        referrer: Option<UserId>,
         account_id: AccountId,
     },
     #[cfg(feature = "honey-module")]
     HoneyEnterLocation {
+        referrer: Option<UserId>,
         name: String,
         account_id: AccountId,
     },
@@ -635,6 +650,7 @@ pub enum MessageCommand {
     },
     #[cfg(feature = "burrow-liquidations-module")]
     BurrowLiquidationsAddAccount(ChatId),
+    ConnectAccountAnonymously,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -33,7 +33,7 @@ pub async fn open_main(
     target_chat_id: ChatId,
     bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
-    ctx.bot().remove_dm_message_command(&ctx.user_id()).await?;
+    ctx.bot().remove_message_command(&ctx.user_id()).await?;
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
     }
@@ -358,7 +358,7 @@ pub async fn handle_test_message_button(
     )]];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.bot()
-        .set_dm_message_command(
+        .set_message_command(
             ctx.user_id(),
             MessageCommand::AiModeratorTest(target_chat_id),
         )
@@ -383,7 +383,7 @@ pub async fn handle_test_message_input(
     if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
         return Ok(());
     }
-    bot.remove_dm_message_command(&user_id).await?;
+    bot.remove_message_command(&user_id).await?;
     let chat_config = if let Some(bot_config) = bot_configs.get(&bot.id()) {
         if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
             chat_config

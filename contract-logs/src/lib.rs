@@ -61,7 +61,7 @@ impl XeonBotModule for ContractLogsModule {
             TgCommand::ContractLogsNotificationsSettings(target_chat_id) => {
                 context
                     .bot()
-                    .remove_dm_message_command(&context.user_id())
+                    .remove_message_command(&context.user_id())
                     .await?;
 
                 let in_chat_name = if target_chat_id.is_user() {

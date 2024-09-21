@@ -9,7 +9,7 @@ use dashmap::DashMap;
 use log::warn;
 use mongodb::bson::Bson;
 use near_primitives::hash::CryptoHash;
-use near_primitives::types::AccountId;
+use near_primitives::types::{AccountId, Balance};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use teloxide::payloads::SendAudioSetters;
@@ -37,6 +37,7 @@ use crate::utils::chat::ChatPermissionLevel;
 use crate::utils::format_duration;
 use crate::utils::requests::fetch_file_cached_1d;
 use crate::utils::store::PersistentCachedStore;
+use crate::utils::tokens::StringifiedBalance;
 use crate::xeon::XeonState;
 use crate::{
     bot_commands::{MessageCommand, PaymentReference, TgCommand},
@@ -47,6 +48,19 @@ pub type TgBot = CacheMe<Throttle<Bot>>;
 
 /// Use this as callback data if you're 100% sure that the callback data will never be used
 pub const DONT_CARE: &str = "dontcare";
+pub const REFERRAL_SHARE: f64 = 0.15;
+pub const STARS_PER_USD: u32 = 77; // 77 stars = $1
+pub const NOTIFICATION_LIMIT_5M: usize = 20;
+pub const NOTIFICATION_LIMIT_1H: usize = 150;
+pub const NOTIFICATION_LIMIT_1D: usize = 1000;
+
+pub fn stars_to_usd(stars: u32) -> f64 {
+    stars as f64 / STARS_PER_USD as f64
+}
+
+pub fn usd_to_stars(usd: f64) -> u32 {
+    (usd * STARS_PER_USD as f64).round() as u32
+}
 
 pub struct BotData {
     bot: TgBot,
@@ -58,13 +72,15 @@ pub struct BotData {
     audio_file_id_cache: PersistentCachedStore<String, String>,
     callback_data_cache: PersistentCachedStore<String, String>,
     global_callback_data_storage: PersistentUncachedStore<String, String>,
-    // connected_accounts: PersistentCachedStore<UserId, ConnectedAccount>,
-    dm_message_commands: PersistentCachedStore<UserId, MessageCommand>, // TODO add message_commands for group chats
+    connected_accounts: PersistentCachedStore<UserId, ConnectedAccount>,
+    message_commands: PersistentCachedStore<UserId, MessageCommand>, // TODO make this per-(chat,user), not per-user
     messages_sent_in_5m: Arc<DashMap<ChatId, AtomicUsize>>,
     messages_sent_in_1h: Arc<DashMap<ChatId, AtomicUsize>>,
     messages_sent_in_1d: Arc<DashMap<ChatId, AtomicUsize>>,
     last_message_limit_notification: DashMap<ChatId, Instant>,
     chat_permission_levels: PersistentCachedStore<ChatId, ChatPermissionLevel>,
+    referred_by: PersistentCachedStore<UserId, UserId>,
+    referral_balance: PersistentCachedStore<UserId, HashMap<AccountId, StringifiedBalance>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
@@ -156,12 +172,12 @@ impl BotData {
                 "global_callback_data_storage",
             )
             .await?,
-            // connected_accounts: PersistentCachedStore::new(
-            //     db.clone(),
-            //     &format!("bot{bot_id}_connected_accounts"),
-            // )
-            // .await?,
-            dm_message_commands: PersistentCachedStore::new(
+            connected_accounts: PersistentCachedStore::new(
+                db.clone(),
+                &format!("bot{bot_id}_connected_accounts"),
+            )
+            .await?,
+            message_commands: PersistentCachedStore::new(
                 db.clone(),
                 &format!("bot{bot_id}_message_commands_dm"),
             )
@@ -175,11 +191,117 @@ impl BotData {
                 &format!("bot{bot_id}_chat_permission_levels"),
             )
             .await?,
+            referred_by: PersistentCachedStore::new(
+                db.clone(),
+                &format!("bot{bot_id}_referred_by"),
+            )
+            .await
+            .expect("Failed to create referred_by store"),
+            referral_balance: PersistentCachedStore::new(
+                db.clone(),
+                &format!("bot{bot_id}_referral_balance"),
+            )
+            .await
+            .expect("Failed to create referral_balance store"),
         })
     }
 
     pub fn bot_type(&self) -> BotType {
         self.bot_type
+    }
+
+    pub async fn set_referrer(
+        &self,
+        user_id: UserId,
+        referrer: UserId,
+    ) -> Result<(), anyhow::Error> {
+        self.referred_by
+            .insert_if_not_exists(user_id, referrer)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_referrer(&self, user_id: UserId) -> Option<UserId> {
+        self.referred_by.get(&user_id).await
+    }
+
+    pub async fn user_spent(&self, user_id: UserId, token_id: AccountId, amount: Balance) {
+        self.give_referrer(user_id, token_id, (amount as f64 * REFERRAL_SHARE) as u128)
+            .await;
+    }
+
+    pub async fn give_referrer(&self, referral_id: UserId, token_id: AccountId, amount: Balance) {
+        if let Some(referrer_id) = self.get_referrer(referral_id).await {
+            self.give_to(referrer_id, token_id, amount).await;
+        }
+    }
+
+    pub async fn give_to(&self, referrer_id: UserId, token_id: AccountId, amount: Balance) {
+        let mut referal_balance = self
+            .referral_balance
+            .get(&referrer_id)
+            .await
+            .unwrap_or_default();
+        referal_balance
+            .entry(token_id)
+            .and_modify(|balance| balance.0 += amount)
+            .or_insert(StringifiedBalance(amount));
+        self.referral_balance
+            .insert_or_update(referrer_id, referal_balance)
+            .await
+            .expect("Failed to update referrer balance");
+    }
+
+    pub async fn get_referral_balance(&self, user_id: UserId) -> HashMap<AccountId, Balance> {
+        self.referral_balance
+            .get(&user_id)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(k, v)| (k, v.0))
+            .collect()
+    }
+
+    pub async fn take_referral_balance(&self, user_id: UserId) -> HashMap<AccountId, Balance> {
+        self.referral_balance
+            .remove(&user_id)
+            .await
+            .unwrap_or_default()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(k, v)| (k, v.0))
+            .collect()
+    }
+
+    pub async fn withdraw_referral_balance(
+        &self,
+        _user_id: UserId,
+        _account_id: &AccountId,
+    ) -> Result<(), anyhow::Error> {
+        // let referral_balance = self
+        //     .referral_balance
+        //     .remove(&user_id)
+        //     .await
+        //     .unwrap_or_default();
+        // for (token_id, amount) in referral_balance {
+        //     // TODO
+        // }
+        Err(anyhow::anyhow!("Not implemented yet!"))
+    }
+
+    pub async fn get_referrals(&self, user_id: UserId) -> Vec<UserId> {
+        if let Ok(data) = self.referred_by.values().await {
+            data.filter_map(|entry| {
+                if *entry.value() == user_id {
+                    Some(*entry.key())
+                } else {
+                    None
+                }
+            })
+            .collect()
+        } else {
+            Default::default()
+        }
     }
 
     pub async fn start_polling(&self) -> Result<(), anyhow::Error> {
@@ -267,6 +389,7 @@ impl BotData {
                                 let res =
                                     match bot.parse_payment_payload(&payment.invoice_payload).await
                                     {
+                                        #[allow(unreachable_patterns)]
                                         Ok(payload) => {
                                             module
                                                 .handle_payment(&bot, from_id, msg.chat.id, payload)
@@ -276,8 +399,7 @@ impl BotData {
                                     };
                                 log::debug!("Payment {} handled", payment.invoice_payload);
                                 res
-                            } else if let Some(command) = bot.get_dm_message_command(&from_id).await
-                            {
+                            } else if let Some(command) = bot.get_message_command(&from_id).await {
                                 log::debug!(
                                     "chat={:?} (command {command:?}): {text}, module: {}",
                                     msg.chat.id,
@@ -660,47 +782,47 @@ impl BotData {
         Ok(serde_json::from_str(&data)?)
     }
 
-    // pub async fn get_connected_account(&self, user_id: &UserId) -> Option<ConnectedAccount> {
-    //     self.connected_accounts.get(user_id).await
-    // }
-
-    // pub async fn connect_account(
-    //     &self,
-    //     user_id: UserId,
-    //     account_id: AccountId,
-    // ) -> Result<(), anyhow::Error> {
-    //     let account = ConnectedAccount {
-    //         account_id,
-    //         is_verified: false,
-    //     };
-    //     self.connected_accounts
-    //         .insert_or_update(user_id, account)
-    //         .await?;
-    //     Ok(())
-    // }
-
-    // pub async fn disconnect_account(&self, user_id: &UserId) -> Result<(), anyhow::Error> {
-    //     self.connected_accounts.remove(user_id).await?;
-    //     Ok(())
-    // }
-
-    pub async fn get_dm_message_command(&self, user_id: &UserId) -> Option<MessageCommand> {
-        self.dm_message_commands.get(user_id).await
+    pub async fn get_connected_account(&self, user_id: UserId) -> Option<ConnectedAccount> {
+        self.connected_accounts.get(&user_id).await
     }
 
-    pub async fn set_dm_message_command(
+    pub async fn connect_account(
+        &self,
+        user_id: UserId,
+        account_id: AccountId,
+    ) -> Result<(), anyhow::Error> {
+        let account = ConnectedAccount {
+            account_id,
+            is_verified: false,
+        };
+        self.connected_accounts
+            .insert_or_update(user_id, account)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn disconnect_account(&self, user_id: UserId) -> Result<(), anyhow::Error> {
+        self.connected_accounts.remove(&user_id).await?;
+        Ok(())
+    }
+
+    pub async fn get_message_command(&self, user_id: &UserId) -> Option<MessageCommand> {
+        self.message_commands.get(user_id).await
+    }
+
+    pub async fn set_message_command(
         &self,
         user_id: UserId,
         command: MessageCommand,
     ) -> Result<(), anyhow::Error> {
-        self.dm_message_commands
+        self.message_commands
             .insert_or_update(user_id, command)
             .await?;
         Ok(())
     }
 
-    pub async fn remove_dm_message_command(&self, user_id: &UserId) -> Result<(), anyhow::Error> {
-        self.dm_message_commands.remove(user_id).await?;
+    pub async fn remove_message_command(&self, user_id: &UserId) -> Result<(), anyhow::Error> {
+        self.message_commands.remove(user_id).await?;
         Ok(())
     }
 
@@ -844,16 +966,12 @@ impl BotData {
     }
 
     pub async fn reached_notification_limit(&self, chat_id: ChatId) -> bool {
-        const MESSAGE_LIMIT_5M: usize = 20;
-        const MESSAGE_LIMIT_1H: usize = 150;
-        const MESSAGE_LIMIT_1D: usize = 1000;
-
         if let Some(messages) = self.messages_sent_in_5m.get(&chat_id) {
             let messages = messages.fetch_add(1, Ordering::Relaxed);
-            if messages > MESSAGE_LIMIT_5M {
+            if messages > NOTIFICATION_LIMIT_5M {
                 self.send_message_limit_message(
                     chat_id,
-                    MESSAGE_LIMIT_5M,
+                    NOTIFICATION_LIMIT_5M,
                     Duration::from_secs(5 * 60),
                     messages,
                 )
@@ -866,10 +984,10 @@ impl BotData {
         }
         if let Some(messages) = self.messages_sent_in_1h.get(&chat_id) {
             let messages = messages.fetch_add(1, Ordering::Relaxed);
-            if messages > MESSAGE_LIMIT_1H {
+            if messages > NOTIFICATION_LIMIT_1H {
                 self.send_message_limit_message(
                     chat_id,
-                    MESSAGE_LIMIT_1H,
+                    NOTIFICATION_LIMIT_1H,
                     Duration::from_secs(60 * 60),
                     messages,
                 )
@@ -882,10 +1000,10 @@ impl BotData {
         }
         if let Some(messages) = self.messages_sent_in_1d.get(&chat_id) {
             let messages = messages.fetch_add(1, Ordering::Relaxed);
-            if messages > MESSAGE_LIMIT_1D {
+            if messages > NOTIFICATION_LIMIT_1D {
                 self.send_message_limit_message(
                     chat_id,
-                    MESSAGE_LIMIT_1D,
+                    NOTIFICATION_LIMIT_1D,
                     Duration::from_secs(24 * 60 * 60),
                     messages,
                 )

@@ -12,6 +12,7 @@ use super::rpc::view_cached_1h;
 
 pub const NEAR_DECIMALS: u32 = 24;
 pub const WRAP_NEAR: &str = "wrap.near";
+pub const USDT_TOKEN: &str = "usdt.tether-token.near";
 
 pub async fn format_near_amount(
     amount: Balance,

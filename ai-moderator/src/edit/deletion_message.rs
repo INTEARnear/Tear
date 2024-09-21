@@ -29,7 +29,7 @@ pub async fn handle_button(
     )]];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.bot()
-        .set_dm_message_command(
+        .set_message_command(
             ctx.user_id(),
             MessageCommand::AiModeratorSetMessage(target_chat_id),
         )

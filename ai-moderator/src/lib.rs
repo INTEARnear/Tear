@@ -532,16 +532,17 @@ impl XeonBotModule for AiModeratorModule {
     async fn handle_payment(
         &self,
         bot: &BotData,
-        _user_id: UserId,
+        user_id: UserId,
         chat_id: ChatId,
         payment: PaymentReference,
     ) -> Result<(), anyhow::Error> {
         #[allow(clippy::single_match)]
         match payment {
             PaymentReference::AiModeratorBuyingMessages(target_chat_id, number) => {
-                billing::add_balance::handle_buying_messages(
+                billing::add_balance::handle_bought_messages(
                     bot,
                     chat_id,
+                    user_id,
                     target_chat_id,
                     number,
                     &self.bot_configs,

@@ -7,6 +7,8 @@ use async_trait::async_trait;
 use itertools::Itertools;
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
+use tearbot_common::tgbot::REFERRAL_SHARE;
+use tearbot_common::utils::tokens::format_tokens;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     mongodb::bson::DateTime,
@@ -34,6 +36,7 @@ const CANCEL_TEXT: &str = "Cancel";
 
 pub struct HubModule {
     users_first_interaction: PersistentCachedStore<UserId, DateTime>,
+    referral_notifications: Arc<HashMap<UserId, PersistentCachedStore<UserId, bool>>>,
 }
 
 impl HubModule {
@@ -45,6 +48,21 @@ impl HubModule {
             )
             .await
             .expect("Failed to create users_first_interaction store"),
+            referral_notifications: Arc::new({
+                let mut bot_configs = HashMap::new();
+                for bot in xeon.bots() {
+                    bot_configs.insert(
+                        bot.id(),
+                        PersistentCachedStore::new(
+                            xeon.db(),
+                            &format!("bot{bot_id}_referral_notifications", bot_id = bot.id()),
+                        )
+                        .await
+                        .expect("Failed to create referral_notifications store"),
+                    );
+                }
+                bot_configs
+            }),
         }
     }
 }
@@ -355,6 +373,13 @@ impl XeonBotModule for HubModule {
         };
         match command {
             MessageCommand::None => {
+                if text == "/setup" {
+                    self.open_chat_settings(
+                        &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+                        None,
+                    )
+                    .await?;
+                }
                 #[cfg(feature = "utilities-module")]
                 if text == "/token" || text == "/ft" {
                     // Uses set_dm_message_command, but UtilitiesModule goes after HubModule,
@@ -758,9 +783,34 @@ impl XeonBotModule for HubModule {
                 }
             }
             MessageCommand::Start(data) => {
-                self.users_first_interaction
+                if self
+                    .users_first_interaction
                     .insert_if_not_exists(user_id, DateTime::now())
-                    .await?;
+                    .await?
+                {
+                    if let Some(referrer) = data.strip_prefix("ref-") {
+                        self.open_main_menu(&mut TgCallbackContext::new(
+                            bot, user_id, chat_id, None, DONT_CARE,
+                        ))
+                        .await?;
+                        if let Ok(referrer_id) = referrer.parse() {
+                            bot.set_referrer(user_id, UserId(referrer_id)).await?;
+                            if let Some(bot_config) = self.referral_notifications.get(&bot.id()) {
+                                if let Some(true) = bot_config.get(&UserId(referrer_id)).await {
+                                    let message = "🎉 You have a new referral\\! Someone joined the bot using your referral link\\!";
+                                    let buttons = Vec::<Vec<_>>::new();
+                                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                    bot.send_text_message(
+                                        ChatId(referrer_id as i64),
+                                        message.to_string(),
+                                        reply_markup,
+                                    )
+                                    .await?;
+                                }
+                            }
+                        }
+                    }
+                }
                 if data.is_empty() {
                     self.open_main_menu(&mut TgCallbackContext::new(
                         bot, user_id, chat_id, None, DONT_CARE,
@@ -1118,26 +1168,26 @@ impl XeonBotModule for HubModule {
                     }
                 }
             }
-            // MessageCommand::ConnectAccountAnonymously => {
-            //     if let Ok(account_id) = text.parse::<AccountId>() {
-            //         self.connect_account_anonymously(bot, user_id, chat_id, account_id)
-            //             .await?;
-            //     } else {
-            //         let message = format!("Invalid NEAR account ID: {}", markdown::escape(&text));
-            //         let reply_markup =
-            //             InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
-            //                 "⬅️ Back",
-            //                 bot.to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-            //                     .await?,
-            //             )]]);
-            //         bot.remove_dm_message_command(&user_id).await?;
-            //         bot.send_text_message(chat_id, message, reply_markup)
-            //             .await?;
-            //     }
-            // }
+            MessageCommand::ConnectAccountAnonymously => {
+                if let Ok(account_id) = text.parse::<AccountId>() {
+                    self.connect_account_anonymously(bot, user_id, chat_id, account_id)
+                        .await?;
+                } else {
+                    let message = format!("Invalid NEAR account ID: {}", markdown::escape(text));
+                    let reply_markup =
+                        InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
+                            "⬅️ Back",
+                            bot.to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                                .await,
+                        )]]);
+                    bot.remove_message_command(&user_id).await?;
+                    bot.send_text_message(chat_id, message, reply_markup)
+                        .await?;
+                }
+            }
             MessageCommand::ChooseChat => {
                 if text == CANCEL_TEXT {
-                    bot.remove_dm_message_command(&user_id).await?;
+                    bot.remove_message_command(&user_id).await?;
                     bot.send_text_message(
                         chat_id,
                         "Cancelled".to_string(),
@@ -1155,7 +1205,7 @@ impl XeonBotModule for HubModule {
                     ..
                 }) = message.shared_chat()
                 {
-                    bot.remove_dm_message_command(&user_id).await?;
+                    bot.remove_message_command(&user_id).await?;
                     let chat_name = markdown::escape(
                         &get_chat_title_cached_5m(bot.bot(), *target_chat_id)
                             .await?
@@ -1183,7 +1233,7 @@ impl XeonBotModule for HubModule {
             }
             MessageCommand::ChatPermissionsAddToWhitelist(target_chat_id) => {
                 if text == CANCEL_TEXT {
-                    bot.remove_dm_message_command(&user_id).await?;
+                    bot.remove_message_command(&user_id).await?;
                     bot.send_text_message(
                         chat_id,
                         "Cancelled".to_string(),
@@ -1273,12 +1323,12 @@ impl XeonBotModule for HubModule {
             TgCommand::OpenMainMenu => {
                 self.open_main_menu(&mut context).await?;
             }
-            // TgCommand::OpenAccountConnectionMenu => {
-            //     self.open_connection_menu(context).await?;
-            // }
-            // TgCommand::DisconnectAccount => {
-            //     self.disconnect_account(context).await?;
-            // }
+            TgCommand::OpenAccountConnectionMenu => {
+                self.open_connection_menu(context).await?;
+            }
+            TgCommand::DisconnectAccount => {
+                self.disconnect_account(context).await?;
+            }
             TgCommand::ChooseChat => {
                 self.open_chat_selector(context).await?;
             }
@@ -1289,7 +1339,7 @@ impl XeonBotModule for HubModule {
             TgCommand::CancelChat => {
                 context
                     .bot()
-                    .remove_dm_message_command(&context.user_id())
+                    .remove_message_command(&context.user_id())
                     .await?;
                 context
                     .send(
@@ -1300,23 +1350,6 @@ impl XeonBotModule for HubModule {
                     .await?;
                 self.open_main_menu(&mut context).await?;
             }
-            // TgCommand::CancelConnectAccountAnonymously => {
-            //     context
-            //         .bot()
-            //         .remove_dm_message_command(&context.user_id())
-            //         .await?;
-            //     self.handle_callback(TgCallbackContext::new(
-            //         context.bot(),
-            //         context.user_id(),
-            //         context.chat_id(),
-            //         context.message_id(),
-            //         &context
-            //             .bot()
-            //             .to_callback_data(&TgCommand::OpenMainMenu)
-            //             .await?,
-            //     ))
-            //     .await?;
-            // }
             TgCommand::EditChatPermissions(target_chat_id) => {
                 if context.bot().bot_type() != BotType::Main {
                     return Ok(());
@@ -1682,7 +1715,7 @@ impl XeonBotModule for HubModule {
                 ]);
                 context
                     .bot()
-                    .set_dm_message_command(
+                    .set_message_command(
                         context.user_id(),
                         MessageCommand::ChatPermissionsAddToWhitelist(target_chat_id),
                     )
@@ -1793,6 +1826,169 @@ impl XeonBotModule for HubModule {
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
             }
+            TgCommand::ReferralDashboard => {
+                let link = format!(
+                    "t.me/{bot_username}?start=ref-{user_id}",
+                    bot_username = context
+                        .bot()
+                        .bot()
+                        .get_me()
+                        .await?
+                        .username
+                        .clone()
+                        .unwrap(),
+                    user_id = context.user_id()
+                );
+                let balance = context.bot().get_referral_balance(context.user_id()).await;
+                let message = format!(
+                    "
+Your referral link: `{link}` \\(click to copy\\)
+
+Your referrals: {}
+
+When your referral spends tokens in this bot, you will get {}% of it\\!
+
+Your withdrawable balance: {}
+                ",
+                    context.bot().get_referrals(context.user_id()).await.len(),
+                    (REFERRAL_SHARE * 100f64).floor(),
+                    if balance.is_empty() {
+                        "None".to_string()
+                    } else {
+                        let mut tokens = Vec::new();
+                        for (token, amount) in balance {
+                            tokens.push(markdown::escape(
+                                &format_tokens(amount, &token, Some(context.bot().xeon())).await,
+                            ));
+                        }
+                        tokens.into_iter().join(", ")
+                    }
+                );
+                let referral_notifications_enabled = if let Some(bot_config) =
+                    self.referral_notifications.get(&context.bot().id())
+                {
+                    if let Some(true) = bot_config.get(&context.user_id()).await {
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+                let reply_markup = InlineKeyboardMarkup::new(vec![
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "💰 Withdraw",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::ReferralWithdraw)
+                                .await,
+                        ),
+                        if referral_notifications_enabled {
+                            InlineKeyboardButton::callback(
+                                "🔕 Disable notifications",
+                                context
+                                    .bot()
+                                    .to_callback_data(&TgCommand::SetReferralNotifications(false))
+                                    .await,
+                            )
+                        } else {
+                            InlineKeyboardButton::callback(
+                                "🔔 Enable notifications",
+                                context
+                                    .bot()
+                                    .to_callback_data(&TgCommand::SetReferralNotifications(true))
+                                    .await,
+                            )
+                        },
+                    ],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::OpenMainMenu)
+                            .await,
+                    )],
+                ]);
+                context.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::ReferralWithdraw => {
+                if let Some(connected_account) =
+                    context.bot().get_connected_account(context.user_id()).await
+                {
+                    match context
+                        .bot()
+                        .withdraw_referral_balance(context.user_id(), &connected_account.account_id)
+                        .await
+                    {
+                        Ok(()) => {
+                            let message = "Successfully withdrawn all your balance";
+                            let reply_markup = InlineKeyboardMarkup::new(vec![vec![
+                                InlineKeyboardButton::callback(
+                                    "⬅️ Back",
+                                    context
+                                        .bot()
+                                        .to_callback_data(&TgCommand::ReferralDashboard)
+                                        .await,
+                                ),
+                            ]]);
+                            context.edit_or_send(message, reply_markup).await?;
+                        }
+                        Err(e) => {
+                            let message = format!("Error: {}", markdown::escape(&format!("{e}")));
+                            let reply_markup = InlineKeyboardMarkup::new(vec![
+                                vec![InlineKeyboardButton::callback(
+                                    "♻️ Retry",
+                                    context
+                                        .bot()
+                                        .to_callback_data(&TgCommand::ReferralWithdraw)
+                                        .await,
+                                )],
+                                vec![InlineKeyboardButton::callback(
+                                    "⬅️ Back",
+                                    context
+                                        .bot()
+                                        .to_callback_data(&TgCommand::ReferralDashboard)
+                                        .await,
+                                )],
+                            ]);
+                            context.edit_or_send(message, reply_markup).await?;
+                        }
+                    }
+                } else {
+                    let message = "You need to connect your NEAR account first";
+                    let reply_markup =
+                        InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
+                            "🖇Connect account",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                                .await,
+                        )]]);
+                    context.edit_or_send(message, reply_markup).await?;
+                }
+            }
+            TgCommand::SetReferralNotifications(enabled) => {
+                if let Some(bot_config) = self.referral_notifications.get(&context.bot().id()) {
+                    bot_config
+                        .insert_or_update(context.user_id(), enabled)
+                        .await?;
+                }
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        context.bot(),
+                        context.user_id(),
+                        context.chat_id(),
+                        context.message_id(),
+                        &context
+                            .bot()
+                            .to_callback_data(&TgCommand::ReferralDashboard)
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
             #[allow(unreachable_patterns)]
             _ => {}
         }
@@ -1811,17 +2007,69 @@ impl HubModule {
         let chat_id = ChatId(context.user_id().0 as i64);
         context
             .bot()
-            .remove_dm_message_command(&context.user_id())
+            .remove_message_command(&context.user_id())
             .await?;
         #[cfg(feature = "xeon")]
-        let message = "
-Welcome to Xeon, a better and faster version of [IntearBot](tg://resolve?domain=intearbot) that can handle the next billion web3 users ⚡️
+        let message = {
+            use rand::prelude::SliceRandom;
+            let messages = [
+                "Welcome to Bettear, a bot created to power the next billion web3 users ⚡️
 
-Powered by [Intear](tg://resolve?domain=intearchat)
-            ".trim().to_string();
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that knows more about you than a stalker 🕵️‍♂️
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that can do better than your average buybot 🤖
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that is free until we monopolize the market 😈
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that can make you a better trader \\(maybe\\) 📈
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that won't let you miss when your 💩coin goes to 0 📉
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that gives you unfair advantage in the market 🤫
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that was made because dev couldn't afford an existing bot 🤖
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot born from a memecoin 🚀
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that makes moderation bot industry obsolete 🤖
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that doesn't delve in its whitepaper 📜
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot with open\\-source infrastructure 🛠
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot made of crabs, green dogs, and PC parts 🦀
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that doesn't lie \\(most of the time\\) 🤥
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                "Welcome to Bettear, a bot that lets you have information faster than insiders 🕵️‍♂️
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+                format!("Welcome to Bettear, a bot that notifies when you get rekt \\(but has a limit of {} notifications per hour for free users\\) 📉
+
+Developed by [Intear](tg://resolve?domain=intearchat)", tearbot_common::tgbot::NOTIFICATION_LIMIT_1H),
+                "Welcome to Bettear, a bot that notifies about trades faster than your wallet closes
+
+Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
+            ];
+            messages.choose(&mut rand::thread_rng()).unwrap().clone()
+        };
         #[cfg(feature = "tear")]
         let message = "
-Welcome to Tear, an [open\\-source](https://github.com/inTEARnear/Tear) edition of [Xeon](tg://resolve?domain=Intear_Xeon_bot) 💚
+Welcome to Tear, an [open\\-source](https://github.com/inTEARnear/Tear) edition of [Bettear bot](tg://resolve?domain=bettearbot) 💚
 
 Powered by [Intear](tg://resolve?domain=intearchat)
             ".trim().to_string();
@@ -1831,8 +2079,6 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             "
         .trim()
         .to_string();
-        #[cfg(not(any(feature = "xeon", feature = "tear", feature = "int")))]
-        let message = compile_error!("Enable `tear`, `xeon`, or `int` feature");
         // let connection_button = if let Some(account) = bot.get_connected_account(&user_id).await {
         //     InlineKeyboardButton::callback(
         //         format!("🗑 Disconnect {account}", account = account.account_id),
@@ -1875,6 +2121,13 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 .to_callback_data(&TgCommand::NearTgi("near".to_string()))
                 .await,
         )]);
+        buttons.push(vec![InlineKeyboardButton::callback(
+            "🔗 Invite Friends",
+            context
+                .bot()
+                .to_callback_data(&TgCommand::ReferralDashboard)
+                .await,
+        )]);
         #[cfg(any(feature = "tear", feature = "xeon"))]
         buttons.extend(vec![
             vec![
@@ -1900,143 +2153,142 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         Ok(())
     }
 
-    // async fn open_connection_menu(
-    //     &self,
-    //     mut context: TgCallbackContext<'_>,
-    // ) -> Result<(), anyhow::Error> {
-    //     if context.bot().bot_type() != BotType::Main {
-    //         return Ok(());
-    //     }
-    //     if !context.chat_id().is_user() {
-    //         return Ok(());
-    //     }
-    //     context
-    //         .bot()
-    //         .set_dm_message_command(context.user_id(), MessageCommand::ConnectAccountAnonymously)
-    //         .await?;
-    //     let message = "Enter your NEAR account to connect it to Xeon".to_string();
-    //     let reply_markup = InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
-    //         "⬅️ Cancel",
-    //         context
-    //             .bot()
-    //             .to_callback_data(&TgCommand::CancelConnectAccountAnonymously)
-    //             .await?,
-    //     )]]);
-    //     context.edit_or_send(message, reply_markup).await?;
-    //     Ok(())
-    // }
+    async fn open_connection_menu(
+        &self,
+        mut context: TgCallbackContext<'_>,
+    ) -> Result<(), anyhow::Error> {
+        if context.bot().bot_type() != BotType::Main {
+            return Ok(());
+        }
+        if !context.chat_id().is_user() {
+            return Ok(());
+        }
+        context
+            .bot()
+            .set_message_command(context.user_id(), MessageCommand::ConnectAccountAnonymously)
+            .await?;
+        let message = "Enter your NEAR account to connect it to Xeon".to_string();
+        let reply_markup = InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
+            "⬅️ Cancel",
+            context
+                .bot()
+                .to_callback_data(&TgCommand::OpenMainMenu)
+                .await,
+        )]]);
+        context.edit_or_send(message, reply_markup).await?;
+        Ok(())
+    }
 
-    // async fn connect_account_anonymously(
-    //     &self,
-    //     bot: &BotData,
-    //     user_id: UserId,
-    //     chat_id: ChatId,
-    //     account_id: AccountId,
-    // ) -> Result<(), anyhow::Error> {
-    //     if bot.bot_type() != BotType::Main {
-    //         return Ok(());
-    //     }
-    //     if !chat_id.is_user() {
-    //         return Ok(());
-    //     }
-    //     if let Some(account) = bot.get_connected_account(&user_id).await {
-    //         let message = format!(
-    //             "You already have an account connected: {}",
-    //             markdown::escape(&account.account_id)
-    //         );
-    //         let reply_markup = InlineKeyboardMarkup::new(vec![
-    //             vec![InlineKeyboardButton::callback(
-    //                 "🗑 Disconnect",
-    //                 bot.to_callback_data(&TgCommand::DisconnectAccount).await,
-    //             )],
-    //             vec![InlineKeyboardButton::callback(
-    //                 "⬅️ Back",
-    //                 bot.to_callback_data(&TgCommand::OpenMainMenu).await,
-    //             )],
-    //         ]);
-    //         bot.send_text_message(chat_id, message, reply_markup)
-    //             .await?;
-    //         return Ok(());
-    //     }
+    async fn connect_account_anonymously(
+        &self,
+        bot: &BotData,
+        user_id: UserId,
+        chat_id: ChatId,
+        account_id: AccountId,
+    ) -> Result<(), anyhow::Error> {
+        if bot.bot_type() != BotType::Main {
+            return Ok(());
+        }
+        if !chat_id.is_user() {
+            return Ok(());
+        }
+        if let Some(account) = bot.get_connected_account(user_id).await {
+            let message = format!(
+                "You already have an account connected: {}",
+                markdown::escape(account.account_id.as_str())
+            );
+            let reply_markup = InlineKeyboardMarkup::new(vec![
+                vec![InlineKeyboardButton::callback(
+                    "🗑 Disconnect",
+                    bot.to_callback_data(&TgCommand::DisconnectAccount).await,
+                )],
+                vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    bot.to_callback_data(&TgCommand::OpenMainMenu).await,
+                )],
+            ]);
+            bot.send_text_message(chat_id, message, reply_markup)
+                .await?;
+            return Ok(());
+        }
 
-    //     // TODO a check if the account is valid (has some NEAR)
+        // TODO a check if the account is valid (has some NEAR)
 
-    //     bot.connect_account(user_id, account_id.clone()).await?;
-    //     let message = format!("Connected account: {}", markdown::escape(&account_id));
-    //     let reply_markup = InlineKeyboardMarkup::new(vec![
-    //         vec![InlineKeyboardButton::callback(
-    //             "🗑 Disconnect",
-    //             bot.to_callback_data(&TgCommand::DisconnectAccount).await,
-    //         )],
-    //         vec![InlineKeyboardButton::callback(
-    //             "⬅️ Back",
-    //             bot.to_callback_data(&TgCommand::OpenMainMenu).await,
-    //         )],
-    //     ]);
-    //     bot.send_text_message(chat_id, message, reply_markup)
-    //         .await?;
-    //     Ok(())
-    // }
+        bot.connect_account(user_id, account_id.clone()).await?;
+        let message = format!(
+            "Connected account: {}",
+            markdown::escape(account_id.as_str())
+        );
+        let reply_markup = InlineKeyboardMarkup::new(vec![
+            vec![InlineKeyboardButton::callback(
+                "🗑 Disconnect",
+                bot.to_callback_data(&TgCommand::DisconnectAccount).await,
+            )],
+            vec![InlineKeyboardButton::callback(
+                "⬅️ Back",
+                bot.to_callback_data(&TgCommand::OpenMainMenu).await,
+            )],
+        ]);
+        bot.send_text_message(chat_id, message, reply_markup)
+            .await?;
+        Ok(())
+    }
 
-    // async fn disconnect_account(
-    //     &self,
-    //     mut context: TgCallbackContext<'_>,
-    // ) -> Result<(), anyhow::Error> {
-    //     if context.bot().bot_type() != BotType::Main {
-    //         return Ok(());
-    //     }
-    //     if !context.chat_id().is_user() {
-    //         return Ok(());
-    //     }
-    //     if let Some(account) = context
-    //         .bot()
-    //         .get_connected_account(&context.user_id())
-    //         .await
-    //     {
-    //         context.bot().disconnect_account(&context.user_id()).await?;
-    //         let message = format!(
-    //             "Disconnected account: {}",
-    //             markdown::escape(&account.account_id)
-    //         );
-    //         let reply_markup = InlineKeyboardMarkup::new(vec![
-    //             vec![InlineKeyboardButton::callback(
-    //                 "🖇 Connect",
-    //                 context
-    //                     .bot()
-    //                     .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-    //                     .await?,
-    //             )],
-    //             vec![InlineKeyboardButton::callback(
-    //                 "⬅️ Back",
-    //                 context
-    //                     .bot()
-    //                     .to_callback_data(&TgCommand::OpenMainMenu)
-    //                     .await?,
-    //             )],
-    //         ]);
-    //         context.edit_or_send(message, reply_markup).await?;
-    //     } else {
-    //         let message = "You don't have any account connected".to_string();
-    //         let reply_markup = InlineKeyboardMarkup::new(vec![
-    //             vec![InlineKeyboardButton::callback(
-    //                 "🖇 Connect",
-    //                 context
-    //                     .bot()
-    //                     .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-    //                     .await?,
-    //             )],
-    //             vec![InlineKeyboardButton::callback(
-    //                 "⬅️ Back",
-    //                 context
-    //                     .bot()
-    //                     .to_callback_data(&TgCommand::OpenMainMenu)
-    //                     .await?,
-    //             )],
-    //         ]);
-    //         context.edit_or_send(message, reply_markup).await?;
-    //     }
-    //     Ok(())
-    // }
+    async fn disconnect_account(
+        &self,
+        mut context: TgCallbackContext<'_>,
+    ) -> Result<(), anyhow::Error> {
+        if context.bot().bot_type() != BotType::Main {
+            return Ok(());
+        }
+        if !context.chat_id().is_user() {
+            return Ok(());
+        }
+        if let Some(account) = context.bot().get_connected_account(context.user_id()).await {
+            context.bot().disconnect_account(context.user_id()).await?;
+            let message = format!(
+                "Disconnected account: {}",
+                markdown::escape(account.account_id.as_str())
+            );
+            let reply_markup = InlineKeyboardMarkup::new(vec![
+                vec![InlineKeyboardButton::callback(
+                    "🖇 Connect",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                        .await,
+                )],
+                vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::OpenMainMenu)
+                        .await,
+                )],
+            ]);
+            context.edit_or_send(message, reply_markup).await?;
+        } else {
+            let message = "You don't have any account connected".to_string();
+            let reply_markup = InlineKeyboardMarkup::new(vec![
+                vec![InlineKeyboardButton::callback(
+                    "🖇 Connect",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                        .await,
+                )],
+                vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::OpenMainMenu)
+                        .await,
+                )],
+            ]);
+            context.edit_or_send(message, reply_markup).await?;
+        }
+        Ok(())
+    }
 
     async fn open_chat_selector(
         &self,
@@ -2050,7 +2302,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         }
         context
             .bot()
-            .set_dm_message_command(context.user_id(), MessageCommand::ChooseChat)
+            .set_message_command(context.user_id(), MessageCommand::ChooseChat)
             .await?;
         let message = "What chat do you want to set up?".to_string();
         let requested_bot_rights = if cfg!(feature = "all-group-features-need-admin") {

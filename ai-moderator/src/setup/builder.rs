@@ -306,7 +306,7 @@ Is this chat a NEAR project? If so, I can add some trusted projects that will to
             vec![InlineKeyboardButton::callback(
                 "⬅️ Cancel",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModerator(builder.chat_id))
+                    .to_callback_data(&TgCommand::AiModeratorSetEnabled(builder.chat_id, false))
                     .await,
             )],
         ];
@@ -410,7 +410,7 @@ pub async fn handle_add_links_button(
     ];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.bot()
-        .set_dm_message_command(
+        .set_message_command(
             ctx.user_id(),
             MessageCommand::AiModeratorPromptConstructorAddLinks(builder.clone()),
         )
@@ -769,7 +769,7 @@ pub async fn handle_other_button(
     ];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.bot()
-        .set_dm_message_command(
+        .set_message_command(
             ctx.user_id(),
             MessageCommand::AiModeratorPromptConstructorAddOther(builder),
         )
