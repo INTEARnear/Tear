@@ -58,7 +58,6 @@ xeon = [
     "socialdb-module",
     "new-tokens-module",
     "utilities-module",
-    "honey-module",
     "near-tgi-module",
     "ai-moderator-module",
     "ai-moderator/near",
