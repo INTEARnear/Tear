@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use serde::Deserialize;
 use tearbot_common::bot_commands::PoolId;
-use tearbot_common::near_utils::dec_format;
 use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::teloxide::{
     prelude::{ChatId, Message, UserId},
@@ -15,7 +14,7 @@ use tearbot_common::tgbot::{BotData, BotType};
 use tearbot_common::utils::tokens::format_usd_amount;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
-    near_primitives::types::{AccountId, Balance, BlockHeight},
+    near_primitives::types::{AccountId, BlockHeight},
     tgbot::{MustAnswerCallbackQuery, TgCallbackContext},
     utils::{
         apis::search_token,
@@ -596,8 +595,8 @@ async fn get_all_fts_owned(account_id: &AccountId) -> Vec<(AccountId, u128)> {
         #[allow(dead_code)]
         last_update_block_height: Option<BlockHeight>,
         contract_id: AccountId,
-        #[serde(with = "dec_format")]
-        balance: Balance,
+        // can be an empty string
+        balance: String,
     }
 
     let url = format!("https://api.fastnear.com/v1/account/{account_id}/ft");
@@ -605,7 +604,7 @@ async fn get_all_fts_owned(account_id: &AccountId) -> Vec<(AccountId, u128)> {
         Ok(response) => response
             .tokens
             .into_iter()
-            .map(|ft| (ft.contract_id, ft.balance))
+            .map(|ft| (ft.contract_id, ft.balance.parse().unwrap_or_default()))
             .collect(),
         Err(e) => {
             log::warn!("Failed to get FTs owned by {account_id}: {e:?}");
