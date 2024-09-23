@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use cached::proc_macro::{cached, io_cached};
 use lazy_static::lazy_static;
 use reqwest::{IntoUrl, Url};
@@ -15,7 +17,13 @@ pub fn get_reqwest_client() -> &'static reqwest::Client {
 }
 
 async fn _get_internal(uri: &str) -> Result<serde_json::Value, anyhow::Error> {
-    Ok(get_reqwest_client().get(uri).send().await?.json().await?)
+    Ok(get_reqwest_client()
+        .get(uri)
+        .timeout(Duration::from_secs(60))
+        .send()
+        .await?
+        .json()
+        .await?)
 }
 
 #[cached(time = 30, result = true, size = 50)]

@@ -1621,11 +1621,20 @@ impl ContractLogsNep297Config {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ContractLogsTextSubscriberConfig {
     filters: Vec<TextLogFilter>,
     #[serde(default = "default_enable")]
     enabled: bool,
+}
+
+impl Default for ContractLogsTextSubscriberConfig {
+    fn default() -> Self {
+        Self {
+            filters: Vec::new(),
+            enabled: default_enable(),
+        }
+    }
 }
 
 fn default_enable() -> bool {

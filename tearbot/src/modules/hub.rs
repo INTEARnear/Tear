@@ -1868,11 +1868,7 @@ Your withdrawable balance: {}
                 let referral_notifications_enabled = if let Some(bot_config) =
                     self.referral_notifications.get(&context.bot().id())
                 {
-                    if let Some(true) = bot_config.get(&context.user_id()).await {
-                        true
-                    } else {
-                        false
-                    }
+                    matches!(bot_config.get(&context.user_id()).await, Some(true))
                 } else {
                     false
                 };
@@ -2218,8 +2214,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             let message = "This NEAR account doesn't exist\\. Please try again, and make sure it has some NEAR in it\\.".to_string();
             let buttons = vec![vec![InlineKeyboardButton::callback(
                 "🗑 Cancel",
-                bot.to_callback_data(&TgCommand::HoneyOpenMenu { referrer })
-                    .await,
+                bot.to_callback_data(&TgCommand::OpenMainMenu).await,
             )]];
             let reply_markup = InlineKeyboardMarkup::new(buttons);
             bot.send_text_message(chat_id, message, reply_markup)

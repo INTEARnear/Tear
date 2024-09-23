@@ -554,11 +554,20 @@ impl BurrowLiquidationsConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct BurrowLiqudationsSubscriberConfig {
     accounts: HashSet<AccountId>,
     #[serde(default = "default_enable")]
     enabled: bool,
+}
+
+impl Default for BurrowLiqudationsSubscriberConfig {
+    fn default() -> Self {
+        Self {
+            accounts: HashSet::new(),
+            enabled: default_enable(),
+        }
+    }
 }
 
 fn default_enable() -> bool {

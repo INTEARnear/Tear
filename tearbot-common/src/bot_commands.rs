@@ -106,97 +106,97 @@ pub enum TgCommand {
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsAddSubscribtion(ChatId),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsAddSubscribtionConfirm(ChatId, AccountId),
+    FtNotificationsAddSubscribtionConfirm(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsConfigureSubscription(ChatId, AccountId),
+    FtNotificationsConfigureSubscription(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsRemoveSubscription(ChatId, AccountId),
+    FtNotificationsRemoveSubscription(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsManageSubscription(ChatId, AccountId),
+    FtNotificationsManageSubscription(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEnableSubscriptionBuys(ChatId, AccountId),
+    FtNotificationsEnableSubscriptionBuys(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsDisableSubscriptionBuys(ChatId, AccountId),
+    FtNotificationsDisableSubscriptionBuys(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEnableSubscriptionSells(ChatId, AccountId),
+    FtNotificationsEnableSubscriptionSells(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsDisableSubscriptionSells(ChatId, AccountId),
+    FtNotificationsDisableSubscriptionSells(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionAttachments(ChatId, AccountId),
+    FtNotificationsChangeSubscriptionAttachments(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionAttachmentsAmounts(ChatId, AccountId),
+    FtNotificationsChangeSubscriptionAttachmentsAmounts(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionAttachment(ChatId, AccountId, usize),
+    FtNotificationsChangeSubscriptionAttachment(ChatId, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentNone(ChatId, AccountId, usize),
+    FtNotificationsSubscriptionAttachmentNone(ChatId, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentPhoto(ChatId, AccountId, usize),
+    FtNotificationsSubscriptionAttachmentPhoto(ChatId, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentAnimation(ChatId, AccountId, usize),
+    FtNotificationsSubscriptionAttachmentAnimation(ChatId, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsPreview(ChatId, AccountId),
+    FtNotificationsPreview(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEditButtons(ChatId, AccountId),
+    FtNotificationsEditButtons(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEditLinks(ChatId, AccountId),
+    FtNotificationsEditLinks(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionMinAmount(ChatId, AccountId),
+    FtNotificationsChangeSubscriptionMinAmount(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponents(ChatId, AccountId),
+    FtNotificationsComponents(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsReorderComponents(ChatId, AccountId, ReorderMode),
+    FtNotificationsReorderComponents(ChatId, Token, ReorderMode),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsReorderComponents1(ChatId, AccountId, usize, ReorderMode),
+    FtNotificationsReorderComponents1(ChatId, Token, usize, ReorderMode),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsReorderComponents2(ChatId, AccountId, usize, usize, ReorderMode),
+    FtNotificationsReorderComponents2(ChatId, Token, usize, usize, ReorderMode),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentPrice(ChatId, AccountId),
+    FtNotificationsComponentPrice(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentPriceEnable(ChatId, AccountId),
+    FtNotificationsComponentPriceEnable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentPriceDisable(ChatId, AccountId),
+    FtNotificationsComponentPriceDisable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentContractAddress(ChatId, AccountId),
+    FtNotificationsComponentContractAddress(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentContractAddressEnable(ChatId, AccountId),
+    FtNotificationsComponentContractAddressEnable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentContractAddressDisable(ChatId, AccountId),
+    FtNotificationsComponentContractAddressDisable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentNearPrice(ChatId, AccountId),
+    FtNotificationsComponentNearPrice(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentNearPriceEnable(ChatId, AccountId),
+    FtNotificationsComponentNearPriceEnable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentNearPriceDisable(ChatId, AccountId),
+    FtNotificationsComponentNearPriceDisable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojis(ChatId, AccountId),
+    FtNotificationsComponentEmojis(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEnable(ChatId, AccountId),
+    FtNotificationsComponentEmojisEnable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisDisable(ChatId, AccountId),
+    FtNotificationsComponentEmojisDisable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditEmojis(ChatId, AccountId),
+    FtNotificationsComponentEmojisEditEmojis(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditAmountFormulaLinearStep(ChatId, AccountId),
+    FtNotificationsComponentEmojisEditAmountFormulaLinearStep(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditDistributionSet(ChatId, AccountId, EmojiDistribution),
+    FtNotificationsComponentEmojisEditDistributionSet(ChatId, Token, EmojiDistribution),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentTrader(ChatId, AccountId),
+    FtNotificationsComponentTrader(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentTraderEnable(ChatId, AccountId),
+    FtNotificationsComponentTraderEnable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentTraderDisable(ChatId, AccountId),
+    FtNotificationsComponentTraderDisable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentAmount(ChatId, AccountId),
+    FtNotificationsComponentAmount(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentAmountEnable(ChatId, AccountId),
+    FtNotificationsComponentAmountEnable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentAmountDisable(ChatId, AccountId),
+    FtNotificationsComponentAmountDisable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentFullyDilutedValuation(ChatId, AccountId),
+    FtNotificationsComponentFullyDilutedValuation(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentFullyDilutedValuationEnable(ChatId, AccountId),
+    FtNotificationsComponentFullyDilutedValuationEnable(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentFullyDilutedValuationDisable(ChatId, AccountId),
+    FtNotificationsComponentFullyDilutedValuationDisable(ChatId, Token),
     #[cfg(feature = "price-alerts-module")]
     PriceAlertsNotificationsSettings(ChatId),
     #[cfg(feature = "price-alerts-module")]
@@ -549,21 +549,21 @@ pub enum MessageCommand {
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsAddToken(ChatId),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentPhoto(ChatId, AccountId, usize),
+    FtNotificationsSubscriptionAttachmentPhoto(ChatId, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentAnimation(ChatId, AccountId, usize),
+    FtNotificationsSubscriptionAttachmentAnimation(ChatId, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEditButtons(ChatId, AccountId),
+    FtNotificationsEditButtons(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEditLinks(ChatId, AccountId),
+    FtNotificationsEditLinks(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionMinAmount(ChatId, AccountId),
+    FtNotificationsChangeSubscriptionMinAmount(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionAttachmentsAmounts(ChatId, AccountId),
+    FtNotificationsChangeSubscriptionAttachmentsAmounts(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditEmojis(ChatId, AccountId),
+    FtNotificationsComponentEmojisEditEmojis(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditAmountFormulaLinearStep(ChatId, AccountId),
+    FtNotificationsComponentEmojisEditAmountFormulaLinearStep(ChatId, Token),
     #[cfg(feature = "price-alerts-module")]
     PriceAlertsAddToken(ChatId),
     #[cfg(feature = "price-alerts-module")]
@@ -1079,4 +1079,41 @@ pub enum FluxModel {
     Schnell,
     Dev,
     Pro,
+}
+
+#[cfg(feature = "ft-buybot-module")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Token {
+    TokenId(AccountId),
+    MemeCooking(u64),
+}
+
+impl Serialize for Token {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Token::TokenId(account_id) => account_id.serialize(serializer),
+            Token::MemeCooking(meme_id) => {
+                format!("meme-cooking.near:{meme_id}").serialize(serializer)
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Token {
+    fn deserialize<D>(deserializer: D) -> Result<Token, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if let Some(meme_id) = s.strip_prefix("meme-cooking.near:") {
+            Ok(Token::MemeCooking(
+                meme_id.parse().map_err(serde::de::Error::custom)?,
+            ))
+        } else {
+            Ok(Token::TokenId(s.parse().map_err(serde::de::Error::custom)?))
+        }
+    }
 }

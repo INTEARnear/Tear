@@ -1426,11 +1426,20 @@ impl ContractLogsNep297Config {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ContractLogsNep297SubscriberConfig {
     filters: Vec<Nep297LogFilter>,
     #[serde(default = "default_enable")]
     enabled: bool,
+}
+
+impl Default for ContractLogsNep297SubscriberConfig {
+    fn default() -> Self {
+        Self {
+            filters: Vec::new(),
+            enabled: default_enable(),
+        }
+    }
 }
 
 fn default_enable() -> bool {

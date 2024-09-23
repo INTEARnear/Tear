@@ -1,13 +1,16 @@
+#![allow(unused_imports)]
 use async_trait::async_trait;
 
-#[allow(unused_imports)]
+use intear_events::events::newcontract::meme_cooking_token::NewMemeCookingTokenEventData;
+use intear_events::events::trade::memecooking_deposit::MemeCookingDepositEventData;
+use intear_events::events::trade::memecooking_withdraw::MemeCookingWithdrawEventData;
 use intear_events::events::{
     log::{
         log_nep297::{LogNep297Event, LogNep297EventData},
         log_text::{LogTextEvent, LogTextEventData},
     },
     newcontract::{
-        meme_cooking::{NewMemeCookingMemeEvent, NewMemeCookingMemeEventData},
+        meme_cooking_meme::{NewMemeCookingMemeEvent, NewMemeCookingMemeEventData},
         nep141::{NewContractNep141Event, NewContractNep141EventData},
     },
     nft::{
@@ -32,6 +35,10 @@ use intear_events::events::{
 
 #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
 pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
+    use intear_events::events::newcontract::meme_cooking_token::NewMemeCookingTokenEvent;
+    use intear_events::events::trade::memecooking_deposit::MemeCookingDepositEvent;
+    use intear_events::events::trade::memecooking_withdraw::MemeCookingWithdrawEvent;
+
     #[cfg(feature = "redis-events")]
     let redis_client = redis::Client::open(
         std::env::var("REDIS_URL").expect("REDIS_URL enviroment variable not set"),
@@ -165,8 +172,32 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
     ));
     tokio::spawn(stream_events::<NewMemeCookingMemeEventData>(
         NewMemeCookingMemeEvent::ID,
-        true,
+        false,
         IndexerEvent::NewMemeCookingMeme,
+        tx.clone(),
+        #[cfg(feature = "redis-events")]
+        connection.clone(),
+    ));
+    tokio::spawn(stream_events::<MemeCookingDepositEventData>(
+        MemeCookingDepositEvent::ID,
+        false,
+        IndexerEvent::MemeCookingDeposit,
+        tx.clone(),
+        #[cfg(feature = "redis-events")]
+        connection.clone(),
+    ));
+    tokio::spawn(stream_events::<MemeCookingWithdrawEventData>(
+        MemeCookingWithdrawEvent::ID,
+        false,
+        IndexerEvent::MemeCookingWithdraw,
+        tx.clone(),
+        #[cfg(feature = "redis-events")]
+        connection.clone(),
+    ));
+    tokio::spawn(stream_events::<NewMemeCookingTokenEventData>(
+        NewMemeCookingTokenEvent::ID,
+        false,
+        IndexerEvent::NewMemeCookingToken,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection.clone(),
@@ -319,6 +350,9 @@ pub enum IndexerEvent {
     TestnetLogNep297(LogNep297EventData),
     SocialDBIndex(SocialDBIndexEventData),
     NewMemeCookingMeme(NewMemeCookingMemeEventData),
+    MemeCookingDeposit(MemeCookingDepositEventData),
+    MemeCookingWithdraw(MemeCookingWithdrawEventData),
+    NewMemeCookingToken(NewMemeCookingTokenEventData),
 }
 
 impl IndexerEvent {
@@ -341,6 +375,9 @@ impl IndexerEvent {
             IndexerEvent::TestnetLogNep297(event) => event.block_timestamp_nanosec,
             IndexerEvent::SocialDBIndex(event) => event.block_timestamp_nanosec,
             IndexerEvent::NewMemeCookingMeme(event) => event.block_timestamp_nanosec,
+            IndexerEvent::MemeCookingDeposit(event) => event.block_timestamp_nanosec,
+            IndexerEvent::MemeCookingWithdraw(event) => event.block_timestamp_nanosec,
+            IndexerEvent::NewMemeCookingToken(event) => event.block_timestamp_nanosec,
         };
         chrono::DateTime::from_timestamp_nanos(nanosec as i64)
     }

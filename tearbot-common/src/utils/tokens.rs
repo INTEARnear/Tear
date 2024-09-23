@@ -141,7 +141,11 @@ pub fn format_token_amount(amount: Balance, decimals: u32, symbol: &str) -> Stri
 pub fn format_usd_amount(amount: f64) -> String {
     format!(
         "${amount:.0$}",
-        (2 - amount.log10() as isize).max(0) as usize
+        if amount == 0f64 {
+            0
+        } else {
+            (2 - amount.log10() as isize).max(0) as usize
+        }
     )
 }
 
