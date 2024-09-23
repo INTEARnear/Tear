@@ -8,6 +8,7 @@ use itertools::Itertools;
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
 use tearbot_common::tgbot::REFERRAL_SHARE;
+use tearbot_common::utils::rpc::account_exists;
 use tearbot_common::utils::tokens::format_tokens;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
@@ -2209,11 +2210,24 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             ]);
             bot.send_text_message(chat_id, message, reply_markup)
                 .await?;
+            bot.remove_message_command(&user_id).await?;
             return Ok(());
         }
 
-        // TODO a check if the account is valid (has some NEAR)
+        if !account_exists(&account_id).await {
+            let message = "This NEAR account doesn't exist\\. Please try again, and make sure it has some NEAR in it\\.".to_string();
+            let buttons = vec![vec![InlineKeyboardButton::callback(
+                "🗑 Cancel",
+                bot.to_callback_data(&TgCommand::HoneyOpenMenu { referrer })
+                    .await,
+            )]];
+            let reply_markup = InlineKeyboardMarkup::new(buttons);
+            bot.send_text_message(chat_id, message, reply_markup)
+                .await?;
+            return Ok(());
+        }
 
+        bot.remove_message_command(&user_id).await?;
         bot.connect_account(user_id, account_id.clone()).await?;
         let message = format!(
             "Connected account: {}",

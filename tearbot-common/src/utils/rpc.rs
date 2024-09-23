@@ -362,3 +362,8 @@ pub async fn get_tx_by_receipt(receipt_id: CryptoHash) -> Result<CryptoHash, any
 struct ViewReceiptRecordResponse {
     parent_transaction_hash: CryptoHash,
 }
+
+pub async fn account_exists(account_id: &AccountId) -> bool {
+    let info = view_account_not_cached(account_id).await;
+    info.map(|i| i.amount > 0).unwrap_or_default()
+}
