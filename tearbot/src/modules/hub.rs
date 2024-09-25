@@ -2584,7 +2584,7 @@ async fn start_migration(
     user_id: UserId,
 ) -> Result<(), anyhow::Error> {
     if let Ok(new_bot_username) = std::env::var("MIGRATION_NEW_BOT_USERNAME") {
-        let message = "Migrate all settings of this chat to the new bot? This will remove all settings and alerts from this chat and add them to the new bot\\.".to_string();
+        let message = "Migrate all settings of this chat to the new bot? This will remove all settings and alerts from this chat and add them to the new bot\\.\n\nNOTE: If you use FT swaps, NFT trades, or Potlock notifications, and have a custom GIFs or images, they will be erased, you'll have to add them again\\. Sorry\\!".to_string();
         let mut migrated_settings = HashMap::new();
         for module in bot.xeon().bot_modules().await.iter() {
             if module.supports_migration() {
