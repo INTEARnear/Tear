@@ -1088,6 +1088,7 @@ pub enum Token {
     MemeCooking(u64),
 }
 
+#[cfg(feature = "ft-buybot-module")]
 impl Serialize for Token {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1102,6 +1103,7 @@ impl Serialize for Token {
     }
 }
 
+#[cfg(feature = "ft-buybot-module")]
 impl<'de> Deserialize<'de> for Token {
     fn deserialize<D>(deserializer: D) -> Result<Token, D::Error>
     where
