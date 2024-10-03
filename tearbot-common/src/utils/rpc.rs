@@ -43,13 +43,26 @@ pub async fn rpc<I: Serialize, O: DeserializeOwned>(
     data: I,
 ) -> Result<RpcResponse<O>, anyhow::Error> {
     try_rpc!(|rpc_url| {
-        Ok(get_reqwest_client()
+        // Ok(get_reqwest_client()
+        //     .post(rpc_url)
+        //     .json(&data)
+        //     .send()
+        //     .await?
+        //     .json::<RpcResponse<O>>()
+        //     .await?)
+        let response = get_reqwest_client()
             .post(rpc_url)
             .json(&data)
             .send()
             .await?
-            .json::<RpcResponse<O>>()
-            .await?)
+            .json::<serde_json::Value>()
+            .await?;
+        match serde_json::from_value::<RpcResponse<O>>(response.clone()) {
+            Ok(v) => Ok(v),
+            Err(_) => {
+                return Err(anyhow::anyhow!("RPC error: {response:?}"));
+            }
+        }
     })
 }
 
@@ -99,7 +112,7 @@ async fn _internal_view(
     method_name: &str,
     args: &str,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    let response = rpc::<_, RpcResponseCallFunctionView>(serde_json::json!({
+    let response = rpc::<_, serde_json::Value>(serde_json::json!({
         "jsonrpc": "2.0",
         "id": "dontcare",
         "method": "query",
@@ -113,6 +126,12 @@ async fn _internal_view(
     }))
     .await?
     .result;
+    let response = match serde_json::from_value::<RpcResponseCallFunctionView>(response.clone()) {
+        Ok(v) => v,
+        Err(_) => {
+            return Err(anyhow::anyhow!("RPC view error: {response:?}"));
+        }
+    };
     Ok(serde_json::from_str(&response.result)?)
 }
 

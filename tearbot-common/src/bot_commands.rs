@@ -517,6 +517,14 @@ pub enum TgCommand {
     OpenAccountConnectionMenu,
     DisconnectAccount,
     SetReferralNotifications(bool),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsEnableSubscriptionLpAdd(ChatId, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsDisableSubscriptionLpAdd(ChatId, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsEnableSubscriptionLpRemove(ChatId, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsDisableSubscriptionLpRemove(ChatId, Token),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -79,7 +79,7 @@ pub async fn format_tokens(
 }
 
 pub async fn get_ft_metadata(token: &AccountId) -> Result<FungibleTokenMetadata, anyhow::Error> {
-    if token == "near" {
+    if token == "near" || token == "wrap.near" {
         Ok(FungibleTokenMetadata {
             spec: "ft-1.0.0".to_string(),
             name: "NEAR".to_string(),
