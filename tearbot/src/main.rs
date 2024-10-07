@@ -63,6 +63,14 @@ fn main() -> Result<(), anyhow::Error> {
                 log::LevelFilter::Info
             },
         )
+        .with_module_level(
+            "ai_moderator",
+            if std::env::var("DEBUG").is_ok() {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Info
+            },
+        )
         .env()
         .init()?;
     rustls::crypto::aws_lc_rs::default_provider()

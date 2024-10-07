@@ -23,6 +23,7 @@ use tearbot_common::{
     xeon::XeonState,
 };
 
+use crate::utils::MessageRating;
 use crate::{
     setup, utils::get_message_rating, AiModeratorBotConfig, AiModeratorChatConfig,
     FREE_TRIAL_MESSAGES,
@@ -409,32 +410,37 @@ pub async fn handle_test_message_input(
         openai_client.clone(),
         Arc::clone(xeon),
     );
-    let gpt4o_future = get_message_rating(
-        bot.id(),
-        message.clone(),
-        chat_config.clone(),
-        target_chat_id,
-        OpenAIModel::Gpt4o,
-        openai_client.clone(),
-        Arc::clone(xeon),
-    );
     let bot_id = bot.id();
     let xeon = Arc::clone(xeon);
     tokio::spawn(async move {
         let bot = xeon.bot(&bot_id).unwrap();
-        let (rating_gpt4o_mini, rating_gpt4o) = tokio::join!(gpt4o_mini_future, gpt4o_future);
+        let (rating_gpt4o_mini,) = tokio::join!(gpt4o_mini_future);
+        let MessageRating::Ok {
+            judgement,
+            reasoning,
+            ..
+        } = &rating_gpt4o_mini
+        else {
+            let message = "Failed to moderate the message".to_string();
+            let buttons = vec![vec![InlineKeyboardButton::callback(
+                "⬅️ Back",
+                bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                    .await,
+            )]];
+            let reply_markup = InlineKeyboardMarkup::new(buttons);
+            if let Err(err) = bot
+                .bot()
+                .edit_message_text(chat_id, message_sent.id, message)
+                .reply_markup(reply_markup)
+                .await
+            {
+                log::warn!("Failed to send test result: {err:?}");
+            }
+            return;
+        };
         let message = format!(
-            "*Judgement:* {:?}\n*Reasoning:* _{}_{}",
-            rating_gpt4o_mini.0,
-            markdown::escape(&rating_gpt4o_mini.1.unwrap_or_default()),
-            if rating_gpt4o_mini.0 != rating_gpt4o.0 {
-                format!("\n\n\\-\\-\\-\\-\\-\\-\\-\\-\\-\\-\n\nBetter model result \\(not available yet, will be a paid feature\\):\n*Judgement:* {:?}\n*Reasoning:* _{}_",
-                    rating_gpt4o.0,
-                    markdown::escape(&rating_gpt4o.1.unwrap_or_default())
-                )
-            } else {
-                "".to_string()
-            },
+            "*Judgement:* {judgement:?}\n*Reasoning:* _{}_",
+            markdown::escape(&reasoning),
         );
         let buttons = vec![vec![InlineKeyboardButton::callback(
             "⬅️ Back",

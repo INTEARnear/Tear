@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use tearbot_common::utils::chat::get_chat_title_cached_5m_no_cache;
 use tearbot_common::{
     bot_commands::PaymentReference,
     teloxide::payloads::BanChatMemberSetters,
@@ -42,6 +43,8 @@ use tearbot_common::{
     xeon::{XeonBotModule, XeonState},
 };
 use tokio::sync::RwLock;
+
+use crate::utils::MessageRating;
 
 const FREE_TRIAL_MESSAGES: u32 = 1000;
 
@@ -786,10 +789,16 @@ impl AiModeratorModule {
                     < chat_config.first_messages
                 {
                     if !chat_config.debug_mode && is_admin {
+                        log::info!("Skipping moderation for admin message {}", message.id);
                         return Ok(());
                     }
 
                     if !bot_config.decrement_message_balance(chat_id).await {
+                        log::info!(
+                            "Skipping moderation for message {} due to insufficient balance",
+                            message.id
+                        );
+
                         const WARNING_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
                         if self
@@ -807,7 +816,11 @@ impl AiModeratorModule {
                     }
                     chat_config
                 } else {
-                    return Ok(()); // Skip moderation for more than first_messages messages
+                    log::info!(
+                        "Skipping moderation for message {} due to first_messages limit",
+                        message.id
+                    );
+                    return Ok(());
                 }
             } else {
                 return Ok(());
@@ -859,11 +872,40 @@ impl AiModeratorModule {
         tokio::spawn(async move {
             let result: Result<(), anyhow::Error> = async {
                 let bot = xeon.bot(&bot_id).unwrap();
-                let (judgement, reasoning, message_text, message_image) = rating_future.await;
-                if reasoning.is_none() {
+                let MessageRating::Ok { judgement, reasoning, message_text, openai_image_file_id: message_image } = rating_future.await else {
                     // Skipped the check, most likely because of unsupported message type
                     return Ok(());
+                };
+
+                // Send reports to human moderators for evaluation
+                if let Ok(human_moderators) = std::env::var("HUMAN_MODERATORS") {
+                    let chat_name = get_chat_title_cached_5m_no_cache(bot.bot(), chat_id)
+                        .await
+                        .map(|maybe_name| maybe_name.unwrap_or_else(|| "<No name>".to_string()))
+                        .unwrap_or_else(|_| "<Error fetching name>".to_string());
+                    let report_message_text = format!("Message in {chat_name} was rated as {judgement:?}:\n\n{message_text}\n\nRules:\n\n{rules}\n\nReasoning: {reasoning}",
+                        chat_name = markdown::escape(&chat_name),
+                        message_text = expandable_blockquote(&message_text),
+                        rules = markdown::escape(&chat_config.prompt),
+                        reasoning = markdown::escape(&reasoning),
+                    );
+                    let report_message_attachment = if let Some(photo) = message.photo() {
+                        Attachment::PhotoFileId(photo.last().unwrap().file.id.clone())
+                    } else {
+                        Attachment::None
+                    };
+                    for human_moderator in human_moderators.split(',') {
+                        let human_moderator = ChatId(human_moderator.parse().expect("Invalid chat ID of a human moderator"));
+                        bot.send(
+                            human_moderator,
+                            report_message_text.clone(),
+                            InlineKeyboardMarkup::default(),
+                            report_message_attachment.clone()
+                        )
+                        .await?;
+                    }
                 }
+
                 let action = match judgement {
                     ModerationJudgement::Good => chat_config
                         .actions
@@ -997,7 +1039,7 @@ impl AiModeratorModule {
                                     chat_id,
                                     message_text.clone(),
                                     message_image,
-                                    reasoning.clone().unwrap(),
+                                    reasoning.clone(),
                                 ))
                                 .await,
                             )],
@@ -1022,7 +1064,7 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "💭 See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
-                                    reasoning.unwrap(),
+                                    reasoning,
                                 ))
                                 .await,
                             )],
@@ -1072,7 +1114,7 @@ impl AiModeratorModule {
                                     chat_id,
                                     message_text.clone(),
                                     message_image,
-                                    reasoning.clone().unwrap(),
+                                    reasoning.clone(),
                                 ))
                                 .await,
                             )],
@@ -1097,7 +1139,7 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "💭 See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
-                                    reasoning.unwrap(),
+                                    reasoning,
                                 ))
                                 .await,
                             )],
@@ -1144,7 +1186,7 @@ impl AiModeratorModule {
                                     chat_id,
                                     message_text.clone(),
                                     message_image,
-                                    reasoning.clone().unwrap(),
+                                    reasoning.clone(),
                                 ))
                                 .await,
                             )],
@@ -1169,7 +1211,7 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "💭 See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
-                                    reasoning.unwrap(),
+                                    reasoning,
                                 ))
                                 .await,
                             )],
@@ -1207,7 +1249,7 @@ impl AiModeratorModule {
                                     chat_id,
                                     message_text.clone(),
                                     message_image,
-                                    reasoning.clone().unwrap(),
+                                    reasoning.clone(),
                                 ))
                                 .await,
                             )],
@@ -1230,7 +1272,7 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "💭 See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
-                                    reasoning.unwrap(),
+                                    reasoning,
                                 ))
                                 .await,
                             )],
@@ -1251,7 +1293,7 @@ impl AiModeratorModule {
                                     chat_id,
                                     message_text,
                                     message_image,
-                                    reasoning.clone().unwrap(),
+                                    reasoning.clone(),
                                 ))
                                 .await,
                             )],
@@ -1270,7 +1312,7 @@ impl AiModeratorModule {
                             vec![InlineKeyboardButton::callback(
                                 "💭 See Reason",
                                 bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
-                                    reasoning.unwrap(),
+                                    reasoning,
                                 ))
                                 .await,
                             )],
@@ -1301,17 +1343,15 @@ impl AiModeratorModule {
                                     .await,
                                 )],
                             ];
-                            if let Some(reasoning) = reasoning {
-                                buttons.push(
-                                    vec![InlineKeyboardButton::callback(
-                                        "💭 See Reason",
-                                        bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
-                                            reasoning,
-                                        ))
-                                        .await,
-                                    )],
-                                );
-                            }
+                            buttons.push(
+                                vec![InlineKeyboardButton::callback(
+                                    "💭 See Reason",
+                                    bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
+                                        reasoning,
+                                    ))
+                                    .await,
+                                )],
+                            );
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                             bot.send(moderator_chat, message_to_send, reply_markup, attachment)
                                 .await?;

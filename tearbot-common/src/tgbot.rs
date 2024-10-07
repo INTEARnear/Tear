@@ -332,7 +332,10 @@ impl BotData {
                     move |pre_checkout_query: PreCheckoutQuery| {
                         let bot = bot_clone.clone();
                         async move {
-                            log::info!("Pre checkout query: {pre_checkout_query:?}");
+                            log::info!("Pre checkout query user={:?} query_id={:?}: {pre_checkout_query:?}",
+                                pre_checkout_query.from.id,
+                                pre_checkout_query.id
+                            );
                             bot.answer_pre_checkout_query(pre_checkout_query.id, true)
                                 .await?;
                             Ok(())
@@ -358,7 +361,12 @@ impl BotData {
                                 ""
                             }
                             .to_string();
-                            log::debug!("Start command: {data}");
+                            log::debug!(
+                                "Start command chat={:?} user={:?} message={:?}: {data}",
+                                msg.chat.id,
+                                msg.from.as_ref().map(|u| u.id),
+                                msg.id
+                            );
                             let res = module
                                 .handle_message(
                                     &bot,
@@ -383,7 +391,10 @@ impl BotData {
                             let from_id = UserId(*from_id);
                             if let Some(payment) = msg.successful_payment() {
                                 log::info!(
-                                    "Received payment: {payment:?} for module {}",
+                                    "Received payment chat={:?} user={:?} message={:?}: {payment:?} for module {}",
+                                    msg.chat.id,
+                                    from_id,
+                                    msg.id,
                                     module.name()
                                 );
                                 let res =
@@ -401,8 +412,10 @@ impl BotData {
                                 res
                             } else if let Some(command) = bot.get_message_command(&from_id).await {
                                 log::debug!(
-                                    "chat={:?} (command {command:?}): {text}, module: {}",
+                                    "chat={:?} user={:?} message={:?} (command {command:?}): {text}, module: {}",
                                     msg.chat.id,
+                                    from_id,
+                                    msg.id,
                                     module.name()
                                 );
                                 let res = module
@@ -419,8 +432,10 @@ impl BotData {
                                 res
                             } else {
                                 log::debug!(
-                                    "chat={:?} message (no command): {text}, module: {}",
+                                    "chat={:?} user={:?} message={:?} message (no command): {text}, module: {}",
                                     msg.chat.id,
+                                    from_id,
+                                    msg.id,
                                     module.name()
                                 );
                                 let res = module

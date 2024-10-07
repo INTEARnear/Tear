@@ -82,6 +82,17 @@ pub fn reached_gpt4o_rate_limit(chat_id: ChatId) -> bool {
     *messages > MAX_GPT4O_MESSAGES_PER_DAY
 }
 
+pub enum MessageRating {
+    NotApplicableSystemMessage,
+    NotApplicableNoText,
+    Ok {
+        judgement: ModerationJudgement,
+        reasoning: String,
+        message_text: String,
+        openai_image_file_id: Option<String>,
+    },
+}
+
 pub async fn get_message_rating(
     bot_id: UserId,
     message: Message,
@@ -90,7 +101,7 @@ pub async fn get_message_rating(
     model: OpenAIModel,
     openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
-) -> (ModerationJudgement, Option<String>, String, Option<String>) {
+) -> MessageRating {
     let mut message_text = message
         .text()
         .or(message.caption())
@@ -115,14 +126,9 @@ pub async fn get_message_rating(
         .map(|photo| photo.last().unwrap().file.id.clone());
     let bot = xeon.bot(&bot_id).unwrap();
     if !matches!(message.kind, MessageKind::Common(_)) {
-        return (
-            ModerationJudgement::Good,
-            None,
-            "[System message]".to_string(),
-            None,
-        );
+        return MessageRating::NotApplicableSystemMessage;
     }
-    let message_image = if let Some(file_id) = message_image {
+    let openai_image = if let Some(file_id) = message_image {
         if let Ok(file) = bot.bot().get_file(file_id).await {
             let mut buf = Vec::new();
             if let Ok(()) = bot.bot().download_file(&file.path, &mut buf).await {
@@ -156,13 +162,13 @@ pub async fn get_message_rating(
         None
     };
     if message_text.is_empty() {
-        return (ModerationJudgement::Good, None, message_text, message_image);
+        return MessageRating::NotApplicableNoText;
     }
 
     let title = get_chat_title_cached_5m(bot.bot(), chat_id).await;
     let additional_instructions = format!(
         "{}{}\n\nAdmins have set these rules:\n\n{}",
-        if message_image.is_some() {
+        if openai_image.is_some() {
             concat!("\nReply in json format with the following schema, without formatting, ready to parse:\n", include_str!("../schema/moderate.schema.json"), "\n")
         } else {
             ""
@@ -176,7 +182,7 @@ pub async fn get_message_rating(
     );
 
     if model == OpenAIModel::Gpt4oMini
-        && message_image.is_none()
+        && openai_image.is_none()
         && std::env::var("CEREBRAS_API_KEY").is_ok()
     {
         log::info!("Moderating with Cerebras");
@@ -227,7 +233,12 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
                             log::error!(
                                 "Cerebras moderation response has no choices, passing as Good"
                             );
-                            return (ModerationJudgement::Good, None, message_text, message_image);
+                            return MessageRating::Ok {
+                                judgement: ModerationJudgement::Good,
+                                reasoning: "Error: moderation returned has no choices, this should never happen".to_string(),
+                                message_text,
+                                openai_image_file_id: openai_image,
+                            };
                         };
                         if let Ok(result) = serde_json::from_str::<ModerationResponse>(
                             choice.message.content.as_deref().unwrap_or(""),
@@ -240,12 +251,12 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
                                     "Unknown".to_string()
                                 },
                             );
-                            return (
-                                result.judgement,
-                                Some(result.reasoning),
+                            return MessageRating::Ok {
+                                judgement: result.judgement,
+                                reasoning: result.reasoning,
                                 message_text,
-                                message_image,
-                            );
+                                openai_image_file_id: openai_image,
+                            };
                         } else {
                             log::warn!("Failed to parse Cerebras moderation response, defaulting to Gpt-4o-mini: {text}");
                         }
@@ -268,10 +279,16 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
         .await
     else {
         log::warn!("Failed to create a moderation thread");
-        return (ModerationJudgement::Good, None, message_text, message_image);
+        return MessageRating::Ok {
+            judgement: ModerationJudgement::Good,
+            reasoning: "Error: failed to create a moderation thread, this should never happen"
+                .to_string(),
+            message_text,
+            openai_image_file_id: openai_image,
+        };
     };
     let mut create_run = &mut CreateRunRequestArgs::default();
-    if message_image.is_some() {
+    if openai_image.is_some() {
         // Json schema doesn't work with images
         create_run = create_run.response_format(AssistantsApiResponseFormatOption::Format(
             AssistantsApiResponseFormat {
@@ -294,7 +311,7 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
                 .additional_instructions(additional_instructions)
                 .additional_messages(vec![CreateMessageRequest {
                     role: MessageRole::User,
-                    content: if let Some(file_id) = message_image.as_ref() {
+                    content: if let Some(file_id) = openai_image.as_ref() {
                         CreateMessageRequestContent::ContentArray(vec![
                             MessageContentInput::Text(MessageRequestContentTextObject {
                                 text: message_text.clone(),
@@ -331,24 +348,43 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
                             "Unknown".to_string()
                         },
                     );
-                    (
-                        response.judgement,
-                        Some(response.reasoning),
+                    MessageRating::Ok {
+                        judgement: response.judgement,
+                        reasoning: response.reasoning,
                         message_text,
-                        message_image,
-                    )
+                        openai_image_file_id: openai_image,
+                    }
                 } else {
                     log::warn!("Failed to parse moderation response: {}", text.text.value);
-                    (ModerationJudgement::Good, None, message_text, message_image)
+                    MessageRating::Ok {
+                        judgement: ModerationJudgement::Good,
+                        reasoning:
+                            "Error: failed to parse moderation response, this should never happen"
+                                .to_string(),
+                        message_text,
+                        openai_image_file_id: openai_image,
+                    }
                 }
             } else {
                 log::warn!("Moderation response is not a text");
-                (ModerationJudgement::Good, None, message_text, message_image)
+                MessageRating::Ok {
+                    judgement: ModerationJudgement::Good,
+                    reasoning: "Error: moderation response is not a text, this should never happen"
+                        .to_string(),
+                    message_text,
+                    openai_image_file_id: openai_image,
+                }
             }
         }
         Err(err) => {
             log::warn!("Failed to create a moderation run: {err:?}");
-            (ModerationJudgement::Good, None, message_text, message_image)
+            MessageRating::Ok {
+                judgement: ModerationJudgement::Good,
+                reasoning: "Error: failed to create a moderation run, this should never happen"
+                    .to_string(),
+                message_text,
+                openai_image_file_id: openai_image,
+            }
         }
     }
 }
