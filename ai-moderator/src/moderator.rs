@@ -440,7 +440,7 @@ pub async fn handle_test_message_input(
         };
         let message = format!(
             "*Judgement:* {judgement:?}\n*Reasoning:* _{}_",
-            markdown::escape(&reasoning),
+            markdown::escape(reasoning),
         );
         let buttons = vec![vec![InlineKeyboardButton::callback(
             "⬅️ Back",

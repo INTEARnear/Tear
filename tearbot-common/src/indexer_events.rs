@@ -273,6 +273,8 @@ async fn stream_events<
     tx: tokio::sync::mpsc::Sender<IndexerEvent>,
     connection: redis::aio::ConnectionManager,
 ) {
+    use std::convert::Infallible;
+
     let id = if testnet {
         format!("{event_id}_testnet")
     } else {
@@ -285,7 +287,7 @@ async fn stream_events<
                 let tx = tx.clone();
                 async move {
                     tx.send(convert(event)).await.unwrap();
-                    Ok(())
+                    Ok::<(), Infallible>(())
                 }
             },
             || false,
