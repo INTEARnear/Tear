@@ -1,9 +1,0 @@
-target
-Cargo.lock
-**/*.rs.bk
-.DS_Store
-
-# directory used to store images
-data
-
-*.mp3

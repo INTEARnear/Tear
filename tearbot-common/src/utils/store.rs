@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 // It might be a good idea to rewrite the cache to another key-value store.
 
 /// A store that caches values in memory and persists them in a MongoDB collection.
+///
 /// It takes advantage of the in-memory cache to reduce the number of reads from the database.
 /// Sometimes the cache can be fully stored in memory (e.g. all known tokens, it's not like
 /// there are millions of them), in this case the `cached_all` flag is set to true and the store

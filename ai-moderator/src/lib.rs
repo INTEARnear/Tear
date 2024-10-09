@@ -13,20 +13,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-use async_openai::{config::OpenAIConfig, Client};
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use tearbot_common::utils::ai::Model;
 use tearbot_common::utils::chat::get_chat_title_cached_5m_no_cache;
 use tearbot_common::{
     bot_commands::PaymentReference,
     teloxide::payloads::BanChatMemberSetters,
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
-    utils::{
-        ai::OpenAIModel,
-        chat::{get_chat_cached_5m, mention_sender},
-    },
+    utils::chat::{get_chat_cached_5m, mention_sender},
 };
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
@@ -50,7 +47,6 @@ const FREE_TRIAL_MESSAGES: u32 = 1000;
 
 pub struct AiModeratorModule {
     bot_configs: Arc<HashMap<UserId, AiModeratorBotConfig>>,
-    openai_client: Client<OpenAIConfig>,
     xeon: Arc<XeonState>,
     last_balance_warning_message: HashMap<ChatId, Instant>,
     messages_moderated: DashMap<ChatId, (u32, u32)>,
@@ -243,7 +239,6 @@ impl XeonBotModule for AiModeratorModule {
                     target_chat_id,
                     text,
                     &self.bot_configs,
-                    &self.openai_client,
                     &self.xeon,
                 )
                 .await?;
@@ -271,7 +266,6 @@ impl XeonBotModule for AiModeratorModule {
                     target_chat_id,
                     message,
                     &self.bot_configs,
-                    &self.openai_client,
                     &self.xeon,
                 )
                 .await?;
@@ -310,17 +304,16 @@ impl XeonBotModule for AiModeratorModule {
                 TgCommand::AiModeratorAddException(
                     target_chat_id,
                     message_text,
-                    message_image_openai_file_id,
+                    image_jpeg,
                     reasoning,
                 ) => {
                     moderation_actions::add_exception::handle_button(
                         &mut ctx,
                         target_chat_id,
                         message_text,
-                        message_image_openai_file_id,
+                        image_jpeg,
                         reasoning,
                         &self.bot_configs,
-                        &self.openai_client,
                         &self.xeon,
                     )
                     .await?;
@@ -397,6 +390,23 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 TgCommand::AiModeratorCancelEditPrompt => {
                     edit::prompt::handle_cancel_edit_prompt_button(&mut ctx).await?;
+                }
+                TgCommand::AiModeratorEditPrompt(target_chat_id) => {
+                    edit::prompt::handle_edit_prompt_button(
+                        &mut ctx,
+                        target_chat_id,
+                        &self.bot_configs,
+                    )
+                    .await?;
+                }
+                TgCommand::AiModeratorSetPromptConfirmAndReturn(target_chat_id, prompt) => {
+                    edit::prompt::handle_set_prompt_confirm_and_return_button(
+                        &mut ctx,
+                        target_chat_id,
+                        prompt,
+                        &self.bot_configs,
+                    )
+                    .await?;
                 }
                 _ => {}
             }
@@ -527,6 +537,14 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
+            TgCommand::AiModeratorRotateModel(target_chat_id) => {
+                edit::model::handle_rotate_model_button(
+                    &mut ctx,
+                    target_chat_id,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -580,6 +598,8 @@ struct AiModeratorChatConfig {
     deletion_message: String,
     #[serde(default)]
     deletion_message_attachment: Attachment,
+    #[serde(default)]
+    model: Model,
 }
 
 fn default_deletion_message() -> String {
@@ -603,6 +623,7 @@ impl Default for AiModeratorChatConfig {
             silent: false,
             deletion_message: "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string(),
             deletion_message_attachment: Attachment::None,
+            model: Model::RecommendedBest,
         }
     }
 }
@@ -745,14 +766,9 @@ impl AiModeratorModule {
             bot_configs.insert(bot_id, config);
             log::info!("AI Moderator config loaded for bot {bot_id}");
         }
-        let openai_client = Client::with_config(
-            OpenAIConfig::new()
-                .with_api_key(std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not set")),
-        );
 
         Ok(Self {
             bot_configs: Arc::new(bot_configs),
-            openai_client,
             xeon,
             last_balance_warning_message: HashMap::new(),
             messages_moderated: DashMap::new(),
@@ -833,8 +849,6 @@ impl AiModeratorModule {
             return Ok(());
         }
 
-        const FREE_GPT4O_MESSAGES_PER_GROUP_PER_DAY: u32 = 10;
-
         let current_day: u32 = Utc::now().day();
         let mut remove = false;
         if let Some(entry) = self.messages_moderated.get(&chat_id) {
@@ -845,25 +859,12 @@ impl AiModeratorModule {
         if remove {
             self.messages_moderated.remove(&chat_id);
         }
-        let messages_moderated = self
-            .messages_moderated
-            .entry(chat_id)
-            .and_modify(|(_, count)| *count += 1)
-            .or_insert((current_day, 1))
-            .1;
-        let model = if messages_moderated >= FREE_GPT4O_MESSAGES_PER_GROUP_PER_DAY {
-            OpenAIModel::Gpt4oMini
-        } else {
-            OpenAIModel::Gpt4o
-        };
 
         let rating_future = utils::get_message_rating(
             bot.id(),
             message.clone(),
             chat_config.clone(),
             chat_id,
-            model,
-            self.openai_client.clone(),
             Arc::clone(&self.xeon),
         );
         let bot_configs = Arc::clone(&self.bot_configs);
@@ -872,7 +873,7 @@ impl AiModeratorModule {
         tokio::spawn(async move {
             let result: Result<(), anyhow::Error> = async {
                 let bot = xeon.bot(&bot_id).unwrap();
-                let MessageRating::Ok { judgement, reasoning, message_text, openai_image_file_id: message_image } = rating_future.await else {
+                let MessageRating::Ok { judgement, reasoning, message_text, image_jpeg: message_image } = rating_future.await else {
                     // Skipped the check, most likely because of unsupported message type
                     return Ok(());
                 };
@@ -883,8 +884,9 @@ impl AiModeratorModule {
                         .await
                         .map(|maybe_name| maybe_name.unwrap_or_else(|| "<No name>".to_string()))
                         .unwrap_or_else(|_| "<Error fetching name>".to_string());
-                    let report_message_text = format!("Message in {chat_name} was rated as {judgement:?}:\n\n{message_text}\n\nRules:\n\n{rules}\n\nReasoning: {reasoning}",
+                    let report_message_text = format!("Message in {chat_name} was rated as {judgement:?} by {model}:\n\n{message_text}\n\nRules:\n\n{rules}\n\nReasoning: {reasoning}",
                         chat_name = markdown::escape(&chat_name),
+                        model = markdown::escape(chat_config.model.name()),
                         message_text = expandable_blockquote(&message_text),
                         rules = markdown::escape(&chat_config.prompt),
                         reasoning = markdown::escape(&reasoning),
@@ -896,13 +898,15 @@ impl AiModeratorModule {
                     };
                     for human_moderator in human_moderators.split(',') {
                         let human_moderator = ChatId(human_moderator.parse().expect("Invalid chat ID of a human moderator"));
-                        bot.send(
+                        if let Err(err) = bot.send(
                             human_moderator,
                             report_message_text.clone(),
                             InlineKeyboardMarkup::default(),
                             report_message_attachment.clone()
                         )
-                        .await?;
+                        .await {
+                            log::warn!("Failed to send report message to human moderator {human_moderator}: {err:?}");
+                        }
                     }
                 }
 

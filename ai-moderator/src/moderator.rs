@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use async_openai::{config::OpenAIConfig, Client};
 use std::collections::HashMap;
 use tearbot_common::{
     bot_commands::{
@@ -13,12 +12,8 @@ use tearbot_common::{
         utils::markdown,
     },
     tgbot::{Attachment, BotData, TgCallbackContext},
-    utils::{
-        ai::OpenAIModel,
-        chat::{
-            check_admin_permission_in_chat, expandable_blockquote, get_chat_title_cached_5m,
-            DM_CHAT,
-        },
+    utils::chat::{
+        check_admin_permission_in_chat, expandable_blockquote, get_chat_title_cached_5m, DM_CHAT,
     },
     xeon::XeonState,
 };
@@ -139,7 +134,7 @@ pub async fn open_main(
     let deletion_message = expandable_blockquote(&deletion_message);
     let balance = format!("{messages} messages");
     let message =
-        format!("Setting up AI Moderator \\(BETA\\){in_chat_name}\n\nPrompt:\n{prompt}\n\nMessage that appears when a message is deleted:\n{deletion_message}\n\nℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}\n\nYour balance: *{balance}*");
+        format!("Setting up AI Moderator {in_chat_name}\n\nPrompt:\n{prompt}\n\nMessage that appears when a message is deleted:\n{deletion_message}\n\nℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}\n\nYour balance: *{balance}*");
     let mut buttons = vec![
         vec![InlineKeyboardButton::callback(
             "⌨ Enter New Prompt",
@@ -289,6 +284,12 @@ pub async fn open_main(
                 .to_callback_data(&TgCommand::AiModeratorFirstMessages(target_chat_id))
                 .await,
         )],
+        vec![InlineKeyboardButton::callback(
+            format!("🤖 Model: {}", chat_config.model.name()),
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorRotateModel(target_chat_id))
+                .await,
+        )],
         vec![
             InlineKeyboardButton::callback(
                 "🍥 Test",
@@ -375,7 +376,6 @@ pub async fn handle_test_message_input(
     target_chat_id: ChatId,
     message: &Message,
     bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
-    openai_client: &Client<OpenAIConfig>,
     xeon: &Arc<XeonState>,
 ) -> Result<(), anyhow::Error> {
     if !chat_id.is_user() {
@@ -401,25 +401,23 @@ pub async fn handle_test_message_input(
         .send_text_message(chat_id, message_to_send, reply_markup)
         .await?;
 
-    let gpt4o_mini_future = get_message_rating(
+    let future = get_message_rating(
         bot.id(),
         message.clone(),
         chat_config.clone(),
         target_chat_id,
-        OpenAIModel::Gpt4oMini,
-        openai_client.clone(),
         Arc::clone(xeon),
     );
     let bot_id = bot.id();
     let xeon = Arc::clone(xeon);
     tokio::spawn(async move {
         let bot = xeon.bot(&bot_id).unwrap();
-        let (rating_gpt4o_mini,) = tokio::join!(gpt4o_mini_future);
+        let rating = future.await;
         let MessageRating::Ok {
             judgement,
             reasoning,
             ..
-        } = &rating_gpt4o_mini
+        } = &rating
         else {
             let message = "Failed to moderate the message".to_string();
             let buttons = vec![vec![InlineKeyboardButton::callback(
@@ -438,8 +436,9 @@ pub async fn handle_test_message_input(
             }
             return;
         };
-        let message = format!(
-            "*Judgement:* {judgement:?}\n*Reasoning:* _{}_",
+        let message: String = format!(
+            "🤖 *Model*: {}\n🧑‍⚖️ *Judgement:* {judgement:?}\n💬 *Reasoning:* _{}_",
+            markdown::escape(chat_config.model.name()),
             markdown::escape(reasoning),
         );
         let buttons = vec![vec![InlineKeyboardButton::callback(

@@ -1,16 +1,9 @@
 use std::sync::Arc;
 
-use async_openai::{
-    config::OpenAIConfig,
-    types::{
-        CreateMessageRequest, CreateMessageRequestContent, CreateRunRequestArgs,
-        CreateThreadRequestArgs, MessageContent, MessageContentInput,
-        MessageRequestContentTextObject, MessageRole,
-    },
-    Client,
-};
 use serde::Deserialize;
 use std::collections::HashMap;
+use tearbot_common::tgbot::Attachment;
+use tearbot_common::utils::ai::Model;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     teloxide::{
@@ -19,10 +12,7 @@ use tearbot_common::{
         types::{InlineKeyboardButton, InlineKeyboardMarkup, ParseMode},
     },
     tgbot::{BotData, TgCallbackContext, DONT_CARE},
-    utils::{
-        ai::{await_execution, OpenAIModel},
-        chat::{check_admin_permission_in_chat, expandable_blockquote},
-    },
+    utils::chat::{check_admin_permission_in_chat, expandable_blockquote},
     xeon::XeonState,
 };
 
@@ -143,7 +133,7 @@ pub async fn handle_set_prompt_confirm_button(
     let message = "The prompt was updated\\. You can now test the new prompt on a message in DM of this bot using \"🍥 Test\" button".to_string();
     let buttons = Vec::<Vec<_>>::new();
     let reply_markup = InlineKeyboardMarkup::new(buttons);
-    ctx.reply(message, reply_markup).await?;
+    ctx.send(message, reply_markup, Attachment::None).await?;
     Ok(())
 }
 
@@ -165,27 +155,31 @@ pub async fn handle_edit_prompt_input(
     target_chat_id: ChatId,
     text: &str,
     bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
-    openai_client: &Client<OpenAIConfig>,
     xeon: &Arc<XeonState>,
 ) -> Result<(), anyhow::Error> {
-    if !chat_id.is_user() {
-        return Ok(());
-    }
     if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
         return Ok(());
+    }
+    if let Some(bot_config) = bot_configs.get(&bot.id()) {
+        if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
+            if chat_config.moderator_chat != Some(chat_id) {
+                return Ok(());
+            }
+        }
     }
     let enhancement_prompt = text.to_string();
 
     let message = "Please wait while I generate a new prompt for you".to_string();
     let buttons = Vec::<Vec<_>>::new();
     let reply_markup = InlineKeyboardMarkup::new(buttons);
+    println!("message: {message}");
     let message_id = bot
         .send_text_message(chat_id, message, reply_markup)
         .await?
         .id;
+    println!("message_id: {message_id}");
 
     let bot_configs = Arc::clone(bot_configs);
-    let openai_client = openai_client.clone();
     let bot_id = bot.id();
     let xeon = Arc::clone(xeon);
     tokio::spawn(async move {
@@ -204,91 +198,60 @@ pub async fn handle_edit_prompt_input(
             } else {
                 return Ok(());
             };
-            let new_thread = openai_client
-                .threads()
-                .create(CreateThreadRequestArgs::default().build().unwrap())
-                .await?;
-            let run = openai_client
-                .threads()
-                .runs(&new_thread.id)
-                .create(
-                    CreateRunRequestArgs::default()
-                        .assistant_id(
-                            std::env::var("OPENAI_PROMPT_EDITOR_ASSISTANT_ID")
-                                .expect("OPENAI_PROMPT_EDITOR_ASSISTANT_ID not set"),
-                        )
-                        .additional_messages(vec![CreateMessageRequest {
-                            role: MessageRole::User,
-                            content: CreateMessageRequestContent::ContentArray(vec![
-                                MessageContentInput::Text(MessageRequestContentTextObject {
-                                    text: format!(
-                                        "Old Prompt: {}\n\nUser's message: {enhancement_prompt}",
-                                        chat_config.prompt
-                                    )
-                                }),
-                            ]),
-                            ..Default::default()
-                        }])
-                        .build()
-                        .expect("Failed to build CreateRunRequestArgs"),
+            let model = if reached_gpt4o_rate_limit(target_chat_id) {
+                Model::Gpt4oMini
+            } else {
+                Model::Gpt4o
+            };
+            let prompt = "You help users to configure their AI Moderator prompt. Your job is to rewrite the old prompt in accordance with the changes that the user requested. If possible, don't alter the parts that the user didn't ask to change.";
+            match model
+                .get_ai_response::<PromptEditorResponse>(
+                    prompt,
+                    include_str!("../../schema/prompt_editor.schema.json"),
+                    &format!(
+                        "Old Prompt: {}\n\nUser's new requirement: {enhancement_prompt}",
+                        chat_config.prompt
+                    ),
+                    None,
                 )
-                .await;
-            match run {
-                Ok(mut run) => {
-                    if reached_gpt4o_rate_limit(target_chat_id) {
-                        run.model = OpenAIModel::Gpt4oMini.get_id().to_string();
-                    }
-                    let result = await_execution(&openai_client, run, new_thread.id).await;
-                    if let Ok(MessageContent::Text(text)) = result {
-                        if let Ok(response) =
-                            serde_json::from_str::<PromptEditorResponse>(&text.text.value)
-                        {
-                            log::info!("Response for prompt editor: {response:?}");
-                            let buttons = vec![
-                                vec![InlineKeyboardButton::callback(
-                                    "✅ Yes",
-                                    bot.to_callback_data(
-                                        &TgCommand::AiModeratorSetPromptConfirmAndReturn(
-                                            target_chat_id,
-                                            response.rewritten_prompt.clone(),
-                                        ),
-                                    )
-                                    .await,
-                                )],
-                                vec![InlineKeyboardButton::callback(
-                                    "⌨️ No, enter manually",
-                                    bot.to_callback_data(&TgCommand::AiModeratorSetPrompt(
-                                        target_chat_id,
-                                    ))
-                                    .await,
-                                )],
-                                vec![InlineKeyboardButton::callback(
-                                    "⬅️ Cancel",
-                                    bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                                        .await,
-                                )],
-                            ];
-                            let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            let message = format!(
-                                "AI has generated this prompt based on your request:\n{}\n\nDo you want to use this prompt?",
-                                expandable_blockquote(&response.rewritten_prompt)
-                            );
-                            bot.bot().edit_message_text(chat_id, message_id, message)
-                                .parse_mode(ParseMode::MarkdownV2)
-                                .reply_markup(reply_markup)
-                                .await?;
-                        } else {
-                            return Err(anyhow::anyhow!(
-                                "Failed to parse prompt editor response: {}",
-                                text.text.value
-                            ));
-                        }
-                    } else {
-                        return Err(anyhow::anyhow!(
-                            "Prompt editor response is not a text"
-                        ));
-                    }
-                }
+                .await
+            {
+                Ok(response) => {
+                log::info!("Response for prompt editor: {response:?}");
+                let buttons = vec![
+                    vec![InlineKeyboardButton::callback(
+                        "✅ Yes",
+                        bot.to_callback_data(
+                            &TgCommand::AiModeratorSetPromptConfirmAndReturn(
+                                target_chat_id,
+                                response.rewritten_prompt.clone(),
+                            ),
+                        )
+                        .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        "⌨️ No, enter manually",
+                        bot.to_callback_data(&TgCommand::AiModeratorSetPrompt(
+                            target_chat_id,
+                        ))
+                        .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
+                        "⬅️ Cancel",
+                        bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                            .await,
+                    )],
+                ];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                let message = format!(
+                    "AI has generated this prompt based on your request:\n{}\n\nDo you want to use this prompt?",
+                    expandable_blockquote(&response.rewritten_prompt)
+                );
+                bot.bot().edit_message_text(chat_id, message_id, message)
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .reply_markup(reply_markup)
+                    .await?;
+            }
                 Err(err) => {
                     return Err(anyhow::anyhow!(
                         "Failed to create a prompt editor run: {err:?}"

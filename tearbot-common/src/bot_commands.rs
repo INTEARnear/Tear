@@ -407,7 +407,7 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetEnabled(ChatId, bool),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorAddException(ChatId, String, Option<String>, String),
+    AiModeratorAddException(ChatId, String, Option<Vec<u8>>, String),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSeeReason(String),
     #[cfg(feature = "ai-moderator-module")]
@@ -525,6 +525,8 @@ pub enum TgCommand {
     FtNotificationsEnableSubscriptionLpRemove(ChatId, Token),
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsDisableSubscriptionLpRemove(ChatId, Token),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorRotateModel(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

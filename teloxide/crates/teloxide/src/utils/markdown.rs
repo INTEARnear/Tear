@@ -119,8 +119,10 @@ pub fn code_inline(s: &str) -> String {
 #[must_use = "This function returns a new string, rather than mutating the argument, so calling it \
               without using its output does nothing useful"]
 pub fn escape(s: &str) -> String {
-    const CHARS: [char; 18] =
-        ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
+    const CHARS: [char; 19] = [
+        '\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.',
+        '!',
+    ];
 
     s.chars().fold(String::with_capacity(s.len()), |mut s, c| {
         if CHARS.contains(&c) {
@@ -137,7 +139,7 @@ pub fn escape(s: &str) -> String {
               without using its output does nothing useful"]
 pub fn escape_link_url(s: &str) -> String {
     s.chars().fold(String::with_capacity(s.len()), |mut s, c| {
-        if ['`', ')'].contains(&c) {
+        if ['\\', '`', ')'].contains(&c) {
             s.push('\\');
         }
         s.push(c);
