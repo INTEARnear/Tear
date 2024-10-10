@@ -931,24 +931,27 @@ async fn get_price_message(token: AccountId, xeon: &XeonState) -> String {
     let price_change_6h = (price_now - price_6h_ago) / price_6h_ago;
     let price_change_24h = (price_now - price_24h_ago) / price_24h_ago;
     let price_change_7d = (price_now - price_7d_ago) / price_7d_ago;
+    let Some(token_info) = xeon.get_token_info(&token).await else {
+        return "An error occurred".to_string();
+    };
+    let total_supply = token_info.total_supply / 10u128.pow(token_info.metadata.decimals);
+    let fdv = total_supply as f64 * price_now;
     format!(
         "*{token_name}* price: {price}
                     
-5m change: {change_5m}
-6h change: {change_6h}
-24h change: {change_24h}
-7d change: {change_7d}",
-        token_name = markdown::escape(
-            &get_ft_metadata(&token)
-                .await
-                .map(|metadata| metadata.symbol)
-                .unwrap_or("Error".to_string())
-        ),
+⏳ *5m change:* {change_5m}
+⌚️ *6h change:* {change_6h}
+⏰ *24h change:* {change_24h}
+🗓 *7d change:* {change_7d}
+
+🏦 *FDV:* {fdv}",
+        token_name = markdown::escape(&token_info.metadata.symbol),
         price = markdown::escape(&format_usd_amount(price_now)),
         change_5m = markdown::escape(&format_price_change(price_change_5m)),
         change_6h = markdown::escape(&format_price_change(price_change_6h)),
         change_24h = markdown::escape(&format_price_change(price_change_24h)),
         change_7d = markdown::escape(&format_price_change(price_change_7d)),
+        fdv = markdown::escape(&format_usd_amount(fdv)),
     )
 }
 
