@@ -972,17 +972,32 @@ async fn get_chart(
         .arg("--log=fatal")
         .spawn()
         .expect("Failed to start geckodriver");
-    let client = ClientBuilder::rustls()
-        .expect("Rustls initialization failed")
-        .capabilities({
+    let mut connection_attempt = 0;
+    let client = loop {
+        let mut builder = ClientBuilder::rustls().expect("Rustls initialization failed");
+        builder.capabilities({
             let mut capabilities = serde_json::map::Map::new();
             let options = serde_json::json!({ "args": ["--headless"] });
             capabilities.insert("moz:firefoxOptions".to_string(), options);
             capabilities
-        })
-        .connect(&format!("http://localhost:{port}"))
-        .await
-        .expect("Failed to connect to WebDriver");
+        });
+        match builder.connect(&format!("http://localhost:{port}")).await {
+            Ok(client) => break client,
+            Err(err) => {
+                if connection_attempt > 40 {
+                    log::warn!(
+                        "Failed to connect to geckodriver, attempt {connection_attempt}: {err:?}"
+                    );
+                }
+                if connection_attempt >= 50 {
+                    log::error!("Failed to connect to geckodriver, giving up: {err:?}");
+                    return ("An error occurred".to_string(), Attachment::None);
+                }
+                connection_attempt += 1;
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+    };
     if let Err(err) = client
         .goto(&format!(
             "data:text/html;base64,{}#{token}",
