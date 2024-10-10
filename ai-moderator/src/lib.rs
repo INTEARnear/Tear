@@ -19,6 +19,7 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tearbot_common::utils::ai::Model;
 use tearbot_common::utils::chat::get_chat_title_cached_5m_no_cache;
+use tearbot_common::utils::SLIME_USER_ID;
 use tearbot_common::{
     bot_commands::PaymentReference,
     teloxide::payloads::BanChatMemberSetters,
@@ -180,6 +181,92 @@ impl XeonBotModule for AiModeratorModule {
         let Some(user_id) = user_id else {
             return Ok(());
         };
+
+        if user_id == SLIME_USER_ID
+            && chat_id.is_user()
+            && text.starts_with("/announce-ai-moderator ")
+        {
+            let announcement_text = text
+                .trim_start_matches("/announce-ai-moderator ")
+                .trim()
+                .to_string();
+            let attachment = if let Some(photo) = message.photo() {
+                Attachment::PhotoFileId(photo.last().unwrap().file.id.clone())
+            } else {
+                Attachment::None
+            };
+            let xeon = Arc::clone(bot.xeon());
+            let bot_id = bot.id();
+            let moderator_chats = if let Some(chat_configs) = self.bot_configs.get(&bot_id) {
+                chat_configs
+                    .chat_configs
+                    .values()
+                    .await?
+                    .map(|chat_config| chat_config.moderator_chat.unwrap_or(chat_id))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            bot.send_text_message(
+                chat_id,
+                "Sending announcement\\.\\.\\.".to_string(),
+                InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+            )
+            .await?;
+            tokio::spawn(async move {
+                let bot = xeon.bot(&bot_id).unwrap();
+                let mut interval = tokio::time::interval(Duration::from_millis(100));
+                for (i, moderator_chat) in moderator_chats.iter().copied().enumerate() {
+                    interval.tick().await;
+                    match bot
+                        .send(
+                            moderator_chat,
+                            announcement_text.clone(),
+                            InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                            attachment.clone(),
+                        )
+                        .await
+                    {
+                        Ok(_) => {
+                            let _ = bot
+                                .send_text_message(
+                                    chat_id,
+                                    format!(
+                                        "Sent announcement to {}/{}",
+                                        i + 1,
+                                        moderator_chats.len()
+                                    ),
+                                    InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                                )
+                                .await;
+                        }
+                        Err(err) => {
+                            log::warn!("Failed to send announcement: {err:?}");
+                            let _ = bot
+                                .send_text_message(
+                                    chat_id,
+                                    format!(
+                                        "Failed to send announcement to {}/{}",
+                                        i + 1,
+                                        moderator_chats.len()
+                                    ),
+                                    InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                                )
+                                .await;
+                        }
+                    }
+                }
+                let _ = bot
+                    .send_text_message(
+                        chat_id,
+                        "Sent announcement to all moderator chats".to_string(),
+                        InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                    )
+                    .await;
+            });
+            return Ok(());
+        }
+
         if !chat_id.is_user() {
             log::debug!("Moderating message {}", message.id);
             self.moderate_message(bot, chat_id, user_id, message.clone())
@@ -805,12 +892,12 @@ impl AiModeratorModule {
                     < chat_config.first_messages
                 {
                     if !chat_config.debug_mode && is_admin {
-                        log::info!("Skipping moderation for admin message {}", message.id);
+                        log::debug!("Skipping moderation for admin message {}", message.id);
                         return Ok(());
                     }
 
                     if !bot_config.decrement_message_balance(chat_id).await {
-                        log::info!(
+                        log::debug!(
                             "Skipping moderation for message {} due to insufficient balance",
                             message.id
                         );
@@ -832,7 +919,7 @@ impl AiModeratorModule {
                     }
                     chat_config
                 } else {
-                    log::info!(
+                    log::debug!(
                         "Skipping moderation for message {} due to first_messages limit",
                         message.id
                     );

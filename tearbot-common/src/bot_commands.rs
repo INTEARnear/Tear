@@ -527,6 +527,20 @@ pub enum TgCommand {
     FtNotificationsDisableSubscriptionLpRemove(ChatId, Token),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorRotateModel(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsChatSettings(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsSetToken(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsSetTokenConfirm(ChatId, AccountId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsEnableTokenCommand(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDisableTokenCommand(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsEnableChartCommand(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDisableChartCommand(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -661,6 +675,8 @@ pub enum MessageCommand {
     #[cfg(feature = "burrow-liquidations-module")]
     BurrowLiquidationsAddAccount(ChatId),
     ConnectAccountAnonymously,
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsSetToken(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

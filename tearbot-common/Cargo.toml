@@ -58,6 +58,7 @@ near-tgi-module = ["inquire"]
 ai-moderator-module = []
 image-gen-module = []
 burrow-liquidations-module = []
+price-commands-module = []
 
 redis-events = ["redis", "inevents-redis"]
 websocket-events = ["tokio-tungstenite"]

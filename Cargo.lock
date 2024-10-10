@@ -4224,6 +4224,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "price-commands"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bigdecimal",
+ "chrono",
+ "log",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+]
+
+[[package]]
 name = "primitive-types"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5937,6 +5951,7 @@ dependencies = [
  "openssl",
  "potlock",
  "price-alerts",
+ "price-commands",
  "rand",
  "reqwest 0.11.27",
  "rustls 0.23.14",

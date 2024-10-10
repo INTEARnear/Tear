@@ -367,6 +367,28 @@ impl XeonBotModule for HubModule {
                 bot.send_text_message(chat_id, message, reply_markup)
                     .await?;
             }
+            #[cfg(feature = "price-commands-module")]
+            if text == "/pricecommands" {
+                let message = "Click here to set up price commands".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Price Commands",
+                    format!(
+                        "tg://resolve?domain={bot_username}&start=pricecommands-{chat_id}",
+                        bot_username = bot
+                            .bot()
+                            .get_me()
+                            .await?
+                            .username
+                            .as_ref()
+                            .expect("Bot has no username"),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
             return Ok(());
         }
         let Some(user_id) = user_id else {
@@ -1160,6 +1182,30 @@ impl XeonBotModule for HubModule {
                                         &bot.to_callback_data(&TgCommand::AiModerator(ChatId(
                                             target_chat_id,
                                         )))
+                                        .await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                }
+                #[cfg(feature = "price-commands-module")]
+                if let Some(target_chat_id) = data.strip_prefix("pricecommands-") {
+                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(
+                                            &TgCommand::PriceCommandsChatSettings(ChatId(
+                                                target_chat_id,
+                                            )),
+                                        )
                                         .await,
                                     ),
                                     &mut None,
@@ -2470,6 +2516,23 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                         context
                             .bot()
                             .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                            .await,
+                    )]);
+                }
+            }
+        }
+        #[cfg(feature = "price-commands-module")]
+        {
+            let chat = context.bot().bot().get_chat(target_chat_id).await?;
+            if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
+                if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
+                | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
+                {
+                    buttons.push(vec![InlineKeyboardButton::callback(
+                        "📈 Price Commands",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::PriceCommandsChatSettings(target_chat_id))
                             .await,
                     )]);
                 }

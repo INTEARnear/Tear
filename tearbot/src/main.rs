@@ -37,6 +37,7 @@ use nft_buybot::NftBuybotModule;
 use potlock::PotlockModule;
 #[cfg(feature = "price-alerts-module")]
 use price_alerts::PriceAlertsModule;
+use price_commands::PriceCommandsModule;
 use reqwest::Url;
 #[cfg(feature = "socialdb-module")]
 use socialdb::SocialDBModule;
@@ -295,6 +296,12 @@ fn main() -> Result<(), anyhow::Error> {
                         .add_indexer_event_handler::<BurrowLiquidationsModule>(Arc::clone(
                             &burrow_liquidations_module,
                         ))
+                        .await;
+                }
+                #[cfg(feature = "price-commands-module")]
+                {
+                    xeon.state()
+                        .add_bot_module(PriceCommandsModule::new(xeon.arc_clone_state()).await?)
                         .await;
                 }
             }

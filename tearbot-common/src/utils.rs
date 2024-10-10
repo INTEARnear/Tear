@@ -11,6 +11,13 @@ use std::time::Duration;
 
 use near_primitives::{hash::CryptoHash, types::AccountId};
 use serde::Deserialize;
+use teloxide::prelude::UserId;
+
+pub const SLIME_USER_ID: UserId = if cfg!(debug_assertions) {
+    UserId(5000089432)
+} else {
+    UserId(7091308405)
+};
 
 pub async fn get_selected_badge(account_id: &AccountId) -> &str {
     if account_id == "slimedragon.near"
