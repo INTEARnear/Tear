@@ -2156,6 +2156,23 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     .await,
             ),
         ]);
+        #[cfg(feature = "price-commands-module")]
+        buttons.push(vec![
+            InlineKeyboardButton::callback(
+                "💷 Price",
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::PriceCommandsDMPriceCommand)
+                    .await,
+            ),
+            InlineKeyboardButton::callback(
+                "📈 Chart",
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::PriceCommandsDMChartCommand)
+                    .await,
+            ),
+        ]);
         #[cfg(feature = "near-tgi-module")]
         buttons.push(vec![InlineKeyboardButton::callback(
             "💻 Near TGI",

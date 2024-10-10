@@ -18,6 +18,35 @@ After cloning this repo, run `./setup.sh` (a workaround for [this issue](https:/
 
 You need to have `MAIN_TOKEN` environment variable that contains Telegram bot token that you can get from botfather.
 
+### Test Server
+
+If you want to use Telegram's test server, use the following Nginx configuration to proxy requests to the test server:
+
+```nginx
+server {
+    listen 5555;
+    server_name localhost;
+
+    location ~ ^/bot([^/]+)/(.*) {
+        set $token $1;
+        set $method_name $2;
+
+        proxy_pass https://api.telegram.org/bot$token/test/$method_name;
+        proxy_pass_request_body on; 
+        proxy_pass_request_headers on;       
+    }
+
+    location ~ ^/file/([^/]+)/(.*) {
+        set $token $1;
+        set $method_name $2;
+
+        proxy_pass https://api.telegram.org/file/$token/test/$method_name;
+        proxy_pass_request_body on;
+        proxy_pass_request_headers on;
+    }
+}
+```
+
 #### Contract Logs
 
 No additional setup is required.
@@ -38,43 +67,46 @@ No additional setup is required.
 
 You need to have these environment variables:
 
-- `OPENAI_API_KEY`: OpenAI API key
-- `OPENAI_MODERATE_ASSISTANT_ID`: OpenAI assistant ID with the following prompt:
-  ```
-  You don't have the context or the previous conversation, but if you even slightly feel that a message can be useful in some context, you should moderate it as 'Good'.
-  If you are unsure about a message and don't have the context to evaluate it, pass it as 'MoreContextNeeded'.
-  If the content of the message is not allowed, but it could be a real person sending it without knowing the rules, it's 'Inform'.
-  If you're pretty sure that a message is harmful, but it doesn't have an obvious intent to harm users, moderate it as 'Suspicious'.
-  If a message is clearly something that is explicitly not allowed in the chat rules, moderate it as 'Harmful'.
-  If a message includes 'spam' or 'scam' or anything that is not allowed as a literal word, but is not actually spam or scam, moderate it as 'MoreContextNeeded'. It maybe someone reporting spam or scam to admins by replying to the message, but you don't have the context to know that.
-  Note that if something can be harmful, but is not explicitly mentioned in the rules, you should moderate it as 'MoreContextNeeded'.
-  ```
-  and json schema as in `ai-moderator/schema/moderate.schema.json`.
-- `OPENAI_PROMPT_EDITOR_ASSISTANT_ID`: OpenAI assistant ID with the following prompt:
-  ```
-  You help users to configure their AI Moderator prompt. Your job is to rewrite the old prompt in accordance with the changes that the user requested. If possible, don't alter the parts that the user didn't ask to change.
-  ```
-  and json schema as in `ai-moderator/schema/prompt_editor.schema.json`.
-- `OPENAI_PROMPT_EDITION_ASSISTANT_ID`: OpenAI assistant ID with the following prompt:
-  ```
-  Your job is to help AI Moderator refine its prompt. The AI Moderator has a prompt that helps it define what should or should not be banned. But if a user was flagged by mistake, you will come to help. Given the old prompt, message, and reasoning of the AI Moderator, craft from one to four ways to improve the prompt, with a short description (up to 20 characters) to present to the user. The description should be very simple, for example, "Allow <domain>" (if the reason is a link), or "Allow all links", or "Allow links to *.website.tld", "Allow @mentions", "Allow price talk", "Allow self promotion", "Allow /<command>", etc. They should come sorted from 1st - the most narrow one to the most wide restriction lift.
+- `OPENAI_API_KEY`: OpenAI API key (if you plan to use GPT-4o and GPT-4o-mini)
+- `CEREBRAS_API_KEY`: Cerebras API key (if you plan to use Llama 70B). It will fall back to GPT-4o if the message contains an image, as this version of Llama is not multimodal.
 
-  Example 1: "/connect@Intear_Xeon_bot slimedrgn.tg", reasoning: "The message contains a "/connect" command, which could potentially be harmful, depending on the context"
-  1. Allow /connect command
-  2. Allow all slash-@Intear_Xeon_bot commands
-  3. Allow all slash commands
+#### Burrow Liquidations
 
-  Example 2: "Hey, I launched a token: [here](https://app.ref.finance/#intel.tkn.near|near)", reasoning: "The message contains a link to app.ref.finance, which is not allowed by chat rules"
-  1. Allow app.ref.finance links
-  2. Allow *.ref.finance links
-  3. Allow all links
-  4. Allow self-promotion of tokens and allow links
+No additional setup is required.
 
-  The AI Moderator can't flag for review, update its model, or do anything other than returning "Yes" or "No", so don't offer advice that should be applied to something other than the prompt. The modified prompt should (mostly) contain the old prompt, with some changes added / inserted / edited / removed / rephrased that reflect this exception from rules. Do NOT add "if relevant", "is related", "is safe", or "if context is provided" because the context is never provided, and you never know if something is relevant. It's your job to help AI Moderator know what is relevant and what isn't. Look at provided "Reasoning" to determine which aspect of the prompt to tweak.
-  ```
-  and json schema as in `ai-moderator/schema/prompt_edition.schema.json`.
+#### Price Command
 
-If you have access to Cerebras Inference API, you can set `CEREBRAS_API_KEY` environment variable and it will use Llama 3.1 70B model for moderation instead of GPT-4o-mini when there's no image (because Llama is not multimodal).
+No additional setup is required.
+
+#### Chart Command
+
+The chart command is using TradingView charting library, which is not open-source, and available only by request. There is an origin that allows localhost and coding playground (codepen, jsfiddle, etc.) usage, but it doesn't work with `file://` and `data:` URIs, so we need to proxy requests to the library. Here's a Nginx configuration that does the job:
+
+```nginx
+server {
+    listen 5556;
+    server_name localhost;
+    location ~ /.* {
+        if ($request_method = OPTIONS) {
+            return 204;
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, DELETE, PUT, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+        proxy_pass 'https://charting-library.tradingview-widget.com';
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_cache_bypass $cookie_nocache $arg_nocache;
+        proxy_pass_request_body on;
+        proxy_pass_request_headers on;
+        proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+        proxy_ssl_server_name on;
+    }
+}
+```
+
+Also, you need to have `geckodriver` installed and in your PATH.
 
 ### Architecture
 

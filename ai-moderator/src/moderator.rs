@@ -123,7 +123,9 @@ pub async fn open_main(
     let deletion_message = chat_config.deletion_message.clone()
         + match chat_config.deletion_message_attachment {
             Attachment::None => "",
-            Attachment::PhotoUrl(_) | Attachment::PhotoFileId(_) => "\n+ photo",
+            Attachment::PhotoUrl(_) | Attachment::PhotoFileId(_) | Attachment::PhotoBytes(_) => {
+                "\n+ photo"
+            }
             Attachment::AnimationUrl(_) | Attachment::AnimationFileId(_) => "\n+ gif",
             Attachment::AudioUrl(_) | Attachment::AudioFileId(_) => "\n+ audio",
             Attachment::VideoUrl(_) | Attachment::VideoFileId(_) => "\n+ video",

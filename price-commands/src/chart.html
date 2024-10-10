@@ -1,0 +1,170 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>TradingView with Intear's prices</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0">
+    <script type="text/javascript"
+        src="https://charting-library.tradingview-widget.com/charting_library/charting_library.standalone.js"></script>
+    <script>
+        function initOnReady() {
+            const isDark = true;
+            const theme = isDark ? "dark" : "light";
+            const symbol = window.location.hash.substr(1);
+            const datafeed = {
+                onReady: (callback) => {
+                    console.log("Loading TradingView");
+                    setTimeout(() =>
+                        callback({
+                            supports_search: false,
+                            supports_group_request: false,
+                            supports_marks: true,
+                            supports_timescale_marks: true,
+                            supports_time: true,
+                            supported_resolutions: ["1", "5", "15", "60", "4h", "D", "W"]
+                        })
+                    );
+                },
+                resolveSymbol: async (
+                    symbolName,
+                    onSymbolResolvedCallback,
+                    onResolveErrorCallback,
+                    extension
+                ) => {
+                    console.log(`Loading ${symbolName}`);
+                    const metadata = await getMetadata(symbolName);
+                    const price = await fetch(
+                        `https://prices.intear.tech/price?token_id=${symbolName}`
+                    ).then((data) => data.json());
+                    const digits = Math.ceil(Math.max(0, -Math.log10(price))) + 3;
+                    onSymbolResolvedCallback({
+                        ticker: symbolName,
+                        name: metadata.name,
+                        description: `${metadata.symbol}/USD`,
+                        type: "crypto",
+                        session: "24x7",
+                        timezone: "Etc/UTC",
+                        exchange: "Intearnet Explorer",
+                        minmov: 1,
+                        pricescale: 10 ** digits,
+                        has_intraday: true,
+                        intraday_multipliers: ["1", "60"],
+                        has_daily: true,
+                        daily_multipliers: ["1"],
+                        has_empty_bars: true,
+                        has_weekly_and_monthly: false,
+                        visible_plots_set: "ohlc",
+                        volume_precision: 2,
+                        data_status: "streaming",
+                        logo_urls: metadata.icon ? [metadata.icon] : []
+                    });
+                },
+                getBars: async (
+                    symbolInfo,
+                    resolution,
+                    periodParams,
+                    onHistoryCallback,
+                    onErrorCallback
+                ) => {
+                    console.log(
+                        `Getting bars for ${symbolInfo.name} ${resolution} ${periodParams.countBack
+                        } ${periodParams.to * 1000}`
+                    );
+                    const url = `https://events.intear.tech/api/ohlc?token=${symbolInfo.full_name
+                        }&resolution=${resolution}&count_back=${periodParams.countBack}&to=${periodParams.to * 1000
+                        }`;
+                    const response = await fetch(url).then((data) => data.json());
+                    const noData = response.length < periodParams.countBack;
+                    const decimals = (await getMetadata(symbolInfo.full_name)).decimals;
+                    const USDT_DECIMALS = 6;
+                    const bars = response.map((bar) => {
+                        bar.open = parseFloat(bar.open) * 10 ** (decimals - USDT_DECIMALS);
+                        bar.close = parseFloat(bar.close) * 10 ** (decimals - USDT_DECIMALS);
+                        bar.high = parseFloat(bar.high) * 10 ** (decimals - USDT_DECIMALS);
+                        bar.low = parseFloat(bar.low) * 10 ** (decimals - USDT_DECIMALS);
+                        return bar;
+                    });
+                    onHistoryCallback(bars, { noData });
+                    setTimeout(() => {
+                        const indicator = document.createElement("div");
+                        indicator.id = "ready";
+                        document.body.appendChild(indicator);
+                    });
+                },
+                subscribeBars: async (
+                    symbolInfo,
+                    resolution,
+                    onTick,
+                    listenerGuid,
+                    onResetCacheNeededCallback
+                ) => {
+                },
+                unsubscribeBars: async (listenerGuid) => {
+                }
+            };
+            var widget = (window.tvWidget = new TradingView.widget({
+                library_path: "http://localhost:5556/charting_library/",
+                fullscreen: true,
+                symbol: symbol,
+                interval: "15",
+                container: "tv_chart_container",
+                datafeed,
+                locale: "en",
+                disabled_features: ["use_localstorage_for_settings"],
+                enabled_features: [
+                    "show_symbol_logos",
+                    "custom_resolutions",
+                    "seconds_resolution",
+                    "chart_style_hilo_last_price"
+                ],
+                theme,
+            }));
+        }
+
+        async function getMetadata(account_id) {
+            console.log(`Getting ${account_id}`);
+            if (account_id === "wrap.near") {
+                return {
+                    name: "NEAR",
+                    symbol: "NEAR",
+                    decimals: 24,
+                    icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTA4MCIgaGVpZ2h0PSIxMDgwIiB2aWV3Qm94PSIwIDAgMTA4MCAxMDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTA4MCIgaGVpZ2h0PSIxMDgwIiBmaWxsPSIjMDBFQzk3Ii8+CjxwYXRoIGQ9Ik03NzMuNDI1IDI0My4zOEM3NTEuNDUzIDI0My4zOCA3MzEuMDU0IDI1NC43NzIgNzE5LjU0NCAyNzMuNDk5TDU5NS41MzggNDU3LjYwNkM1OTEuNDk5IDQ2My42NzMgNTkzLjEzOCA0NzEuODU0IDU5OS4yMDYgNDc1Ljg5M0M2MDQuMTI0IDQ3OS4xNzIgNjEwLjYzMSA0NzguNzY2IDYxNS4xMSA0NzQuOTEzTDczNy4xNzIgMzY5LjA0MkM3MzkuMiAzNjcuMjE3IDc0Mi4zMjcgMzY3LjQwMyA3NDQuMTUyIDM2OS40MzFDNzQ0Ljk4IDM3MC4zNjEgNzQ1LjQyIDM3MS41NjEgNzQ1LjQyIDM3Mi43OTRWNzA0LjI2NUM3NDUuNDIgNzA3LjAwMyA3NDMuMjA2IDcwOS4yIDc0MC40NjggNzA5LjJDNzM4Ljk5NyA3MDkuMiA3MzcuNjExIDcwOC41NTggNzM2LjY4MiA3MDcuNDI1TDM2Ny43MDcgMjY1Ljc1OEMzNTUuNjkgMjUxLjU3NyAzMzguMDQ1IDI0My4zOTcgMzE5LjQ3IDI0My4zOEgzMDYuNTc1QzI3MS42NzMgMjQzLjM4IDI0My4zOCAyNzEuNjczIDI0My4zOCAzMDYuNTc1Vjc3My40MjVDMjQzLjM4IDgwOC4zMjcgMjcxLjY3MyA4MzYuNjIgMzA2LjU3NSA4MzYuNjJDMzI4LjU0NiA4MzYuNjIgMzQ4Ljk0NiA4MjUuMjI4IDM2MC40NTYgODA2LjUwMUw0ODQuNDYyIDYyMi4zOTRDNDg4LjUwMSA2MTYuMzI3IDQ4Ni44NjIgNjA4LjE0NiA0ODAuNzk0IDYwNC4xMDdDNDc1Ljg3NiA2MDAuODI4IDQ2OS4zNjkgNjAxLjIzNCA0NjQuODkgNjA1LjA4N0wzNDIuODI4IDcxMC45NThDMzQwLjggNzEyLjc4MyAzMzcuNjczIDcxMi41OTcgMzM1Ljg0OCA3MTAuNTY5QzMzNS4wMiA3MDkuNjM5IDMzNC41OCA3MDguNDM5IDMzNC41OTcgNzA3LjIwNlYzNzUuNjUxQzMzNC41OTcgMzcyLjkxMyAzMzYuODExIDM3MC43MTUgMzM5LjU0OSAzNzAuNzE1QzM0MS4wMDMgMzcwLjcxNSAzNDIuNDA2IDM3MS4zNTggMzQzLjMzNSAzNzIuNDlMNzEyLjI1OSA4MTQuMjQyQzcyNC4yNzYgODI4LjQyMyA3NDEuOTIxIDgzNi42MDMgNzYwLjQ5NiA4MzYuNjJINzczLjM5MkM4MDguMjkzIDgzNi42MzcgODM2LjYwMyA4MDguMzYxIDgzNi42MzcgNzczLjQ1OVYzMDYuNTc1QzgzNi42MzcgMjcxLjY3MyA4MDguMzQ0IDI0My4zOCA3NzMuNDQyIDI0My4zOEg3NzMuNDI1WiIgZmlsbD0iYmxhY2siLz4KPC9zdmc+Cg==",
+                    spec: "ft-1.0.0",
+                    reference: null,
+                    reference_hash: null,
+                }
+            }
+            return await fetch("https://beta.rpc.mainnet.near.org/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    id: "dontcare",
+                    jsonrpc: "2.0",
+                    method: "query",
+                    params: {
+                        request_type: "call_function",
+                        account_id: account_id,
+                        method_name: "ft_metadata",
+                        args_base64: btoa(JSON.stringify({})),
+                        finality: "final"
+                    }
+                })
+            })
+                .then((data) => data.json())
+                .then((data) =>
+                    new TextDecoder().decode(Uint8Array.from(data.result.result))
+                )
+                .then((data) => JSON.parse(data));
+        }
+
+        window.addEventListener("DOMContentLoaded", initOnReady, false);
+    </script>
+</head>
+
+<body style="margin:0px;">
+    <div id="tv_chart_container"></div>
+</body>
+
+</html>

@@ -541,6 +541,14 @@ pub enum TgCommand {
     PriceCommandsEnableChartCommand(ChatId),
     #[cfg(feature = "price-commands-module")]
     PriceCommandsDisableChartCommand(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDMPriceCommand,
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDMPriceCommandToken(AccountId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDMChartCommand,
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDMChartCommandToken(AccountId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -677,6 +685,10 @@ pub enum MessageCommand {
     ConnectAccountAnonymously,
     #[cfg(feature = "price-commands-module")]
     PriceCommandsSetToken(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDMPriceCommand,
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDMChartCommand,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

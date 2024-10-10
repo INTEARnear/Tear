@@ -13,3 +13,6 @@ serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 bigdecimal = { workspace = true }
 chrono = { workspace = true }
+base64 = { workspace = true }
+fantoccini = { version = "0.21.2", features = ["rustls-tls"] }
+tokio = { workspace = true, features = ["process", "sync"] }

@@ -3,9 +3,13 @@ use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
+use base64::prelude::{Engine, BASE64_STANDARD};
 use bigdecimal::{BigDecimal, ToPrimitive};
 use chrono::{DateTime, Utc};
+use fantoccini::{ClientBuilder, Locator};
 use serde::{Deserialize, Serialize};
+use tearbot_common::teloxide::prelude::Requester;
+use tearbot_common::tgbot::Attachment;
 use tearbot_common::utils::apis::search_token;
 use tearbot_common::utils::requests::get_reqwest_client;
 use tearbot_common::utils::tokens::{format_usd_amount, get_ft_metadata};
@@ -28,9 +32,12 @@ use tearbot_common::{
     tgbot::{BotData, BotType, MustAnswerCallbackQuery, TgCallbackContext},
     xeon::{XeonBotModule, XeonState},
 };
+use tokio::process::Command;
+use tokio::sync::{Mutex, MutexGuard};
 
 pub struct PriceCommandsModule {
     bot_configs: Arc<HashMap<UserId, PriceCommandsConfig>>,
+    ports: HashMap<u16, Arc<Mutex<()>>>,
 }
 
 impl PriceCommandsModule {
@@ -44,6 +51,9 @@ impl PriceCommandsModule {
         }
         Ok(Self {
             bot_configs: Arc::new(bot_configs),
+            ports: (10000..11000)
+                .map(|port| (port, Arc::new(Mutex::new(()))))
+                .collect(),
         })
     }
 }
@@ -152,6 +162,18 @@ impl XeonBotModule for PriceCommandsModule {
 
         if text == "/price" {
             if chat_id.is_user() {
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        bot,
+                        user_id,
+                        chat_id,
+                        None,
+                        &bot.to_callback_data(&TgCommand::PriceCommandsDMPriceCommand)
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
                 return Ok(());
             }
             let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
@@ -163,6 +185,9 @@ impl XeonBotModule for PriceCommandsModule {
             } else {
                 return Ok(());
             };
+            if !chat_config.price_command_enabled {
+                return Ok(());
+            }
             let Some(token) = chat_config.token else {
                 let message = "This command is disabled\\. Let admins know that they can enable it by selecting a token by entering `/pricecommands` in this chat".to_string();
                 let buttons = Vec::<Vec<_>>::new();
@@ -177,6 +202,54 @@ impl XeonBotModule for PriceCommandsModule {
             let reply_markup = InlineKeyboardMarkup::new(buttons);
             bot.send_text_message(chat_id, message, reply_markup)
                 .await?;
+            return Ok(());
+        }
+        if text == "/chart" {
+            if chat_id.is_user() {
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        bot,
+                        user_id,
+                        chat_id,
+                        None,
+                        &bot.to_callback_data(&TgCommand::PriceCommandsDMChartCommand)
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
+            let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
+                if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
+                    chat_config
+                } else {
+                    return Ok(());
+                }
+            } else {
+                return Ok(());
+            };
+            if !chat_config.chart_command_enabled {
+                return Ok(());
+            }
+            let Some(token) = chat_config.token else {
+                let message = "This command is disabled\\. Let admins know that they can enable it by selecting a token by entering `/pricecommands` in this chat".to_string();
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+                return Ok(());
+            };
+            let message = "Please wait, it usually takes 3\\-5 seconds \\.\\.\\.".to_string();
+            let reply_markup = InlineKeyboardMarkup::new(Vec::<Vec<_>>::new());
+            let defer_message = bot
+                .send_text_message(chat_id, message, reply_markup)
+                .await?;
+            let (message, attachment) = get_chart(token, bot, &self.ports).await;
+            let buttons = Vec::<Vec<_>>::new();
+            let reply_markup = InlineKeyboardMarkup::new(buttons);
+            bot.bot().delete_message(chat_id, defer_message.id).await?;
+            bot.send(chat_id, message, reply_markup, attachment).await?;
+            return Ok(());
         }
 
         match command {
@@ -237,6 +310,102 @@ impl XeonBotModule for PriceCommandsModule {
                 bot.send_text_message(chat_id, message, reply_markup)
                     .await?;
             }
+            MessageCommand::PriceCommandsDMPriceCommand => {
+                if !chat_id.is_user() {
+                    return Ok(());
+                }
+                let search_results = search_token(text, 3).await?;
+                if search_results.is_empty() {
+                    let message =
+                        "No tokens found\\. Try entering the token contract address".to_string();
+                    let buttons = vec![vec![InlineKeyboardButton::callback(
+                        "⬅️ Cancel",
+                        bot.to_callback_data(&TgCommand::OpenMainMenu).await,
+                    )]];
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    bot.send_text_message(chat_id, message, reply_markup)
+                        .await?;
+                    return Ok(());
+                }
+                let mut buttons = Vec::new();
+                for token in search_results {
+                    buttons.push(vec![InlineKeyboardButton::callback(
+                        format!(
+                            "{} ({})",
+                            token.metadata.symbol,
+                            if token.account_id.len() > 25 {
+                                token.account_id.as_str()[..(25 - 3)]
+                                    .trim_end_matches('.')
+                                    .to_string()
+                                    + "…"
+                            } else {
+                                token.account_id.to_string()
+                            }
+                        ),
+                        bot.to_callback_data(&TgCommand::PriceCommandsDMPriceCommandToken(
+                            token.account_id,
+                        ))
+                        .await,
+                    )]);
+                }
+                buttons.push(vec![InlineKeyboardButton::callback(
+                    "⬅️ Cancel",
+                    bot.to_callback_data(&TgCommand::OpenMainMenu).await,
+                )]);
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                let message =
+                    "Choose the token you want to choose, or enter the token again".to_string();
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
+            MessageCommand::PriceCommandsDMChartCommand => {
+                if !chat_id.is_user() {
+                    return Ok(());
+                }
+                let search_results = search_token(text, 3).await?;
+                if search_results.is_empty() {
+                    let message =
+                        "No tokens found\\. Try entering the token contract address".to_string();
+                    let buttons = vec![vec![InlineKeyboardButton::callback(
+                        "⬅️ Cancel",
+                        bot.to_callback_data(&TgCommand::OpenMainMenu).await,
+                    )]];
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    bot.send_text_message(chat_id, message, reply_markup)
+                        .await?;
+                    return Ok(());
+                }
+                let mut buttons = Vec::new();
+                for token in search_results {
+                    buttons.push(vec![InlineKeyboardButton::callback(
+                        format!(
+                            "{} ({})",
+                            token.metadata.symbol,
+                            if token.account_id.len() > 25 {
+                                token.account_id.as_str()[..(25 - 3)]
+                                    .trim_end_matches('.')
+                                    .to_string()
+                                    + "…"
+                            } else {
+                                token.account_id.to_string()
+                            }
+                        ),
+                        bot.to_callback_data(&TgCommand::PriceCommandsDMChartCommandToken(
+                            token.account_id,
+                        ))
+                        .await,
+                    )]);
+                }
+                buttons.push(vec![InlineKeyboardButton::callback(
+                    "⬅️ Cancel",
+                    bot.to_callback_data(&TgCommand::OpenMainMenu).await,
+                )]);
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                let message =
+                    "Choose the token you want to choose, or enter the token again".to_string();
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -286,17 +455,15 @@ impl XeonBotModule for PriceCommandsModule {
                 let message = format!("Token Commands alerts for {for_chat_name}");
                 let buttons = vec![
                     vec![InlineKeyboardButton::callback(
-                        format!(
-                            "{}",
-                            if let Some(token) = chat_config.token {
-                                get_ft_metadata(&token)
-                                    .await
-                                    .map(|metadata| format!("💷 Token: {}", metadata.symbol))
-                                    .unwrap_or("🚫 Token: Error".to_string())
-                            } else {
-                                "⚠️ Set Token".to_string()
-                            }
-                        ),
+                        (if let Some(token) = chat_config.token {
+                            get_ft_metadata(&token)
+                                .await
+                                .map(|metadata| format!("💷 Token: {}", metadata.symbol))
+                                .unwrap_or("🚫 Token: Error".to_string())
+                        } else {
+                            "⚠️ Set Token".to_string()
+                        })
+                        .to_string(),
                         context
                             .bot()
                             .to_callback_data(&TgCommand::PriceCommandsSetToken(target_chat_id))
@@ -571,6 +738,91 @@ impl XeonBotModule for PriceCommandsModule {
                 )
                 .await?;
             }
+            TgCommand::PriceCommandsDMPriceCommand => {
+                if !context.chat_id().is_user() {
+                    return Ok(());
+                }
+                context
+                    .bot()
+                    .set_message_command(
+                        context.user_id(),
+                        MessageCommand::PriceCommandsDMPriceCommand,
+                    )
+                    .await?;
+                let message = "Enter the token you want to get the price for".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Cancel",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::OpenMainMenu)
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                context
+                    .bot()
+                    .send_text_message(context.chat_id(), message, reply_markup)
+                    .await?;
+            }
+            TgCommand::PriceCommandsDMPriceCommandToken(token) => {
+                if !context.chat_id().is_user() {
+                    return Ok(());
+                }
+                context
+                    .bot()
+                    .remove_message_command(&context.user_id())
+                    .await?;
+                let message = get_price_message(token, context.bot().xeon()).await;
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                context
+                    .bot()
+                    .send_text_message(context.chat_id(), message, reply_markup)
+                    .await?;
+            }
+            TgCommand::PriceCommandsDMChartCommand => {
+                if !context.chat_id().is_user() {
+                    return Ok(());
+                }
+                context
+                    .bot()
+                    .set_message_command(
+                        context.user_id(),
+                        MessageCommand::PriceCommandsDMChartCommand,
+                    )
+                    .await?;
+                let message = "Enter the token you want to get the price chart for".to_string();
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Cancel",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::OpenMainMenu)
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                context
+                    .bot()
+                    .send_text_message(context.chat_id(), message, reply_markup)
+                    .await?;
+            }
+            TgCommand::PriceCommandsDMChartCommandToken(token) => {
+                if !context.chat_id().is_user() {
+                    return Ok(());
+                }
+                context
+                    .bot()
+                    .remove_message_command(&context.user_id())
+                    .await?;
+                let message = "Please wait, it usually takes 3\\-5 seconds \\.\\.\\.";
+                let reply_markup = InlineKeyboardMarkup::new(Vec::<Vec<_>>::new());
+                context.edit_or_send(message, reply_markup).await?;
+                let (message, attachment) = get_chart(token, context.bot(), &self.ports).await;
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                context
+                    .bot()
+                    .send(context.chat_id(), message, reply_markup, attachment)
+                    .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -619,8 +871,8 @@ fn format_price_change(price_change: f64) -> String {
     match price_change.partial_cmp(&0f64) {
         Some(std::cmp::Ordering::Greater) => format!("+{price_change_percentage:.2}% 🔺"),
         Some(std::cmp::Ordering::Less) => format!("-{price_change_percentage:.2}% 🔻"),
-        Some(std::cmp::Ordering::Equal) => format!("Same 😐"),
-        None => format!("Unknown 🥴"),
+        Some(std::cmp::Ordering::Equal) => "Same 😐".to_string(),
+        None => "Unknown 🥴".to_string(),
     }
 }
 
@@ -646,12 +898,12 @@ async fn get_price_at(token_id: &AccountId, time: DateTime<Utc>) -> Result<f64, 
         .json::<Vec<Response>>()
         .await?;
     let first_event = response
-        .get(0)
+        .first()
         .ok_or_else(|| anyhow::anyhow!("No price found"))?;
-    let meta = get_ft_metadata(&token_id).await?;
+    let meta = get_ft_metadata(token_id).await?;
     let token_decimals = meta.decimals;
     let price_raw = first_event.event.price_usd.clone() * 10u128.pow(token_decimals as u32)
-        / 10u128.pow(USDT_DECIMALS as u32);
+        / 10u128.pow(USDT_DECIMALS);
     let price = ToPrimitive::to_f64(&price_raw).ok_or_else(|| {
         anyhow::anyhow!(
             "Failed to convert price to f64: {:?}",
@@ -698,4 +950,80 @@ async fn get_price_message(token: AccountId, xeon: &XeonState) -> String {
         change_24h = markdown::escape(&format_price_change(price_change_24h)),
         change_7d = markdown::escape(&format_price_change(price_change_7d)),
     )
+}
+
+async fn get_chart(
+    token: AccountId,
+    bot: &BotData,
+    ports: &HashMap<u16, Arc<Mutex<()>>>,
+) -> (String, Attachment) {
+    let mut port: Option<(u16, MutexGuard<()>)> = None;
+    for (next_port, next_port_lock) in ports.iter() {
+        if let Ok(guard) = next_port_lock.try_lock() {
+            port = Some((*next_port, guard));
+            break;
+        }
+    }
+    let Some((port, port_lock)) = port else {
+        return ("An error occurred".to_string(), Attachment::None);
+    };
+    let mut cmd = Command::new("geckodriver")
+        .arg(format!("--port={port}"))
+        .arg("--log=fatal")
+        .spawn()
+        .expect("Failed to start geckodriver");
+    let client = ClientBuilder::rustls()
+        .expect("Rustls initialization failed")
+        .capabilities({
+            let mut capabilities = serde_json::map::Map::new();
+            let options = serde_json::json!({ "args": ["--headless"] });
+            capabilities.insert("moz:firefoxOptions".to_string(), options);
+            capabilities
+        })
+        .connect(&format!("http://localhost:{port}"))
+        .await
+        .expect("Failed to connect to WebDriver");
+    if let Err(err) = client
+        .goto(&format!(
+            "data:text/html;base64,{}#{token}",
+            BASE64_STANDARD.encode(include_bytes!("chart.html"))
+        ))
+        .await
+    {
+        log::error!("Failed to open chart page: {err:?}");
+        return ("An error occurred".to_string(), Attachment::None);
+    }
+    let _ = client
+        .wait()
+        .at_most(Duration::from_secs(30))
+        .for_element(Locator::Id("ready"))
+        .await;
+    let screenshot = match client.screenshot().await {
+        Ok(screenshot) => screenshot,
+        Err(err) => {
+            log::error!("Failed to take screenshot: {err:?}");
+            return ("An error occurred".to_string(), Attachment::None);
+        }
+    };
+
+    if let Err(err) = client.close().await {
+        log::error!("Failed to close chart browser: {err:?}");
+    }
+    if let Err(err) = cmd.kill().await {
+        log::error!("Failed to kill geckodriver: {err:?}");
+    }
+    drop(port_lock);
+
+    let chart_attachment = Attachment::PhotoBytes(screenshot);
+    let message = format!(
+        "*{token_name}* price chart\n\nCurrent price: *{price}*",
+        token_name = markdown::escape(
+            &get_ft_metadata(&token)
+                .await
+                .map(|metadata| metadata.symbol)
+                .unwrap_or("Error".to_string())
+        ),
+        price = markdown::escape(&format_usd_amount(bot.xeon().get_price(&token).await)),
+    );
+    (message, chart_attachment)
 }

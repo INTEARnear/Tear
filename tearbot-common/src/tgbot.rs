@@ -905,6 +905,14 @@ impl BotData {
                 .reply_markup(reply_markup)
                 .await
                 .inspect_err(log_parse_error(text))?,
+            Attachment::PhotoBytes(bytes) => self
+                .bot
+                .send_photo(chat_id, InputFile::memory(bytes))
+                .caption(text.clone())
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup)
+                .await
+                .inspect_err(log_parse_error(text))?,
             Attachment::AnimationUrl(url) => self
                 .bot
                 .send_animation(chat_id, InputFile::url(url))
@@ -1275,6 +1283,7 @@ pub enum Attachment {
     None,
     PhotoUrl(Url),
     PhotoFileId(String),
+    PhotoBytes(Vec<u8>),
     AnimationUrl(Url),
     AnimationFileId(String),
     AudioUrl(Url),
