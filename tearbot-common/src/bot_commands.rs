@@ -455,7 +455,7 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorAddBalance(ChatId),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorBuyMessages(ChatId, u32),
+    AiModeratorBuyCredits(ChatId, u32),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorUndeleteMessage(ChatId, ChatId, ChatId, String, Attachment),
     #[cfg(feature = "image-gen-module")]
@@ -671,7 +671,7 @@ pub enum MessageCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorPromptConstructorAddOther(PromptBuilder),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorBuyMessages(ChatId),
+    AiModeratorBuyCredits(ChatId),
     #[cfg(feature = "image-gen-module")]
     ImageGenLoRAName,
     #[cfg(feature = "image-gen-module")]
@@ -694,7 +694,7 @@ pub enum MessageCommand {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PaymentReference {
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorBuyingMessages(ChatId, u32),
+    AiModeratorBuyingCredits(ChatId, u32),
     #[cfg(feature = "image-gen-module")]
     ImageGenBuyingCredits(u32),
 }

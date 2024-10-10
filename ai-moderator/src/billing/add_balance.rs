@@ -14,9 +14,9 @@ use tearbot_common::{
     utils::chat::check_admin_permission_in_chat,
 };
 
-use crate::{AiModeratorBotConfig, FREE_TRIAL_MESSAGES};
+use crate::{AiModeratorBotConfig, FREE_TRIAL_CREDITS};
 
-const MESSAGES_IN_1_USD: u32 = 1000;
+const CREDITS_IN_1_USD: u32 = 690;
 
 pub async fn handle_button(
     ctx: &mut TgCallbackContext<'_>,
@@ -25,19 +25,19 @@ pub async fn handle_button(
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    let message = "How many messages do you want to buy?";
+    let message = "How many credits do you want to buy?";
     let buttons = vec![
         vec![
             InlineKeyboardButton::callback(
                 "500",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorBuyMessages(target_chat_id, 500))
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 500))
                     .await,
             ),
             InlineKeyboardButton::callback(
                 "1000",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorBuyMessages(target_chat_id, 1000))
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 1000))
                     .await,
             ),
         ],
@@ -45,13 +45,13 @@ pub async fn handle_button(
             InlineKeyboardButton::callback(
                 "5000",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorBuyMessages(target_chat_id, 5000))
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 5000))
                     .await,
             ),
             InlineKeyboardButton::callback(
-                "12500",
+                "10000",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorBuyMessages(target_chat_id, 12500))
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 10000))
                     .await,
             ),
         ],
@@ -66,7 +66,7 @@ pub async fn handle_button(
     ctx.bot()
         .set_message_command(
             ctx.user_id(),
-            MessageCommand::AiModeratorBuyMessages(target_chat_id),
+            MessageCommand::AiModeratorBuyCredits(target_chat_id),
         )
         .await?;
     ctx.edit_or_send(message, reply_markup).await?;
@@ -88,21 +88,21 @@ pub async fn handle_input(
         return Ok(());
     };
     bot.remove_message_command(&user_id).await?;
-    handle_buy_messages(bot, user_id, chat_id, target_chat_id, number).await?;
+    handle_buy_credits(bot, user_id, chat_id, target_chat_id, number).await?;
     Ok(())
 }
 
-pub async fn handle_buy_messages(
+pub async fn handle_buy_credits(
     bot: &BotData,
     user_id: UserId,
     chat_id: ChatId,
     target_chat_id: ChatId,
-    messages: u32,
+    credits: u32,
 ) -> Result<(), anyhow::Error> {
     bot.remove_message_command(&user_id).await?;
     if let Ok(old_bot_id) = std::env::var("MIGRATION_OLD_BOT_ID") {
         if bot.id().0 == old_bot_id.parse::<u64>().unwrap() {
-            let message = "Please migrate to the new bot to buy messages";
+            let message = "Please migrate to the new bot to buy credits";
             let buttons = vec![vec![InlineKeyboardButton::callback(
                 "⬆️ Migrate",
                 bot.to_callback_data(&TgCommand::MigrateToNewBot(target_chat_id))
@@ -114,50 +114,50 @@ pub async fn handle_buy_messages(
             return Ok(());
         }
     }
-    let price_usd = messages as f64 / MESSAGES_IN_1_USD as f64;
+    let price_usd = credits as f64 / CREDITS_IN_1_USD as f64;
     let price_stars = usd_to_stars(price_usd);
     bot.bot()
         .send_invoice(
             chat_id,
-            format!("{messages} AI moderated messages"),
-            format!("{messages} credits that can be used for Tear's AI Moderator service"),
-            bot.to_payment_payload(&PaymentReference::AiModeratorBuyingMessages(
+            format!("{credits} AI moderated credits"),
+            format!("{credits} credits that can be used for Tear's AI Moderator service"),
+            bot.to_payment_payload(&PaymentReference::AiModeratorBuyingCredits(
                 target_chat_id,
-                messages,
+                credits,
             ))
             .await,
             "".to_string(),
             "XTR",
-            vec![LabeledPrice::new("Messages", price_stars)],
+            vec![LabeledPrice::new("Credits", price_stars)],
         )
         .await?;
     Ok(())
 }
 
-pub async fn handle_bought_messages(
+pub async fn handle_bought_credits(
     bot: &BotData,
     chat_id: ChatId,
     user_id: UserId,
     target_chat_id: ChatId,
-    messages_bought: u32,
+    credits_bought: u32,
     bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     if let Some(config) = bot_configs.get(&bot.id()) {
-        let existing_messages = match config.messages_balance.get(&target_chat_id).await {
-            Some(messages) => messages,
+        let existing_credits = match config.credits_balance.get(&target_chat_id).await {
+            Some(credits) => credits,
             None => {
-                log::warn!("No message balance found for chat {chat_id} but payment of {messages_bought} messages received. Defaulting to {FREE_TRIAL_MESSAGES}");
-                FREE_TRIAL_MESSAGES
+                log::warn!("No credit balance found for chat {chat_id} but payment of {credits_bought} credits received. Defaulting to {FREE_TRIAL_CREDITS}");
+                FREE_TRIAL_CREDITS
             }
         };
-        let new_messages = existing_messages + messages_bought;
+        let new_credits = existing_credits + credits_bought;
         config
-            .messages_balance
-            .insert_or_update(target_chat_id, new_messages)
+            .credits_balance
+            .insert_or_update(target_chat_id, new_credits)
             .await?;
 
         // Double conversion to preserve precision loss
-        let cost_usd = messages_bought as f64 / MESSAGES_IN_1_USD as f64;
+        let cost_usd = credits_bought as f64 / CREDITS_IN_1_USD as f64;
         let cost_stars = usd_to_stars(cost_usd);
         let cost_usd = stars_to_usd(cost_stars);
         bot.user_spent(
@@ -168,7 +168,7 @@ pub async fn handle_bought_messages(
         .await;
     } else {
         log::warn!(
-            "No config found for chat {chat_id} but payment of {messages_bought} messagse received"
+            "No config found for chat {chat_id} but payment of {credits_bought} messagse received"
         );
         return Ok(());
     }
@@ -180,7 +180,7 @@ pub async fn handle_bought_messages(
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     bot.send_text_message(
         chat_id,
-        format!("You have bought {messages_bought} AI moderated messages",),
+        format!("You have bought {credits_bought} AI moderated messages",),
         reply_markup,
     )
     .await?;

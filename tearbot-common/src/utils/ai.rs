@@ -58,6 +58,16 @@ impl Model {
         }
     }
 
+    pub fn cost(&self) -> u32 {
+        match self {
+            Self::RecommendedBest => 3,
+            Self::RecommendedFast => 1,
+            Self::Gpt4o => 3,
+            Self::Gpt4oMini => 1,
+            Self::Llama70B => 1,
+        }
+    }
+
     pub async fn get_ai_response<T: DeserializeOwned + Debug + Any>(
         &self,
         prompt: &str,

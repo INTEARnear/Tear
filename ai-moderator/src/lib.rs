@@ -44,7 +44,7 @@ use tokio::sync::RwLock;
 
 use crate::utils::MessageRating;
 
-const FREE_TRIAL_MESSAGES: u32 = 1000;
+const FREE_TRIAL_CREDITS: u32 = 100;
 
 pub struct AiModeratorModule {
     bot_configs: Arc<HashMap<UserId, AiModeratorBotConfig>>,
@@ -368,7 +368,7 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
-            MessageCommand::AiModeratorBuyMessages(target_chat_id) => {
+            MessageCommand::AiModeratorBuyCredits(target_chat_id) => {
                 billing::add_balance::handle_input(bot, user_id, chat_id, target_chat_id, text)
                     .await?;
             }
@@ -614,13 +614,13 @@ impl XeonBotModule for AiModeratorModule {
             TgCommand::AiModeratorAddBalance(target_chat_id) => {
                 billing::add_balance::handle_button(&mut ctx, target_chat_id).await?;
             }
-            TgCommand::AiModeratorBuyMessages(target_chat_id, messages) => {
-                billing::add_balance::handle_buy_messages(
+            TgCommand::AiModeratorBuyCredits(target_chat_id, credits) => {
+                billing::add_balance::handle_buy_credits(
                     ctx.bot(),
                     ctx.user_id(),
                     ctx.chat_id(),
                     target_chat_id,
-                    messages,
+                    credits,
                 )
                 .await?;
             }
@@ -646,8 +646,8 @@ impl XeonBotModule for AiModeratorModule {
     ) -> Result<(), anyhow::Error> {
         #[allow(clippy::single_match)]
         match payment {
-            PaymentReference::AiModeratorBuyingMessages(target_chat_id, number) => {
-                billing::add_balance::handle_bought_messages(
+            PaymentReference::AiModeratorBuyingCredits(target_chat_id, number) => {
+                billing::add_balance::handle_bought_credits(
                     bot,
                     chat_id,
                     user_id,
@@ -669,7 +669,7 @@ struct AiModeratorBotConfig {
     message_autodeletion_scheduled: PersistentCachedStore<MessageToDelete, DateTime<Utc>>,
     message_autodeletion_queue: RwLock<VecDeque<MessageToDelete>>,
     messages_sent: PersistentCachedStore<ChatUser, usize>,
-    pub messages_balance: PersistentCachedStore<ChatId, u32>,
+    pub credits_balance: PersistentCachedStore<ChatId, u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -746,7 +746,7 @@ impl AiModeratorBotConfig {
             &format!("bot{bot_id}_ai_moderator_messages_sent"),
         )
         .await?;
-        let messages_balance = PersistentCachedStore::new(
+        let credits_balance = PersistentCachedStore::new(
             db.clone(),
             &format!("bot{bot_id}_ai_moderator_messages_balance"),
         )
@@ -756,7 +756,7 @@ impl AiModeratorBotConfig {
             message_autodeletion_scheduled,
             message_autodeletion_queue: RwLock::new(message_autodeletion_queue),
             messages_sent,
-            messages_balance,
+            credits_balance,
         })
     }
 
@@ -824,18 +824,18 @@ impl AiModeratorBotConfig {
         messages_sent
     }
 
-    async fn decrement_message_balance(&self, chat_id: ChatId) -> bool {
+    async fn decrement_message_balance(&self, chat_id: ChatId, cost: u32) -> bool {
         let balance = self
-            .messages_balance
+            .credits_balance
             .get(&chat_id)
             .await
-            .unwrap_or(FREE_TRIAL_MESSAGES);
+            .unwrap_or(FREE_TRIAL_CREDITS);
         if balance == 0 {
             return false;
         }
         if let Err(err) = self
-            .messages_balance
-            .insert_or_update(chat_id, balance - 1)
+            .credits_balance
+            .insert_or_update(chat_id, balance - cost)
             .await
         {
             log::error!("Failed to decrement message balance: {err}");
@@ -896,7 +896,10 @@ impl AiModeratorModule {
                         return Ok(());
                     }
 
-                    if !bot_config.decrement_message_balance(chat_id).await {
+                    if !bot_config
+                        .decrement_message_balance(chat_id, chat_config.model.cost())
+                        .await
+                    {
                         log::debug!(
                             "Skipping moderation for message {} due to insufficient balance",
                             message.id
@@ -909,7 +912,7 @@ impl AiModeratorModule {
                             .get(&chat_id)
                             .map_or(true, |last| last.elapsed() > WARNING_INTERVAL)
                         {
-                            let message = "You have run out of messages balance\\. Please make sure your balance is greater than 0".to_string();
+                            let message = "You have run out of credits balance\\. Please make sure your balance is greater than 0".to_string();
                             let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                             bot.send_text_message(chat_id, message, reply_markup)
