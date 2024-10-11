@@ -185,7 +185,7 @@ impl XeonBotModule for PriceCommandsModule {
             } else {
                 return Ok(());
             };
-            if !chat_config.price_command_enabled {
+            if !chat_config.price_command_enabled || !chat_config.enabled {
                 return Ok(());
             }
             let Some(token) = chat_config.token else {
@@ -228,7 +228,7 @@ impl XeonBotModule for PriceCommandsModule {
             } else {
                 return Ok(());
             };
-            if !chat_config.chart_command_enabled {
+            if !chat_config.chart_command_enabled || !chat_config.enabled {
                 return Ok(());
             }
             let Some(token) = chat_config.token else {

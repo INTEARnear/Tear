@@ -44,7 +44,7 @@ use tokio::sync::RwLock;
 
 use crate::utils::MessageRating;
 
-const FREE_TRIAL_CREDITS: u32 = 100;
+const FREE_TRIAL_CREDITS: u32 = 300;
 
 pub struct AiModeratorModule {
     bot_configs: Arc<HashMap<UserId, AiModeratorBotConfig>>,
