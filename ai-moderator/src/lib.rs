@@ -14,7 +14,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use chrono::{DateTime, Datelike, Utc};
+use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tearbot_common::utils::ai::Model;
@@ -44,13 +44,12 @@ use tokio::sync::RwLock;
 
 use crate::utils::MessageRating;
 
-const FREE_TRIAL_CREDITS: u32 = 300;
+const FREE_TRIAL_CREDITS: u32 = 600;
 
 pub struct AiModeratorModule {
     bot_configs: Arc<HashMap<UserId, AiModeratorBotConfig>>,
     xeon: Arc<XeonState>,
-    last_balance_warning_message: HashMap<ChatId, Instant>,
-    messages_moderated: DashMap<ChatId, (u32, u32)>,
+    last_balance_warning_message: DashMap<ChatId, Instant>,
 }
 
 #[async_trait]
@@ -857,8 +856,7 @@ impl AiModeratorModule {
         Ok(Self {
             bot_configs: Arc::new(bot_configs),
             xeon,
-            last_balance_warning_message: HashMap::new(),
-            messages_moderated: DashMap::new(),
+            last_balance_warning_message: DashMap::new(),
         })
     }
 
@@ -869,6 +867,10 @@ impl AiModeratorModule {
         user_id: UserId,
         message: Message,
     ) -> Result<(), anyhow::Error> {
+        if message.text().unwrap_or_default().starts_with('/') {
+            log::debug!("Skipping moderation becuse message is command: {}", message.id);
+            return Ok(());
+        }
         let mut is_admin = false;
         if let Some(sender_chat) = message.sender_chat.as_ref() {
             if sender_chat.id == chat_id {
@@ -891,6 +893,11 @@ impl AiModeratorModule {
                     .await
                     < chat_config.first_messages
                 {
+                    if !chat_config.enabled {
+                        log::debug!("Skipping moderation because chat {chat_id} is disabled");
+                        return Ok(());
+                    }
+
                     if !chat_config.debug_mode && is_admin {
                         log::debug!("Skipping moderation for admin message {}", message.id);
                         return Ok(());
@@ -912,11 +919,17 @@ impl AiModeratorModule {
                             .get(&chat_id)
                             .map_or(true, |last| last.elapsed() > WARNING_INTERVAL)
                         {
-                            let message = "You have run out of credits balance\\. Please make sure your balance is greater than 0".to_string();
+                            self.last_balance_warning_message
+                                .insert(chat_id, Instant::now());
+                            let message = "You have run out of credits\\. Please make sure your balance is greater than 0".to_string();
                             let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            bot.send_text_message(chat_id, message, reply_markup)
-                                .await?;
+                            bot.send_text_message(
+                                chat_config.moderator_chat.unwrap_or(chat_id),
+                                message,
+                                reply_markup,
+                            )
+                            .await?;
                         }
                         return Ok(());
                     }
@@ -937,17 +950,6 @@ impl AiModeratorModule {
         log::debug!("Chat config received for message {}", message.id);
         if !chat_config.enabled {
             return Ok(());
-        }
-
-        let current_day: u32 = Utc::now().day();
-        let mut remove = false;
-        if let Some(entry) = self.messages_moderated.get(&chat_id) {
-            if current_day != entry.value().0 {
-                remove = true;
-            }
-        }
-        if remove {
-            self.messages_moderated.remove(&chat_id);
         }
 
         let rating_future = utils::get_message_rating(

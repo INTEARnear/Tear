@@ -37,6 +37,7 @@ use nft_buybot::NftBuybotModule;
 use potlock::PotlockModule;
 #[cfg(feature = "price-alerts-module")]
 use price_alerts::PriceAlertsModule;
+#[cfg(feature = "price-commands-module")]
 use price_commands::PriceCommandsModule;
 use reqwest::Url;
 #[cfg(feature = "socialdb-module")]

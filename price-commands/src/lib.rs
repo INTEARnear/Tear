@@ -251,6 +251,35 @@ impl XeonBotModule for PriceCommandsModule {
             bot.send(chat_id, message, reply_markup, attachment).await?;
             return Ok(());
         }
+        if text == "/ca"
+            || text == "ca"
+            || text == "CA"
+            || text == "Ca"
+            || text == "/buy"
+            || text == "Buy"
+            || text == "buy"
+        {
+f            let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
+                if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
+                    chat_config
+                } else {
+                    return Ok(());
+                }
+            } else {
+                return Ok(());
+            };
+            if chat_config.ca_command_enabled {
+                let message = format!(
+                    "Click to copy CA: `{}`",
+                    chat_config.token.as_ref().unwrap()
+                );
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+                return Ok(());
+            }
+        }
 
         match command {
             MessageCommand::PriceCommandsSetToken(target_chat_id) => {
@@ -507,13 +536,33 @@ impl XeonBotModule for PriceCommandsModule {
                                 .await,
                         ),
                     ],
-                    vec![InlineKeyboardButton::callback(
-                        "⬅️ Back",
-                        context
-                            .bot()
-                            .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
-                            .await,
-                    )],
+                    vec![
+                        InlineKeyboardButton::callback(
+                            format!(
+                                "{} CA command",
+                                if chat_config.ca_command_enabled {
+                                    "✅"
+                                } else {
+                                    "❌"
+                                }
+                            ),
+                            context
+                                .bot()
+                                .to_callback_data(&if chat_config.ca_command_enabled {
+                                    TgCommand::PriceCommandsDisableCaCommand(target_chat_id)
+                                } else {
+                                    TgCommand::PriceCommandsEnableCaCommand(target_chat_id)
+                                })
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "⬅️ Back",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
+                                .await,
+                        ),
+                    ],
                 ];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -738,6 +787,82 @@ impl XeonBotModule for PriceCommandsModule {
                 )
                 .await?;
             }
+            TgCommand::PriceCommandsEnableCaCommand(target_chat_id) => {
+                if target_chat_id.is_user() {
+                    return Ok(());
+                }
+                if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
+                    .await
+                {
+                    return Ok(());
+                }
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
+                    let subscriber = if let Some(mut subscriber) =
+                        bot_config.chat_configs.get(&target_chat_id).await
+                    {
+                        subscriber.ca_command_enabled = true;
+                        subscriber
+                    } else {
+                        PriceCommandsChatConfig::default()
+                    };
+                    bot_config
+                        .chat_configs
+                        .insert_or_update(target_chat_id, subscriber)
+                        .await?;
+                }
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        context.bot(),
+                        context.user_id(),
+                        context.chat_id(),
+                        context.message_id(),
+                        &context
+                            .bot()
+                            .to_callback_data(&TgCommand::PriceCommandsChatSettings(target_chat_id))
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
+            TgCommand::PriceCommandsDisableCaCommand(target_chat_id) => {
+                if target_chat_id.is_user() {
+                    return Ok(());
+                }
+                if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
+                    .await
+                {
+                    return Ok(());
+                }
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
+                    let subscriber = if let Some(mut subscriber) =
+                        bot_config.chat_configs.get(&target_chat_id).await
+                    {
+                        subscriber.ca_command_enabled = false;
+                        subscriber
+                    } else {
+                        PriceCommandsChatConfig::default()
+                    };
+                    bot_config
+                        .chat_configs
+                        .insert_or_update(target_chat_id, subscriber)
+                        .await?;
+                }
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        context.bot(),
+                        context.user_id(),
+                        context.chat_id(),
+                        context.message_id(),
+                        &context
+                            .bot()
+                            .to_callback_data(&TgCommand::PriceCommandsChatSettings(target_chat_id))
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
             TgCommand::PriceCommandsDMPriceCommand => {
                 if !context.chat_id().is_user() {
                     return Ok(());
@@ -849,6 +974,8 @@ struct PriceCommandsChatConfig {
     chart_command_enabled: bool,
     #[serde(default = "default_enable")]
     enabled: bool,
+    #[serde(default)]
+    ca_command_enabled: bool,
 }
 
 impl Default for PriceCommandsChatConfig {
@@ -857,6 +984,7 @@ impl Default for PriceCommandsChatConfig {
             token: None,
             price_command_enabled: true,
             chart_command_enabled: true,
+            ca_command_enabled: true,
             enabled: default_enable(),
         }
     }
@@ -869,8 +997,25 @@ fn default_enable() -> bool {
 fn format_price_change(price_change: f64) -> String {
     let price_change_percentage = (price_change * 100f64).abs();
     match price_change.partial_cmp(&0f64) {
-        Some(std::cmp::Ordering::Greater) => format!("+{price_change_percentage:.2}% 🔺"),
-        Some(std::cmp::Ordering::Less) => format!("-{price_change_percentage:.2}% 🔻"),
+        Some(std::cmp::Ordering::Greater) => format!(
+            "+{price_change_percentage:.2}% {emoji}",
+            emoji = match price_change_percentage.abs() {
+                10.0..50.0 => "⬆️",
+                50.0..150.0 => "🚀",
+                150.0..300.0 => "🌘",
+                300.0.. => "🌘🌘🌘",
+                _ => "🔺",
+            }
+        ),
+        Some(std::cmp::Ordering::Less) => format!(
+            "-{price_change_percentage:.2}% {emoji}",
+            emoji = match price_change_percentage.abs() {
+                40.0..80.0 => "💩",
+                80.0..98.0 => "🤡",
+                98.0.. => "🤡🤡🤡",
+                _ => "🔻",
+            }
+        ),
         Some(std::cmp::Ordering::Equal) => "Same 😐".to_string(),
         None => "Unknown 🥴".to_string(),
     }

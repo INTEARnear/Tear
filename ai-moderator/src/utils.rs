@@ -71,6 +71,7 @@ pub fn reached_gpt4o_rate_limit(chat_id: ChatId) -> bool {
 pub enum MessageRating {
     NotApplicableSystemMessage,
     NotApplicableNoText,
+    UnexpectedError,
     Ok {
         judgement: ModerationJudgement,
         reasoning: String,
@@ -93,18 +94,28 @@ pub async fn get_message_rating(
         .unwrap_or_else(|| {
             "[No text. Pass this as 'Good' unless you see a suspicious image]".to_string()
         });
-    for entity in message.parse_entities().unwrap_or_default() {
-        if let MessageEntityKind::TextLink { url } = entity.kind() {
-            message_text.replace_range(
-                entity.range(),
-                &format!(
-                    "[{}]({})",
-                    markdown::escape(&message_text[entity.range()]),
-                    markdown::escape_link_url(url.as_ref())
-                ),
-            );
+    let entities = message.parse_entities().unwrap_or_default();
+    let message_text = match std::panic::catch_unwind(move || {
+        for entity in entities.into_iter().rev() {
+            if let MessageEntityKind::TextLink { url } = entity.kind() {
+                message_text.replace_range(
+                    entity.range(),
+                    &format!(
+                        "[{}]({})",
+                        markdown::escape(&message_text[entity.range()]),
+                        markdown::escape_link_url(url.as_ref())
+                    ),
+                );
+            }
         }
-    }
+        message_text
+    }) {
+        Ok(message_text) => message_text,
+        Err(err) => {
+            log::error!("Failed to parse message entities: {err:?}, message: {message:?}");
+            return MessageRating::UnexpectedError;
+        }
+    };
     let message_image = message
         .photo()
         .map(|photo| photo.last().unwrap().file.id.clone());

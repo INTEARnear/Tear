@@ -549,6 +549,10 @@ pub enum TgCommand {
     PriceCommandsDMChartCommand,
     #[cfg(feature = "price-commands-module")]
     PriceCommandsDMChartCommandToken(AccountId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsEnableCaCommand(ChatId),
+    #[cfg(feature = "price-commands-module")]
+    PriceCommandsDisableCaCommand(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
