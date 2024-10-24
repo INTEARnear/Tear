@@ -12,7 +12,7 @@ use tearbot_common::teloxide::prelude::Requester;
 use tearbot_common::tgbot::Attachment;
 use tearbot_common::utils::apis::search_token;
 use tearbot_common::utils::requests::get_reqwest_client;
-use tearbot_common::utils::tokens::{format_usd_amount, get_ft_metadata};
+use tearbot_common::utils::tokens::{format_price_change, format_usd_amount, get_ft_metadata};
 use tearbot_common::{
     mongodb::Database,
     near_primitives::types::AccountId,
@@ -268,12 +268,48 @@ impl XeonBotModule for PriceCommandsModule {
             } else {
                 return Ok(());
             };
-            if chat_config.ca_command_enabled {
-                let message = format!(
-                    "Click to copy CA: `{}`",
-                    chat_config.token.as_ref().unwrap()
-                );
+            let Some(token) = chat_config.token else {
+                let message = "This command is disabled\\. Let admins know that they can enable it by selecting a token by entering `/pricecommands` in this chat".to_string();
                 let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+                return Ok(());
+            };
+            if chat_config.ca_command_enabled {
+                let bot_start_query = {
+                    let token_encoded = token.as_str().replace('.', "=");
+                    if token_encoded.len() > 60 {
+                        "trade".to_string()
+                    } else {
+                        format!("buy-{token_encoded}")
+                    }
+                };
+                let mut exchanges = vec![
+                    format!("[Ref\\.finance](https://app.ref.finance/#near|{token})"),
+                    format!(
+                        "[Bettear Bot](tg://resolve?domain={}&start={bot_start_query})",
+                        bot.bot().get_me().await?.username.as_ref().unwrap(),
+                    ),
+                ];
+                if let Some(meme) = token.as_str().strip_suffix(".meme-cooking.near") {
+                    if let Some(meme_id) = meme.split('-').next() {
+                        exchanges.push(format!(
+                            "[Meme Cooking](https://meme-cooking.near/meme/{meme_id})"
+                        ))
+                    };
+                }
+                let exchanges = exchanges.join(", ");
+                let message = format!("Click to copy CA: `{token}`\n\nBuy on: {exchanges}");
+                let buttons = vec![vec![InlineKeyboardButton::url(
+                    "Buy Now",
+                    format!(
+                        "tg://resolve?domain={}&start={bot_start_query}",
+                        bot.bot().get_me().await?.username.as_ref().unwrap(),
+                    )
+                    .parse()
+                    .unwrap(),
+                )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 bot.send_text_message(chat_id, message, reply_markup)
                     .await?;
@@ -992,33 +1028,6 @@ impl Default for PriceCommandsChatConfig {
 
 fn default_enable() -> bool {
     true
-}
-
-fn format_price_change(price_change: f64) -> String {
-    let price_change_percentage = (price_change * 100f64).abs();
-    match price_change.partial_cmp(&0f64) {
-        Some(std::cmp::Ordering::Greater) => format!(
-            "+{price_change_percentage:.2}% {emoji}",
-            emoji = match price_change_percentage.abs() {
-                10.0..50.0 => "⬆️",
-                50.0..150.0 => "🚀",
-                150.0..300.0 => "🌘",
-                300.0.. => "🌘🌘🌘",
-                _ => "🔺",
-            }
-        ),
-        Some(std::cmp::Ordering::Less) => format!(
-            "-{price_change_percentage:.2}% {emoji}",
-            emoji = match price_change_percentage.abs() {
-                40.0..80.0 => "💩",
-                80.0..98.0 => "🤡",
-                98.0.. => "🤡🤡🤡",
-                _ => "🔻",
-            }
-        ),
-        Some(std::cmp::Ordering::Equal) => "Same 😐".to_string(),
-        None => "Unknown 🥴".to_string(),
-    }
 }
 
 async fn get_price_at(token_id: &AccountId, time: DateTime<Utc>) -> Result<f64, anyhow::Error> {

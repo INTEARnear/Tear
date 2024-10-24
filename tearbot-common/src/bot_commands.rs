@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
+use inindexer::near_utils::dec_format;
 use mongodb::bson::Bson;
-use near_primitives::types::AccountId;
+use near_primitives::types::{AccountId, Balance};
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::{ChatId, UserId};
 
@@ -553,6 +554,47 @@ pub enum TgCommand {
     PriceCommandsEnableCaCommand(ChatId),
     #[cfg(feature = "price-commands-module")]
     PriceCommandsDisableCaCommand(ChatId),
+    #[cfg(feature = "trading-bot-module")]
+    TradingBot,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBuy,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBuyToken {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBuyTokenAmount {
+        token_id: AccountId,
+        #[serde(with = "dec_format")]
+        token_amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPositions,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPosition {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPositionClose {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawNear,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawNearAmount {
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawNearAmountAccount {
+        #[serde(with = "dec_format")]
+        amount: Balance,
+        withdraw_to: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotExportSeedPhrase,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotComingSoon,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -693,6 +735,19 @@ pub enum MessageCommand {
     PriceCommandsDMPriceCommand,
     #[cfg(feature = "price-commands-module")]
     PriceCommandsDMChartCommand,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBuyAskForToken,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBuyAskForAmount {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawAskForAmount,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawAskForAccount {
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -772,13 +827,21 @@ pub enum ReorderMode {
     MoveAfter,
 }
 
-#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
+#[cfg(any(
+    feature = "new-liquidity-pools-module",
+    feature = "utilities-module",
+    feature = "trading-bot-module"
+))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PoolId {
     Ref(u64),
 }
 
-#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
+#[cfg(any(
+    feature = "new-liquidity-pools-module",
+    feature = "utilities-module",
+    feature = "trading-bot-module"
+))]
 impl PoolId {
     pub fn get_link(&self) -> String {
         match self {
@@ -799,7 +862,11 @@ impl PoolId {
     }
 }
 
-#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
+#[cfg(any(
+    feature = "new-liquidity-pools-module",
+    feature = "utilities-module",
+    feature = "trading-bot-module"
+))]
 impl std::str::FromStr for PoolId {
     type Err = anyhow::Error;
 
@@ -823,13 +890,34 @@ impl std::str::FromStr for PoolId {
     }
 }
 
-#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
+#[cfg(any(
+    feature = "new-liquidity-pools-module",
+    feature = "utilities-module",
+    feature = "trading-bot-module"
+))]
+impl std::fmt::Display for PoolId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PoolId::Ref(id) => write!(f, "REF-{id}"),
+        }
+    }
+}
+
+#[cfg(any(
+    feature = "new-liquidity-pools-module",
+    feature = "utilities-module",
+    feature = "trading-bot-module"
+))]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Exchange {
     RefFinance,
 }
 
-#[cfg(any(feature = "new-liquidity-pools-module", feature = "utilities-module"))]
+#[cfg(any(
+    feature = "new-liquidity-pools-module",
+    feature = "utilities-module",
+    feature = "trading-bot-module"
+))]
 impl Exchange {
     pub fn get_name(&self) -> &'static str {
         match self {

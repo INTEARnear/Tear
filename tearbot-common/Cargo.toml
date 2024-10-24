@@ -42,6 +42,7 @@ tokio-tungstenite = { version = "0.23.1", features = [
     "rustls-tls-native-roots",
 ], optional = true }
 inquire = { workspace = true, optional = true }
+serde_with = { workspace = true }
 
 [features]
 contract-logs-module = ["semver"]
@@ -59,6 +60,7 @@ ai-moderator-module = []
 image-gen-module = []
 burrow-liquidations-module = []
 price-commands-module = []
+trading-bot-module = []
 
 redis-events = ["redis", "inevents-redis"]
 websocket-events = ["tokio-tungstenite"]

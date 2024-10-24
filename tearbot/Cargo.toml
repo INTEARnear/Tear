@@ -21,6 +21,7 @@ ai-moderator = { path = "../ai-moderator", optional = true }
 image-gen = { path = "../xeon-private-modules/image-gen", optional = true }
 burrow-liquidations = { path = "../burrow-liquidations", optional = true }
 price-commands = { path = "../price-commands", optional = true }
+trading-bot = { path = "../xeon-private-modules/trading-bot", optional = true }
 
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
@@ -67,6 +68,7 @@ xeon = [
     "configure-channels",
     "burrow-liquidations-module",
     "price-commands-module",
+    "trading-bot-module",
 ]
 int = [
     "ai-moderator-module",
@@ -101,3 +103,4 @@ burrow-liquidations-module = [
     "burrow-liquidations",
 ]
 price-commands-module = ["tearbot-common/price-commands-module", "price-commands"]
+trading-bot-module = ["tearbot-common/trading-bot-module", "trading-bot"]

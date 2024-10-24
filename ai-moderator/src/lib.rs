@@ -829,7 +829,7 @@ impl AiModeratorBotConfig {
             .get(&chat_id)
             .await
             .unwrap_or(FREE_TRIAL_CREDITS);
-        if balance == 0 {
+        if (balance as i64 - cost as i64) < 0 {
             return false;
         }
         if let Err(err) = self

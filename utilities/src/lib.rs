@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use std::{cmp::Reverse, sync::Arc};
 
 use async_trait::async_trait;
@@ -295,11 +294,10 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                         .await
                         .and_then(|info| info.main_pool)
                     {
-                        match PoolId::from_str(&main_pool) {
-                            Ok(PoolId::Ref(pool_id)) => format!(
+                        match main_pool {
+                            PoolId::Ref(pool_id) => format!(
                                 "[DexScreener](https://dexscreener.com/near/refv1-{pool_id}) \\| [DexTools](https://www.dextools.io/app/en/near/pair-explorer/{pool_id})",
                             ),
-                            Err(_) => "No chart available".to_string(),
                         }
                     } else {
                         "No chart available".to_string()

@@ -20,22 +20,20 @@ pub async fn format_near_amount(
 ) -> String {
     if amount == 0 {
         "0 NEAR".to_string()
-    } else if amount < 10u128.pow(18) {
+    } else if amount < 10u128.pow(6) {
         format!("{amount} yoctoNEAR")
     } else {
         format!(
             "{}{}",
             format_token_amount(amount, NEAR_DECIMALS, "NEAR"),
             if let Some(xeon) = price_source {
-                if amount != 0 {
-                    format!(
-                        " (${:.02})",
+                format!(
+                    " ({})",
+                    format_usd_amount(
                         (amount as f64 / 10u128.pow(NEAR_DECIMALS) as f64)
-                            * xeon.as_ref().get_price(&WRAP_NEAR.parse().unwrap()).await
+                            * xeon.as_ref().get_price(&WRAP_NEAR.parse().unwrap()).await,
                     )
-                } else {
-                    "".to_string()
-                }
+                )
             } else {
                 "".to_string()
             }
@@ -57,8 +55,10 @@ pub async fn format_tokens(
                     if let Some(price) = xeon.get_price_if_known(token).await {
                         if price != 0f64 {
                             format!(
-                                " (${:.02})",
-                                (amount as f64 / 10u128.pow(metadata.decimals) as f64) * price
+                                " ({})",
+                                format_usd_amount(
+                                    (amount as f64 / 10u128.pow(metadata.decimals) as f64) * price,
+                                )
                             )
                         } else {
                             "".to_string()
@@ -167,3 +167,30 @@ pub async fn format_account_id(account_id: &AccountId) -> String {
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 #[serde(transparent)]
 pub struct StringifiedBalance(#[serde(with = "dec_format")] pub Balance);
+
+pub fn format_price_change(price_change: f64) -> String {
+    let price_change_percentage = (price_change * 100f64).abs();
+    match price_change.partial_cmp(&0f64) {
+        Some(std::cmp::Ordering::Greater) => format!(
+            "+{price_change_percentage:.2}% {emoji}",
+            emoji = match price_change_percentage.abs() {
+                10.0..50.0 => "⬆️",
+                50.0..150.0 => "🚀",
+                150.0..300.0 => "🌘",
+                300.0.. => "🌘🌘🌘",
+                _ => "🔺",
+            }
+        ),
+        Some(std::cmp::Ordering::Less) => format!(
+            "-{price_change_percentage:.2}% {emoji}",
+            emoji = match price_change_percentage.abs() {
+                40.0..80.0 => "💩",
+                80.0..98.0 => "🤡",
+                98.0.. => "🤡🤡🤡",
+                _ => "🔻",
+            }
+        ),
+        Some(std::cmp::Ordering::Equal) => "Same 😐".to_string(),
+        None => "Unknown 🥴".to_string(),
+    }
+}

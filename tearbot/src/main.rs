@@ -49,6 +49,8 @@ use tearbot_common::teloxide::adaptors::CacheMe;
 use tearbot_common::teloxide::prelude::{Bot, RequesterExt};
 use tearbot_common::tgbot::{BotData, BotType};
 use tearbot_common::xeon::Xeon;
+#[cfg(feature = "trading-bot-module")]
+use trading_bot::TradingBotModule;
 #[cfg(feature = "utilities-module")]
 use utilities::UtilitiesModule;
 
@@ -303,6 +305,12 @@ fn main() -> Result<(), anyhow::Error> {
                 {
                     xeon.state()
                         .add_bot_module(PriceCommandsModule::new(xeon.arc_clone_state()).await?)
+                        .await;
+                }
+                #[cfg(feature = "trading-bot-module")]
+                {
+                    xeon.state()
+                        .add_bot_module(TradingBotModule::new(xeon.arc_clone_state()).await?)
                         .await;
                 }
             }

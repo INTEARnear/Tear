@@ -1214,6 +1214,47 @@ impl XeonBotModule for HubModule {
                         }
                     }
                 }
+                #[cfg(feature = "trading-bot-module")]
+                {
+                    if data == "trade" {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(&TgCommand::TradingBot).await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                    if let Some(token_id) = data.strip_prefix("buy-") {
+                        let token_id = token_id.replace('=', ".");
+                        if let Ok(token_id) = token_id.parse::<AccountId>() {
+                            for module in bot.xeon().bot_modules().await.iter() {
+                                module
+                                    .handle_callback(
+                                        TgCallbackContext::new(
+                                            bot,
+                                            user_id,
+                                            chat_id,
+                                            None,
+                                            &bot.to_callback_data(&TgCommand::TradingBotBuyToken {
+                                                token_id: token_id.clone(),
+                                            })
+                                            .await,
+                                        ),
+                                        &mut None,
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
+                }
             }
             MessageCommand::ConnectAccountAnonymously => {
                 if let Ok(account_id) = text.parse::<AccountId>() {
@@ -2136,7 +2177,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         // };
         let mut buttons = create_notificatons_buttons(chat_id, context.bot()).await?;
         buttons.extend(vec![vec![InlineKeyboardButton::callback(
-            "📣 Tools for chats and communities 💬",
+            "📣 Set up for chat or channel 💬",
             context.bot().to_callback_data(&TgCommand::ChooseChat).await,
         )]]);
         #[cfg(feature = "utilities-module")]
@@ -2180,6 +2221,11 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 .bot()
                 .to_callback_data(&TgCommand::NearTgi("near".to_string()))
                 .await,
+        )]);
+        #[cfg(feature = "trading-bot-module")]
+        buttons.push(vec![InlineKeyboardButton::callback(
+            "💱 Trade (ALPHA)",
+            context.bot().to_callback_data(&TgCommand::TradingBot).await,
         )]);
         buttons.push(vec![InlineKeyboardButton::callback(
             "🔗 Invite Friends",
@@ -2274,7 +2320,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         }
 
         if !account_exists(&account_id).await {
-            let message = "This NEAR account doesn't exist\\. Please try again, and make sure it has some NEAR in it\\.".to_string();
+            let message = "This NEAR account doesn't exist\\.".to_string();
             let buttons = vec![vec![InlineKeyboardButton::callback(
                 "🗑 Cancel",
                 bot.to_callback_data(&TgCommand::OpenMainMenu).await,
@@ -2581,16 +2627,24 @@ async fn create_notificatons_buttons(
 ) -> Result<Vec<Vec<InlineKeyboardButton>>, anyhow::Error> {
     #[allow(unused_mut)]
     let mut buttons = Vec::new();
-    #[cfg(feature = "nft-buybot-module")]
-    buttons.push(InlineKeyboardButton::callback(
-        "🖼 NFT trades",
-        bot.to_callback_data(&TgCommand::NftNotificationsSettings(target_chat_id))
-            .await,
-    ));
     #[cfg(feature = "ft-buybot-module")]
     buttons.push(InlineKeyboardButton::callback(
-        "💰 FT swaps",
+        if target_chat_id.is_user() {
+            "💰 Swap alerts"
+        } else {
+            "💰 Buybot"
+        },
         bot.to_callback_data(&TgCommand::FtNotificationsSettings(target_chat_id))
+            .await,
+    ));
+    #[cfg(feature = "nft-buybot-module")]
+    buttons.push(InlineKeyboardButton::callback(
+        if target_chat_id.is_user() {
+            "🖼 NFT alerts"
+        } else {
+            "🖼 NFT buybot"
+        },
+        bot.to_callback_data(&TgCommand::NftNotificationsSettings(target_chat_id))
             .await,
     ));
     #[cfg(feature = "price-alerts-module")]

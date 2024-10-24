@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use crate::bot_commands::PoolId;
 use crate::{
     bot_commands::{MessageCommand, PaymentReference},
     indexer_events::IndexerEventHandler,
@@ -16,6 +17,7 @@ use inindexer::near_utils::dec_format;
 use mongodb::Database;
 use near_primitives::types::{AccountId, Balance};
 use serde::Deserialize;
+use serde_with::{serde_as, DisplayFromStr};
 use teloxide::prelude::{ChatId, Message, UserId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
@@ -67,6 +69,7 @@ where
     s.parse().map_err(serde::de::Error::custom)
 }
 
+#[serde_with::serde_as]
 #[derive(Debug, Deserialize, Clone)]
 pub struct TokenInfo {
     pub account_id: AccountId,
@@ -74,7 +77,8 @@ pub struct TokenInfo {
     pub price_usd_raw: f64,
     #[serde(deserialize_with = "float_as_string")]
     pub price_usd_hardcoded: f64,
-    pub main_pool: Option<String>,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    pub main_pool: Option<PoolId>,
     pub metadata: TokenPartialMetadata,
     #[serde(with = "dec_format")]
     pub total_supply: Balance,

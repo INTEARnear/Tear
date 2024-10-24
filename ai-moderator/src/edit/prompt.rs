@@ -162,7 +162,7 @@ pub async fn handle_edit_prompt_input(
     }
     if let Some(bot_config) = bot_configs.get(&bot.id()) {
         if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-            if chat_config.moderator_chat != Some(chat_id) {
+            if !chat_id.is_user() && chat_config.moderator_chat != Some(chat_id) {
                 return Ok(());
             }
         }
@@ -172,12 +172,10 @@ pub async fn handle_edit_prompt_input(
     let message = "Please wait while I generate a new prompt for you".to_string();
     let buttons = Vec::<Vec<_>>::new();
     let reply_markup = InlineKeyboardMarkup::new(buttons);
-    println!("message: {message}");
     let message_id = bot
         .send_text_message(chat_id, message, reply_markup)
         .await?
         .id;
-    println!("message_id: {message_id}");
 
     let bot_configs = Arc::clone(bot_configs);
     let bot_id = bot.id();

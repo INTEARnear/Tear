@@ -1,6 +1,7 @@
 use base64::{prelude::BASE64_STANDARD, Engine};
 use cached::proc_macro::cached;
 use inindexer::near_utils::dec_format;
+use near_primitives::utils::account_is_implicit;
 use near_primitives::{
     hash::CryptoHash,
     types::{AccountId, Balance, BlockHeight},
@@ -43,13 +44,6 @@ pub async fn rpc<I: Serialize, O: DeserializeOwned>(
     data: I,
 ) -> Result<RpcResponse<O>, anyhow::Error> {
     try_rpc!(|rpc_url| {
-        // Ok(get_reqwest_client()
-        //     .post(rpc_url)
-        //     .json(&data)
-        //     .send()
-        //     .await?
-        //     .json::<RpcResponse<O>>()
-        //     .await?)
         let response = get_reqwest_client()
             .post(rpc_url)
             .json(&data)
@@ -383,6 +377,9 @@ struct ViewReceiptRecordResponse {
 }
 
 pub async fn account_exists(account_id: &AccountId) -> bool {
+    if account_is_implicit(account_id, true) {
+        return true;
+    }
     let info = view_account_not_cached(account_id).await;
     info.map(|i| i.amount > 0).unwrap_or_default()
 }

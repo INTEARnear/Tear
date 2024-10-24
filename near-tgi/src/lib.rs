@@ -18,6 +18,7 @@ use near_cli_rs::commands::transaction::CliTransactionActions;
 use near_cli_rs::commands::CliTopLevelCommand;
 use near_cli_rs::js_command_match::JsCmd;
 use near_cli_rs::LOG_COLLECTOR;
+use tearbot_common::teloxide::prelude::Requester;
 use tearbot_common::teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::tgbot::{Attachment, BotData, BotType};
@@ -408,8 +409,9 @@ impl XeonBotModule for NearTgiModule {
                             match response {
                                 ResponseOrPrompt::Response(response) => {
                                     let response = response + &format!(
-                                        "\nHere is your console command if you need to script it or re\\-run:\n`{}`\nOr share this link \\(click to copy\\): `https://t.me/Intear_Xeon_bot?start=near-tgi-{}`",
+                                        "\nHere is your console command if you need to script it or re\\-run:\n`{}`\nOr share this link \\(click to copy\\): `https://t.me/{}?start=near-tgi-{}`",
                                         markdown::escape_code(&command_string),
+                                        context.bot().bot().get_me().await?.username.as_ref().unwrap(),
                                         context.bot().to_callback_data(&TgCommand::NearTgi(command_string)).await
                                     );
                                     context
