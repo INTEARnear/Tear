@@ -868,7 +868,10 @@ impl AiModeratorModule {
         message: Message,
     ) -> Result<(), anyhow::Error> {
         if message.text().unwrap_or_default().starts_with('/') {
-            log::debug!("Skipping moderation becuse message is command: {}", message.id);
+            log::debug!(
+                "Skipping moderation becuse message is command: {}",
+                message.id
+            );
             return Ok(());
         }
         let mut is_admin = false;
