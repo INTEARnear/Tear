@@ -259,7 +259,7 @@ impl XeonBotModule for PriceCommandsModule {
             || text == "Buy"
             || text == "buy"
         {
-f            let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
+            let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
                 if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
                     chat_config
                 } else {
