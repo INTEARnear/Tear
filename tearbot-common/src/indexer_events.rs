@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 use async_trait::async_trait;
 
+use intear_events::events::ft::ft_transfer::FtTransferEventData;
 use intear_events::events::newcontract::meme_cooking_token::NewMemeCookingTokenEvent;
 use intear_events::events::newcontract::meme_cooking_token::NewMemeCookingTokenEventData;
 use intear_events::events::trade::liquidity_pool::LiquidityPoolEvent;
@@ -40,6 +41,8 @@ use intear_events::events::{
 
 #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
 pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
+    use intear_events::events::ft::ft_transfer::FtTransferEvent;
+
     #[cfg(feature = "redis-events")]
     let redis_client = redis::Client::open(
         std::env::var("REDIS_URL").expect("REDIS_URL enviroment variable not set"),
@@ -211,6 +214,14 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection.clone(),
     ));
+    tokio::spawn(stream_events::<FtTransferEventData>(
+        FtTransferEvent::ID,
+        false,
+        IndexerEvent::FtTransfer,
+        tx.clone(),
+        #[cfg(feature = "redis-events")]
+        connection.clone(),
+    ));
 
     tokio::spawn(async move {
         let status_ping_url = std::env::var("STATUS_PING_URL").ok();
@@ -365,6 +376,7 @@ pub enum IndexerEvent {
     MemeCookingWithdraw(MemeCookingWithdrawEventData),
     NewMemeCookingToken(NewMemeCookingTokenEventData),
     LiquidityPool(LiquidityPoolEventData),
+    FtTransfer(FtTransferEventData),
 }
 
 impl IndexerEvent {
@@ -391,6 +403,7 @@ impl IndexerEvent {
             IndexerEvent::MemeCookingWithdraw(event) => event.block_timestamp_nanosec,
             IndexerEvent::NewMemeCookingToken(event) => event.block_timestamp_nanosec,
             IndexerEvent::LiquidityPool(event) => event.block_timestamp_nanosec,
+            IndexerEvent::FtTransfer(event) => event.block_timestamp_nanosec,
         };
         chrono::DateTime::from_timestamp_nanos(nanosec as i64)
     }

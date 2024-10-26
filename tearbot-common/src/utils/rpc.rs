@@ -332,7 +332,7 @@ pub async fn view_account_not_cached(account_id: &AccountId) -> Result<AccountIn
         "method": "query",
         "params": {
             "request_type": "view_account",
-            "finality": "final",
+            "finality": "optimistic",
             "account_id": account_id,
         }
     }))
@@ -381,5 +381,5 @@ pub async fn account_exists(account_id: &AccountId) -> bool {
         return true;
     }
     let info = view_account_not_cached(account_id).await;
-    info.map(|i| i.amount > 0).unwrap_or_default()
+    info.is_ok()
 }

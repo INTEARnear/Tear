@@ -565,8 +565,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuyTokenAmount {
         token_id: AccountId,
-        #[serde(with = "dec_format")]
-        token_amount: Balance,
+        token_amount: BuyAmount,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositions,
@@ -595,6 +594,8 @@ pub enum TgCommand {
     TradingBotExportSeedPhrase,
     #[cfg(feature = "trading-bot-module")]
     TradingBotComingSoon,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotRefresh,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -1248,4 +1249,11 @@ impl<'de> Deserialize<'de> for Token {
             Ok(Token::TokenId(s.parse().map_err(serde::de::Error::custom)?))
         }
     }
+}
+
+#[cfg(feature = "trading-bot-module")]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum BuyAmount {
+    Near(#[serde(with = "dec_format")] Balance),
+    Token(#[serde(with = "dec_format")] Balance),
 }

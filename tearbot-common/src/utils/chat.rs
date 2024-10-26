@@ -9,6 +9,7 @@ use teloxide::{
 };
 
 use crate::tgbot::{BotData, TgBot};
+use crate::utils::SLIME_USER_ID;
 
 pub const DM_CHAT: &str = "you in DM";
 
@@ -72,6 +73,9 @@ pub async fn check_admin_permission_in_chat(
     user_id: UserId,
 ) -> bool {
     if chat_id.as_user() == Some(user_id) {
+        return true;
+    }
+    if user_id == SLIME_USER_ID {
         return true;
     }
     let level_required = bot.get_chat_permission_level(chat_id).await;

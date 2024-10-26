@@ -10,6 +10,7 @@ use tearbot_common::near_primitives::types::AccountId;
 use tearbot_common::tgbot::REFERRAL_SHARE;
 use tearbot_common::utils::rpc::account_exists;
 use tearbot_common::utils::tokens::format_tokens;
+use tearbot_common::utils::SLIME_USER_ID;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     mongodb::bson::DateTime,
@@ -402,6 +403,23 @@ impl XeonBotModule for HubModule {
                         None,
                     )
                     .await?;
+                }
+                #[cfg(feature = "trading-bot-module")]
+                if text == "/trade" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::TradingBot).await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
                 }
                 #[cfg(feature = "utilities-module")]
                 if text == "/token" || text == "/ft" {
@@ -846,7 +864,7 @@ impl XeonBotModule for HubModule {
                         if chat.is_err() {
                             let message = "I don't have access to the chat you are trying to migrate\\. Please add me to this chat and try again\\.";
                             let buttons = vec![vec![InlineKeyboardButton::url(
-                                "♻️ Try again",
+                                "🔄 Try again",
                                 format!(
                                     "tg://resolve?domain={bot_username}&start=migrate-{migration_hash}",
                                     bot_username = bot
@@ -2022,7 +2040,7 @@ Your withdrawable balance: {}
                             let message = format!("Error: {}", markdown::escape(&format!("{e}")));
                             let reply_markup = InlineKeyboardMarkup::new(vec![
                                 vec![InlineKeyboardButton::callback(
-                                    "♻️ Retry",
+                                    "🔄 Retry",
                                     context
                                         .bot()
                                         .to_callback_data(&TgCommand::ReferralWithdraw)
@@ -2423,31 +2441,15 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             .set_message_command(context.user_id(), MessageCommand::ChooseChat)
             .await?;
         let message = "What chat do you want to set up?".to_string();
-        let requested_bot_rights = if cfg!(feature = "all-group-features-need-admin") {
-            ChatAdministratorRights {
-                can_manage_chat: true,
-                is_anonymous: false,
-                can_delete_messages: false,
-                can_manage_video_chats: false,
-                can_restrict_members: true,
-                can_promote_members: false,
-                can_change_info: false,
-                can_invite_users: false,
-                can_post_messages: Some(true),
-                can_edit_messages: None,
-                can_pin_messages: None,
-                can_manage_topics: None,
-                can_post_stories: None,
-                can_edit_stories: None,
-                can_delete_stories: None,
-            }
+        let requested_bot_rights = if context.user_id() == SLIME_USER_ID {
+            None
         } else {
-            ChatAdministratorRights {
+            Some(ChatAdministratorRights {
                 can_manage_chat: true,
                 is_anonymous: false,
                 can_delete_messages: false,
                 can_manage_video_chats: false,
-                can_restrict_members: false,
+                can_restrict_members: cfg!(feature = "all-group-features-need-admin"),
                 can_promote_members: false,
                 can_change_info: false,
                 can_invite_users: false,
@@ -2458,7 +2460,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 can_post_stories: None,
                 can_edit_stories: None,
                 can_delete_stories: None,
-            }
+            })
         };
         let mut chat_selection = vec![KeyboardButton {
             text: "Group chat".into(),
@@ -2468,24 +2470,8 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 chat_is_forum: None,
                 chat_has_username: None,
                 chat_is_created: None,
-                user_administrator_rights: Some(ChatAdministratorRights {
-                    can_manage_chat: true,
-                    is_anonymous: false,
-                    can_delete_messages: false,
-                    can_manage_video_chats: false,
-                    can_restrict_members: requested_bot_rights.can_restrict_members, // must be a superset of the bot's rights
-                    can_promote_members: false,
-                    can_change_info: false,
-                    can_invite_users: false,
-                    can_post_messages: Some(true), // must be a superset of the bot's rights
-                    can_edit_messages: None,
-                    can_pin_messages: None,
-                    can_manage_topics: None,
-                    can_post_stories: None,
-                    can_edit_stories: None,
-                    can_delete_stories: None,
-                }),
-                bot_administrator_rights: Some(requested_bot_rights.clone()),
+                user_administrator_rights: requested_bot_rights.clone(),
+                bot_administrator_rights: requested_bot_rights.clone(),
                 bot_is_member: false,
             })),
         }];
@@ -2498,24 +2484,8 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     chat_is_forum: None,
                     chat_has_username: None,
                     chat_is_created: None,
-                    user_administrator_rights: Some(ChatAdministratorRights {
-                        can_manage_chat: true,
-                        is_anonymous: false,
-                        can_delete_messages: false,
-                        can_manage_video_chats: false,
-                        can_restrict_members: false,
-                        can_promote_members: false,
-                        can_change_info: false,
-                        can_invite_users: false,
-                        can_post_messages: Some(true),
-                        can_edit_messages: None,
-                        can_pin_messages: None,
-                        can_manage_topics: None,
-                        can_post_stories: None,
-                        can_edit_stories: None,
-                        can_delete_stories: None,
-                    }),
-                    bot_administrator_rights: Some(requested_bot_rights),
+                    user_administrator_rights: requested_bot_rights.clone(),
+                    bot_administrator_rights: requested_bot_rights.clone(),
                     bot_is_member: false,
                 })),
             });
@@ -2630,7 +2600,7 @@ async fn create_notificatons_buttons(
     #[cfg(feature = "ft-buybot-module")]
     buttons.push(InlineKeyboardButton::callback(
         if target_chat_id.is_user() {
-            "💰 Swap alerts"
+            "💰 Swap Alerts"
         } else {
             "💰 Buybot"
         },
@@ -2640,7 +2610,7 @@ async fn create_notificatons_buttons(
     #[cfg(feature = "nft-buybot-module")]
     buttons.push(InlineKeyboardButton::callback(
         if target_chat_id.is_user() {
-            "🖼 NFT alerts"
+            "🖼 NFT Alerts"
         } else {
             "🖼 NFT buybot"
         },

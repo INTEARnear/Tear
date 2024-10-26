@@ -309,8 +309,15 @@ fn main() -> Result<(), anyhow::Error> {
                 }
                 #[cfg(feature = "trading-bot-module")]
                 {
+                    let trading_bot_module =
+                        Arc::new(TradingBotModule::new(xeon.arc_clone_state()).await?);
                     xeon.state()
-                        .add_bot_module(TradingBotModule::new(xeon.arc_clone_state()).await?)
+                        .add_bot_module::<TradingBotModule>(Arc::clone(&trading_bot_module))
+                        .await;
+                    xeon.state()
+                        .add_indexer_event_handler::<TradingBotModule>(Arc::clone(
+                            &trading_bot_module,
+                        ))
                         .await;
                 }
             }
