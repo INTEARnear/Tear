@@ -867,13 +867,6 @@ impl AiModeratorModule {
         user_id: UserId,
         message: Message,
     ) -> Result<(), anyhow::Error> {
-        if message.text().unwrap_or_default().starts_with('/') {
-            log::debug!(
-                "Skipping moderation becuse message is command: {}",
-                message.id
-            );
-            return Ok(());
-        }
         let mut is_admin = false;
         if let Some(sender_chat) = message.sender_chat.as_ref() {
             if sender_chat.id == chat_id {

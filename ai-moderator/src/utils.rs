@@ -94,6 +94,26 @@ pub async fn get_message_rating(
         .unwrap_or_else(|| {
             "[No text. Pass this as 'Good' unless you see a suspicious image]".to_string()
         });
+    if message_text.starts_with('/') {
+        log::debug!(
+            "Skipping moderation becuse message is command: {}",
+            message.id
+        );
+        return MessageRating::Ok {
+            judgement: ModerationJudgement::Good,
+            reasoning: "This message seems to be a command, and commands are not moderated yet. If you see someone spamming with messages starting with '/', let us know in @intearchat and we'll disable this rule".to_string(),
+            message_text,
+            image_jpeg: None,
+        };
+    }
+    if message.story().is_some() {
+        return MessageRating::Ok {
+            judgement: ModerationJudgement::Suspicious,
+            reasoning: "This message appears to be a forwarded story, and bots don't have an ability to read stories yet, due to Telegram's Bot API limitations. Some bots may spam with stories, so we're not allowing new users to forward any stories.".to_string(),
+            message_text,
+            image_jpeg: None,
+        };
+    }
     let entities = message.parse_entities().unwrap_or_default();
     let message_text = match std::panic::catch_unwind(move || {
         for entity in entities.into_iter().rev() {
