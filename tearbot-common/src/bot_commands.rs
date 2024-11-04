@@ -828,21 +828,11 @@ pub enum ReorderMode {
     MoveAfter,
 }
 
-#[cfg(any(
-    feature = "new-liquidity-pools-module",
-    feature = "utilities-module",
-    feature = "trading-bot-module"
-))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PoolId {
     Ref(u64),
 }
 
-#[cfg(any(
-    feature = "new-liquidity-pools-module",
-    feature = "utilities-module",
-    feature = "trading-bot-module"
-))]
 impl PoolId {
     pub fn get_link(&self) -> String {
         match self {
@@ -863,11 +853,6 @@ impl PoolId {
     }
 }
 
-#[cfg(any(
-    feature = "new-liquidity-pools-module",
-    feature = "utilities-module",
-    feature = "trading-bot-module"
-))]
 impl std::str::FromStr for PoolId {
     type Err = anyhow::Error;
 
@@ -891,11 +876,6 @@ impl std::str::FromStr for PoolId {
     }
 }
 
-#[cfg(any(
-    feature = "new-liquidity-pools-module",
-    feature = "utilities-module",
-    feature = "trading-bot-module"
-))]
 impl std::fmt::Display for PoolId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -904,21 +884,11 @@ impl std::fmt::Display for PoolId {
     }
 }
 
-#[cfg(any(
-    feature = "new-liquidity-pools-module",
-    feature = "utilities-module",
-    feature = "trading-bot-module"
-))]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Exchange {
     RefFinance,
 }
 
-#[cfg(any(
-    feature = "new-liquidity-pools-module",
-    feature = "utilities-module",
-    feature = "trading-bot-module"
-))]
 impl Exchange {
     pub fn get_name(&self) -> &'static str {
         match self {

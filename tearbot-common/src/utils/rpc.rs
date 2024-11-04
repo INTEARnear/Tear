@@ -12,7 +12,8 @@ use super::requests::get_reqwest_client;
 
 pub const RPC_URLS: &[&str] = &[
     "https://rpc.shitzuapes.xyz",
-    "https://rpc.mainnet.near.org",
+    "https://free.rpc.fastnear.com",
+    // "https://rpc.mainnet.near.org", // returns wrong data
     "https://near.lava.build",
 ];
 pub const ARCHIVE_RPC_URL: &str = "https://archival-rpc.mainnet.near.org";

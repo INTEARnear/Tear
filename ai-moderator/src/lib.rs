@@ -18,7 +18,7 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tearbot_common::utils::ai::Model;
-use tearbot_common::utils::chat::get_chat_title_cached_5m_no_cache;
+use tearbot_common::utils::chat::get_chat_title_cached_5m;
 use tearbot_common::utils::SLIME_USER_ID;
 use tearbot_common::{
     bot_commands::PaymentReference,
@@ -917,7 +917,10 @@ impl AiModeratorModule {
                         {
                             self.last_balance_warning_message
                                 .insert(chat_id, Instant::now());
-                            let message = "You have run out of credits\\. Please make sure your balance is greater than 0".to_string();
+                            let message = format!(
+                                "{chat_name} has run out of credits\\. Please make sure your balance is greater than 0",
+                                chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id).await?.unwrap_or_default()),
+                            );
                             let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                             bot.send_text_message(
@@ -968,7 +971,7 @@ impl AiModeratorModule {
 
                 // Send reports to human moderators for evaluation
                 if let Ok(human_moderators) = std::env::var("HUMAN_MODERATORS") {
-                    let chat_name = get_chat_title_cached_5m_no_cache(bot.bot(), chat_id)
+                    let chat_name = get_chat_title_cached_5m(bot.bot(), chat_id)
                         .await
                         .map(|maybe_name| maybe_name.unwrap_or_else(|| "<No name>".to_string()))
                         .unwrap_or_else(|_| "<Error fetching name>".to_string());
@@ -1060,6 +1063,9 @@ impl AiModeratorModule {
                 } else if message.video_note().is_some() {
                     // TODO moderate random frame of video note
                     (Attachment::None, Some("+ Video circle"))
+                } else if message.story().is_some() {
+                    // TODO moderate random frame of video note
+                    (Attachment::None, Some("+ Forwarded story"))
                 } else {
                     (Attachment::None, None)
                 };
@@ -1089,6 +1095,7 @@ impl AiModeratorModule {
                         other => *other,
                     }
                 };
+                let chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id).await?.unwrap_or_default());
                 match action {
                     ModerationAction::Ban => {
                         if !chat_config.debug_mode {
@@ -1121,7 +1128,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "{sender_link} sent a message and it was flagged, was banned:\n\n{text}{note}",
+                            "{sender_link} sent a message in {chat_name} and it was flagged, was banned:\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -1196,7 +1203,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "{sender_link} sent a message and it was flagged, was muted:\n\n{text}{note}",
+                            "{sender_link} sent a message in {chat_name} and it was flagged, was muted:\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -1209,6 +1216,11 @@ impl AiModeratorModule {
                                     reasoning.clone(),
                                 ))
                                 .await,
+                            )],
+                            vec![InlineKeyboardButton::callback(
+                                "🔨 Ban User",
+                                bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, sender_id))
+                                    .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "👍 Unmute User",
@@ -1268,7 +1280,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "{sender_link} sent a message and it was flagged, was muted for 15 minutes:\n\n{text}{note}",
+                            "{sender_link} sent a message in {chat_name} and it was flagged, was muted for 15 minutes:\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -1281,6 +1293,11 @@ impl AiModeratorModule {
                                     reasoning.clone(),
                                 ))
                                 .await,
+                            )],
+                            vec![InlineKeyboardButton::callback(
+                                "🔨 Ban User",
+                                bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, sender_id))
+                                    .await,
                             )],
                             vec![InlineKeyboardButton::callback(
                                 "👍 Unmute User",
@@ -1331,7 +1348,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "{sender_link} sent a message and it was flagged, was deleted:\n\n{text}{note}",
+                            "{sender_link} sent a message in {chat_name} and it was flagged, was deleted:\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -1375,7 +1392,7 @@ impl AiModeratorModule {
                     }
                     ModerationAction::WarnMods => {
                         let message_to_send = format!(
-                            "{sender_link} sent a message and it was flagged, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
+                            "{sender_link} sent a message in {chat_name} and it was flagged, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
                             text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                         );
                         let buttons = vec![
@@ -1416,7 +1433,7 @@ impl AiModeratorModule {
                     ModerationAction::Ok => {
                         if chat_config.debug_mode {
                             let message_to_send = format!(
-                                "{sender_link} sent a message and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
+                                "{sender_link} sent a message in {chat_name} and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
                                 text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
                             );
                             let mut buttons = vec![
