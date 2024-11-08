@@ -18,8 +18,6 @@ use contract_logs::text::ContractLogsTextModule;
 use contract_logs::ContractLogsModule;
 #[cfg(feature = "ft-buybot-module")]
 use ft_buybot::FtBuybotModule;
-#[cfg(feature = "honey-module")]
-use honey::HoneyModule;
 #[cfg(feature = "image-gen-module")]
 use image_gen::ImageGenModule;
 use log::info;
@@ -320,26 +318,6 @@ fn main() -> Result<(), anyhow::Error> {
                         ))
                         .await;
                 }
-            }
-
-            #[cfg(feature = "honey-module")]
-            if let Ok(honey_token) = std::env::var("HONEY_TOKEN") {
-                let honey_bot = BotData::new(
-                    CacheMe::new(
-                        Bot::new(honey_token)
-                            .set_api_url(base.clone())
-                            .throttle(Limits::default()),
-                    ),
-                    BotType::Honey,
-                    xeon.arc_clone_state(),
-                )
-                .await?;
-                xeon.state().add_bot(honey_bot).await?;
-                xeon.state()
-                    .add_bot_module(HoneyModule::new(xeon.arc_clone_state(), db.clone()).await?)
-                    .await;
-            } else {
-                log::warn!("HONEY_TOKEN not set");
             }
 
             xeon.start_tg_bots().await?;

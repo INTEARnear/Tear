@@ -823,17 +823,18 @@ impl XeonBotModule for HubModule {
                     }
                 }
             }
-            MessageCommand::Start(data) => {
-                if self
-                    .users_first_interaction
-                    .insert_if_not_exists(user_id, DateTime::now())
-                    .await?
-                {
-                    if let Some(referrer) = data.strip_prefix("ref-") {
-                        self.open_main_menu(&mut TgCallbackContext::new(
-                            bot, user_id, chat_id, None, DONT_CARE,
-                        ))
-                        .await?;
+            MessageCommand::Start(mut data) => {
+                if let Some(referrer) = data.clone().strip_prefix("ref-") {
+                    let referrer = referrer.split('-').next().unwrap_or_default();
+                    data = data
+                        .trim_start_matches(&format!("ref-{referrer}"))
+                        .trim_start_matches('-')
+                        .to_string();
+                    if self
+                        .users_first_interaction
+                        .insert_if_not_exists(user_id, DateTime::now())
+                        .await?
+                    {
                         if let Ok(referrer_id) = referrer.parse() {
                             bot.set_referrer(user_id, UserId(referrer_id)).await?;
                             if let Some(bot_config) = self.referral_notifications.get(&bot.id()) {

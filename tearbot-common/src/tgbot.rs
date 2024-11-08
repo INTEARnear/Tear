@@ -86,9 +86,6 @@ pub struct BotData {
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum BotType {
     Main,
-    Aqua,
-    Kazuma,
-    Honey,
     // Custom,
 }
 

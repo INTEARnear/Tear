@@ -222,36 +222,6 @@ pub enum TgCommand {
     NewTokenNotificationsEnableAll(ChatId),
     #[cfg(feature = "new-tokens-module")]
     NewTokenNotificationsDisableAll(ChatId),
-    #[cfg(feature = "honey-module")]
-    HoneyOpenMenu {
-        referrer: Option<UserId>,
-    },
-    #[cfg(feature = "honey-module")]
-    HoneyRegister {
-        referrer: Option<UserId>,
-    },
-    #[cfg(feature = "honey-module")]
-    HoneyConfirm {
-        referrer: Option<UserId>,
-        account_id: AccountId,
-        name: String,
-        location: String,
-    },
-    #[cfg(feature = "honey-module")]
-    HoneyClaimFirst {
-        referrer: Option<UserId>,
-        account_id: AccountId,
-        name: String,
-        location: String,
-    },
-    #[cfg(feature = "honey-module")]
-    HoneyClaim,
-    #[cfg(feature = "honey-module")]
-    HoneyOpenUpgrades,
-    #[cfg(feature = "honey-module")]
-    HoneyUpgradeStorage,
-    #[cfg(feature = "honey-module")]
-    HoneyUpgradeSpeed,
     #[cfg(feature = "new-liquidity-pools-module")]
     NewLPNotificationsSettings(ChatId),
     #[cfg(feature = "new-liquidity-pools-module")]
@@ -647,21 +617,6 @@ pub enum MessageCommand {
     PriceAlertsAddToken(ChatId),
     #[cfg(feature = "price-alerts-module")]
     PriceAlertsAddTokenAlert(ChatId, AccountId),
-    #[cfg(feature = "honey-module")]
-    HoneyEnterAccountId {
-        referrer: Option<UserId>,
-    },
-    #[cfg(feature = "honey-module")]
-    HoneyEnterName {
-        referrer: Option<UserId>,
-        account_id: AccountId,
-    },
-    #[cfg(feature = "honey-module")]
-    HoneyEnterLocation {
-        referrer: Option<UserId>,
-        name: String,
-        account_id: AccountId,
-    },
     #[cfg(feature = "new-liquidity-pools-module")]
     NewLPNotificationsAddToken(ChatId),
     #[cfg(feature = "new-liquidity-pools-module")]

@@ -15,7 +15,6 @@ price-alerts = { path = "../xeon-private-modules/price-alerts", optional = true 
 socialdb = { path = "../xeon-private-modules/socialdb", optional = true }
 new-tokens = { path = "../xeon-private-modules/new-tokens", optional = true }
 utilities = { path = "../utilities", optional = true }
-honey = { path = "../xeon-private-modules/honey", optional = true }
 near-tgi = { path = "../near-tgi", optional = true }
 ai-moderator = { path = "../ai-moderator", optional = true }
 image-gen = { path = "../xeon-private-modules/image-gen", optional = true }
@@ -94,7 +93,6 @@ price-alerts-module = ["tearbot-common/price-alerts-module", "price-alerts"]
 socialdb-module = ["tearbot-common/socialdb-module", "socialdb"]
 new-tokens-module = ["tearbot-common/new-tokens-module", "new-tokens"]
 utilities-module = ["tearbot-common/utilities-module", "utilities"]
-honey-module = ["tearbot-common/honey-module", "honey"]
 near-tgi-module = ["tearbot-common/near-tgi-module", "near-tgi"]
 ai-moderator-module = ["tearbot-common/ai-moderator-module", "ai-moderator"]
 image-gen-module = ["tearbot-common/image-gen-module", "image-gen"]

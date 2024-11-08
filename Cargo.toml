@@ -42,3 +42,6 @@ inquire = { path = "./near-tgi/inquire" }
 keyring = { path = "./near-tgi/keyring" }
 near-api = "=0.2.1"
 serde_with = "3.11.0"
+imageproc = "0.25.0"
+ab_glyph = "0.2.29"
+qrcode = "0.14.1"
