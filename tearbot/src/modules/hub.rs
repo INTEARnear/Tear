@@ -1274,6 +1274,32 @@ impl XeonBotModule for HubModule {
                         }
                     }
                 }
+                #[cfg(feature = "utilities-module")]
+                {
+                    if let Some(account_id) = data.strip_prefix("acc-") {
+                        if let Ok(account_id) = account_id.replace('=', ".").parse::<AccountId>() {
+                            for module in bot.xeon().bot_modules().await.iter() {
+                                module
+                                    .handle_callback(
+                                        TgCallbackContext::new(
+                                            bot,
+                                            user_id,
+                                            chat_id,
+                                            None,
+                                            &bot.to_callback_data(
+                                                &TgCommand::UtilitiesAccountInfoAccount(
+                                                    account_id.clone(),
+                                                ),
+                                            )
+                                            .await,
+                                        ),
+                                        &mut None,
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
+                }
             }
             MessageCommand::ConnectAccountAnonymously => {
                 if let Ok(account_id) = text.parse::<AccountId>() {
