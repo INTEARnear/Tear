@@ -38,6 +38,9 @@ pub enum InlineKeyboardButtonKind {
     /// [`CallbackQuery`]: crate::types::CallbackQuery
     CallbackData(String),
 
+    /// Data to be copied when button is pressed.
+    CopyText { text: String },
+
     /// Description of the [Web App] that will be launched when the user presses
     /// the button. The Web App will be able to send an arbitrary message on
     /// behalf of the user using the method [`AnswerWebAppQuery`]. Available
@@ -134,6 +137,17 @@ impl InlineKeyboardButton {
         C: Into<String>,
     {
         Self::new(text, InlineKeyboardButtonKind::CallbackData(callback_data.into()))
+    }
+
+    /// Constructor for `InlineKeyboardButton` with [`CopyText`] kind.
+    ///
+    /// [`CopyText`]: InlineKeyboardButtonKind::CopyText
+    pub fn copy_text<T, C>(text: T, copy_text: C) -> Self
+    where
+        T: Into<String>,
+        C: Into<String>,
+    {
+        Self::new(text, InlineKeyboardButtonKind::CopyText { text: copy_text.into() })
     }
 
     /// Constructor for `InlineKeyboardButton` with [`WebApp`] kind.

@@ -822,6 +822,35 @@ impl XeonBotModule for HubModule {
                             .await?;
                     }
                 }
+                if text == "/terms" {
+                    let mut message =
+                        "By using this bot, you agree to the following terms:\n\n".to_string();
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        if let Some(tos) = module.tos() {
+                            message += &format!(
+                                "*{module_name}*\n\n_{tos}_\n\n",
+                                module_name = markdown::escape(module.name()),
+                                tos = markdown::escape(tos.trim())
+                            );
+                        }
+                    }
+                    let buttons = vec![vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        bot.to_callback_data(&TgCommand::OpenMainMenu).await,
+                    )]];
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    bot.send_text_message(chat_id, message, reply_markup)
+                        .await?;
+                    return Ok(());
+                }
+                if text == "/paysupport" {
+                    let message = "To request a refund, please send a direct message to @slimytentacles\\. If you're eligible for a full refund by /terms, you don't have to state a reason, just send the invoice number from Telegram Settings \\-\\> My Stars\\.".to_string();
+                    let buttons = Vec::<Vec<_>>::new();
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    bot.send_text_message(chat_id, message, reply_markup)
+                        .await?;
+                    return Ok(());
+                }
             }
             MessageCommand::Start(mut data) => {
                 if let Some(referrer) = data.clone().strip_prefix("ref-") {
@@ -835,6 +864,11 @@ impl XeonBotModule for HubModule {
                         .insert_if_not_exists(user_id, DateTime::now())
                         .await?
                     {
+                        let message = "\n\nBy using this bot, you agree to /terms".to_string();
+                        let buttons = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        bot.send_text_message(chat_id, message, reply_markup)
+                            .await?;
                         if let Ok(referrer_id) = referrer.parse() {
                             bot.set_referrer(user_id, UserId(referrer_id)).await?;
                             if let Some(bot_config) = self.referral_notifications.get(&bot.id()) {
@@ -2268,12 +2302,21 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 .await,
         )]);
         #[cfg(feature = "trading-bot-module")]
+        buttons.push(vec![
+            InlineKeyboardButton::callback(
+                "💱 Trade (BETA)",
+                context.bot().to_callback_data(&TgCommand::TradingBot).await,
+            ),
+            InlineKeyboardButton::callback(
+                "🔥 $INTEAR Airdrop",
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::TradingBotPromo)
+                    .await,
+            ),
+        ]);
         buttons.push(vec![InlineKeyboardButton::callback(
-            "💱 Trade (ALPHA)",
-            context.bot().to_callback_data(&TgCommand::TradingBot).await,
-        )]);
-        buttons.push(vec![InlineKeyboardButton::callback(
-            "🔗 Invite Friends",
+            "🔗 Referral Dashboard",
             context
                 .bot()
                 .to_callback_data(&TgCommand::ReferralDashboard)

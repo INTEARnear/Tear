@@ -58,6 +58,16 @@ impl XeonBotModule for AiModeratorModule {
         "AI Moderator"
     }
 
+    fn tos(&self) -> Option<&'static str> {
+        Some(
+            r#"
+1. You are aware that artificial intelligence is not perfect and may make mistakes, which doesn't grant you rights to request a refund, unless Clause 2 applies.
+2. You are eligible for a full refund for unused credits if you have not used more than 5% of the credits you bought, and only within 14 days after purchase.
+3. By using AI Moderator, you agree to abide by this license: https://github.com/INTEARnear/Tear/blob/main/LICENSE
+        "#,
+        )
+    }
+
     fn supports_migration(&self) -> bool {
         true
     }

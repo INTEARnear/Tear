@@ -1,4 +1,6 @@
 #![allow(unused_imports)]
+use std::fmt::Display;
+
 use inindexer::near_utils::dec_format;
 use mongodb::bson::Bson;
 use near_primitives::types::{AccountId, Balance};
@@ -7,7 +9,10 @@ use teloxide::prelude::{ChatId, UserId};
 
 use crate::{
     tgbot::{Attachment, MigrationData},
-    utils::chat::ChatPermissionLevel,
+    utils::{
+        chat::ChatPermissionLevel,
+        tokens::{format_near_amount, format_near_amount_without_price},
+    },
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -566,6 +571,42 @@ pub enum TgCommand {
     TradingBotComingSoon,
     #[cfg(feature = "trading-bot-module")]
     TradingBotRefresh,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettings,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsSlippage,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsSetSlippage(f64),
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsButtons,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsChangeButton {
+        button_index: usize,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsSetButtonAmount {
+        button_index: usize,
+        amount: BuyButtonAmount,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrders,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCreate,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCreateToken {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCreateTokenAmount {
+        token_id: AccountId,
+        amount: BuyAmount,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCancel {
+        order_id: u64,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPromo,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -703,6 +744,20 @@ pub enum MessageCommand {
     TradingBotWithdrawAskForAccount {
         #[serde(with = "dec_format")]
         amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsSetSlippage,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsChangeButton,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsSetButtonAmount {
+        button_index: usize,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCreate,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCreateToken {
+        token_id: AccountId,
     },
 }
 
@@ -1181,4 +1236,34 @@ impl<'de> Deserialize<'de> for Token {
 pub enum BuyAmount {
     Near(#[serde(with = "dec_format")] Balance),
     Token(#[serde(with = "dec_format")] Balance),
+}
+
+#[cfg(feature = "trading-bot-module")]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
+pub enum BuyButtonAmount {
+    Near(#[serde(with = "dec_format")] Balance),
+    Percentage(f64),
+}
+
+#[cfg(feature = "trading-bot-module")]
+impl Display for BuyButtonAmount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BuyButtonAmount::Near(amount) => {
+                write!(f, "{}", format_near_amount_without_price(*amount))
+            }
+            BuyButtonAmount::Percentage(percentage) => write!(f, "{:.2}%", percentage * 100f64),
+        }
+    }
+}
+
+#[cfg(feature = "trading-bot-module")]
+impl BuyButtonAmount {
+    pub fn get_amount(&self, balance: u128) -> u128 {
+        match self {
+            BuyButtonAmount::Near(amount) => balance.min(*amount),
+            BuyButtonAmount::Percentage(1.0) => balance,
+            BuyButtonAmount::Percentage(percentage) => (balance as f64 * percentage) as u128,
+        }
+    }
 }

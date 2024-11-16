@@ -243,6 +243,10 @@ impl XeonState {
 pub trait XeonBotModule: Send + Sync + 'static {
     fn name(&self) -> &'static str;
 
+    fn tos(&self) -> Option<&'static str> {
+        None
+    }
+
     async fn start(&self) -> Result<(), anyhow::Error> {
         Ok(())
     }

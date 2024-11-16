@@ -441,7 +441,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                                 "\n\\- {pool_id} : *{staked_amount}*{unstaked}",
                                 pool_id = format_account_id(&pool_id).await,
                                 staked_amount = markdown::escape(
-                                    &format_near_amount(staked_amount, Some(&xeon)).await
+                                    &format_near_amount(staked_amount, &xeon).await
                                 ),
                                 // For some reason, unstaked amount always goes +1 yoctonear every time you stake
                                 unstaked = if unstaked_amount <= 1_000 {
@@ -455,7 +455,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                                             "Currently unstaking"
                                         },
                                         unstaked = markdown::escape(
-                                            &format_near_amount(unstaked_amount, Some(&xeon)).await
+                                            &format_near_amount(unstaked_amount, &xeon).await
                                         ),
                                     )
                                 }
@@ -526,7 +526,7 @@ Tokens:
 Tokens and staking data provided by [FASTNEAR](https://fastnear.com) 💚
                     ",
                     format_account_id(&account_id).await,
-                    markdown::escape(&format_near_amount(near_balance, Some(&xeon)).await),
+                    markdown::escape(&format_near_amount(near_balance, &xeon).await),
                 );
                 let buttons = InlineKeyboardMarkup::new(vec![
                     vec![InlineKeyboardButton::callback(

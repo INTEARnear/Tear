@@ -14,30 +14,33 @@ pub const NEAR_DECIMALS: u32 = 24;
 pub const WRAP_NEAR: &str = "wrap.near";
 pub const USDT_TOKEN: &str = "usdt.tether-token.near";
 
-pub async fn format_near_amount(
-    amount: Balance,
-    price_source: Option<impl AsRef<XeonState>>,
-) -> String {
+pub async fn format_near_amount(amount: Balance, price_source: impl AsRef<XeonState>) -> String {
     if amount == 0 {
         "0 NEAR".to_string()
     } else if amount < 10u128.pow(6) {
         format!("{amount} yoctoNEAR")
     } else {
         format!(
-            "{}{}",
+            "{} ({})",
             format_token_amount(amount, NEAR_DECIMALS, "NEAR"),
-            if let Some(xeon) = price_source {
-                format!(
-                    " ({})",
-                    format_usd_amount(
-                        (amount as f64 / 10u128.pow(NEAR_DECIMALS) as f64)
-                            * xeon.as_ref().get_price(&WRAP_NEAR.parse().unwrap()).await,
-                    )
-                )
-            } else {
-                "".to_string()
-            }
+            format_usd_amount(
+                (amount as f64 / 10u128.pow(NEAR_DECIMALS) as f64)
+                    * price_source
+                        .as_ref()
+                        .get_price(&WRAP_NEAR.parse().unwrap())
+                        .await,
+            )
         )
+    }
+}
+
+pub fn format_near_amount_without_price(amount: Balance) -> String {
+    if amount == 0 {
+        "0 NEAR".to_string()
+    } else if amount < 10u128.pow(6) {
+        format!("{amount} yoctoNEAR")
+    } else {
+        format_token_amount(amount, NEAR_DECIMALS, "NEAR")
     }
 }
 
