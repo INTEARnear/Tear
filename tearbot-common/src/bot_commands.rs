@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 use std::fmt::Display;
 
+use bigdecimal::BigDecimal;
 use inindexer::near_utils::dec_format;
 use mongodb::bson::Bson;
 use near_primitives::types::{AccountId, Balance};
@@ -597,13 +598,28 @@ pub enum TgCommand {
         token_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotTriggerOrderCreateTokenAmount {
+    TradingBotTriggerOrderCreateTokenDirection {
         token_id: AccountId,
-        amount: BuyAmount,
+        is_buy: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCreateTokenDirectionAmount {
+        token_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+        is_buy: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCreateTokenDirectionAmountPrice {
+        token_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+        is_buy: bool,
+        price: BigDecimal,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCancel {
-        order_id: u64,
+        order_id: i64,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPromo,
@@ -756,8 +772,16 @@ pub enum MessageCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreate,
     #[cfg(feature = "trading-bot-module")]
-    TradingBotTriggerOrderCreateToken {
+    TradingBotTriggerOrderCreateTokenDirection {
         token_id: AccountId,
+        is_buy: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTriggerOrderCreateTokenDirectionAmount {
+        token_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+        is_buy: bool,
     },
 }
 
