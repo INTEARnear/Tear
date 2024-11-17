@@ -605,6 +605,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateTokenDirectionAmount {
         token_id: AccountId,
+        /// Amount of NEAR if buy, or <token> if sell
         #[serde(with = "dec_format")]
         amount: Balance,
         is_buy: bool,
@@ -612,6 +613,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateTokenDirectionAmountPrice {
         token_id: AccountId,
+        /// Amount of NEAR if buy, or <token> if sell
         #[serde(with = "dec_format")]
         amount: Balance,
         is_buy: bool,
@@ -623,6 +625,23 @@ pub enum TgCommand {
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPromo,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipe,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAddByToken,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAddByTokenId {
+        token_id: AccountId,
+    },
+    TradingBotSnipeAddByTokenIdAmount {
+        token_id: AccountId,
+        /// Amount of NEAR
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
+    TradingBotSnipeByTokenCancel {
+        token_id: AccountId,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -779,9 +798,15 @@ pub enum MessageCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateTokenDirectionAmount {
         token_id: AccountId,
+        /// Amount of NEAR if buy, or <token> if sell
         #[serde(with = "dec_format")]
         amount: Balance,
         is_buy: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAddByToken,
+    TradingBotSnipeAddByTokenId {
+        token_id: AccountId,
     },
 }
 

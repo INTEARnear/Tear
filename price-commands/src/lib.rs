@@ -12,7 +12,9 @@ use tearbot_common::teloxide::prelude::Requester;
 use tearbot_common::tgbot::Attachment;
 use tearbot_common::utils::apis::search_token;
 use tearbot_common::utils::requests::get_reqwest_client;
-use tearbot_common::utils::tokens::{format_price_change, format_usd_amount, get_ft_metadata};
+use tearbot_common::utils::tokens::{
+    format_price_change, format_usd_amount, get_ft_metadata, USDT_DECIMALS,
+};
 use tearbot_common::{
     mongodb::Database,
     near_primitives::types::AccountId,
@@ -1040,8 +1042,6 @@ async fn get_price_at(token_id: &AccountId, time: DateTime<Utc>) -> Result<f64, 
     struct PriceEvent {
         price_usd: BigDecimal,
     }
-
-    const USDT_DECIMALS: u32 = 6;
 
     let timestamp_nanosec = time.timestamp_nanos_opt().unwrap();
     let url = format!("https://events.intear.tech/query/price_token?token={token_id}&pagination_by=AfterTimestamp&timestamp_nanosec={timestamp_nanosec}&limit=1");
