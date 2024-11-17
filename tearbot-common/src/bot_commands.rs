@@ -550,8 +550,10 @@ pub enum TgCommand {
         token_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotPositionClose {
+    TradingBotPositionReduce {
         token_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawNear,
@@ -633,13 +635,19 @@ pub enum TgCommand {
     TradingBotSnipeAddByTokenId {
         token_id: AccountId,
     },
+    #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAddByTokenIdAmount {
         token_id: AccountId,
         /// Amount of NEAR
         #[serde(with = "dec_format")]
         amount: Balance,
     },
+    #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeByTokenCancel {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPositionReducePrompt {
         token_id: AccountId,
     },
 }
@@ -805,7 +813,12 @@ pub enum MessageCommand {
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAddByToken,
+    #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAddByTokenId {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPositionReducePrompt {
         token_id: AccountId,
     },
 }
