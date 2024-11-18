@@ -2316,7 +2316,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             ),
         ]);
         buttons.push(vec![InlineKeyboardButton::callback(
-            "🔗 Referral Dashboard",
+            "🔗 Referral",
             context
                 .bot()
                 .to_callback_data(&TgCommand::ReferralDashboard)

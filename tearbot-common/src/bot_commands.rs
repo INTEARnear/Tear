@@ -650,6 +650,61 @@ pub enum TgCommand {
     TradingBotPositionReducePrompt {
         token_id: AccountId,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytrade,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeAdd,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeAddAccount {
+        account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeAddAccountPercentage {
+        account_id: AccountId,
+        percentage: f64,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeAddAccountPercentageDirections {
+        account_id: AccountId,
+        percentage: f64,
+        copy_buys: bool,
+        copy_sells: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeEditAccount {
+        account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradePause {
+        account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeUnpause {
+        account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeSetEnableBuys {
+        account_id: AccountId,
+        new_copy_buys: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeSetEnableSells {
+        account_id: AccountId,
+        new_copy_sells: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeEditPercentage {
+        account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeSetPercentage {
+        account_id: AccountId,
+        new_percentage: f64,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeRemove {
+        account_id: AccountId,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -820,6 +875,16 @@ pub enum MessageCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositionReducePrompt {
         token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeAdd,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeAddAccount {
+        account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCopytradeEditPercentage {
+        account_id: AccountId,
     },
 }
 
