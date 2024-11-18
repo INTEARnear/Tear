@@ -80,9 +80,7 @@ pub async fn check_admin_permission_in_chat(
     }
     let level_required = bot.get_chat_permission_level(chat_id).await;
     if let ChatPermissionLevel::Whitelist(whitelist) = &level_required {
-        if whitelist.contains(&user_id) {
-            return true;
-        }
+        return whitelist.contains(&user_id);
     }
     let Ok(member) = bot.bot().get_chat_member(chat_id, user_id).await else {
         return false;

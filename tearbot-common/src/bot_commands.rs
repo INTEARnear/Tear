@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use std::fmt::Display;
+use std::{fmt::Display, time::Duration};
 
 use bigdecimal::BigDecimal;
 use inindexer::near_utils::dec_format;
@@ -705,6 +705,54 @@ pub enum TgCommand {
     TradingBotCopytradeRemove {
         account_id: AccountId,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDca,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAdd,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddToken {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirection {
+        token_id: AccountId,
+        is_buy: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirectionAmount {
+        token_id: AccountId,
+        is_buy: bool,
+        /// NEAR if is_buy is true, <token> if is_buy is false
+        #[serde(with = "dec_format")]
+        order_amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirectionAmountInterval {
+        token_id: AccountId,
+        is_buy: bool,
+        /// NEAR if is_buy is true, <token> if is_buy is false
+        #[serde(with = "dec_format")]
+        order_amount: Balance,
+        interval: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirectionAmountIntervalOrders {
+        token_id: AccountId,
+        is_buy: bool,
+        /// NEAR if is_buy is true, <token> if is_buy is false
+        #[serde(with = "dec_format")]
+        order_amount: Balance,
+        interval: Duration,
+        orders: u32,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaView {
+        token_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaStop {
+        token_id: AccountId,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -885,6 +933,30 @@ pub enum MessageCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeEditPercentage {
         account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAdd,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirection {
+        token_id: AccountId,
+        is_buy: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirectionAmount {
+        token_id: AccountId,
+        is_buy: bool,
+        /// NEAR if is_buy is true, <token> if is_buy is false
+        #[serde(with = "dec_format")]
+        order_amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirectionAmountInterval {
+        token_id: AccountId,
+        is_buy: bool,
+        /// NEAR if is_buy is true, <token> if is_buy is false
+        #[serde(with = "dec_format")]
+        order_amount: Balance,
+        interval: Duration,
     },
 }
 
