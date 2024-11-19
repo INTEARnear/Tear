@@ -79,12 +79,12 @@ pub async fn check_admin_permission_in_chat(
         return true;
     }
     let level_required = bot.get_chat_permission_level(chat_id).await;
-    if let ChatPermissionLevel::Whitelist(whitelist) = &level_required {
-        return whitelist.contains(&user_id);
-    }
     let Ok(member) = bot.bot().get_chat_member(chat_id, user_id).await else {
         return false;
     };
+    if let ChatPermissionLevel::Whitelist(whitelist) = &level_required {
+        return whitelist.contains(&user_id) || member.is_owner();
+    }
     let administrator = if let ChatMemberKind::Administrator(administrator) = &member.kind {
         Some(administrator)
     } else {
