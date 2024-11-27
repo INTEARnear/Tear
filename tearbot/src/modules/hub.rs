@@ -10,6 +10,7 @@ use tearbot_common::near_primitives::types::AccountId;
 use tearbot_common::tgbot::REFERRAL_SHARE;
 use tearbot_common::utils::rpc::account_exists;
 use tearbot_common::utils::tokens::format_tokens;
+use tearbot_common::utils::tokens::get_ft_metadata;
 use tearbot_common::utils::SLIME_USER_ID;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
@@ -94,6 +95,15 @@ impl XeonBotModule for HubModule {
     ) -> Result<(), anyhow::Error> {
         if bot.bot_type() != BotType::Main {
             return Ok(());
+        }
+        if text == "Cancel" {
+            if let Some(user_id) = chat_id.as_user() {
+                bot.remove_message_command(&user_id).await?;
+                let message = "Cancelled\\.".to_string();
+                let reply_markup = ReplyMarkup::kb_remove();
+                bot.send_text_message(chat_id, message, reply_markup)
+                    .await?;
+            }
         }
         if text == "/migrate" {
             if let Some(user_id) = user_id {
@@ -419,6 +429,124 @@ impl XeonBotModule for HubModule {
                                 &mut None,
                             )
                             .await?;
+                    }
+                }
+                #[cfg(feature = "trading-bot-module")]
+                if text == "/snipe" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::TradingBotSnipe).await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "trading-bot-module")]
+                if text == "/p" || text == "/pos" || text == "/positions" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::TradingBotPositions).await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "trading-bot-module")]
+                if text == "/buy" {
+                    for module in bot.xeon().bot_modules().await.iter() {
+                        module
+                            .handle_callback(
+                                TgCallbackContext::new(
+                                    bot,
+                                    user_id,
+                                    chat_id,
+                                    None,
+                                    &bot.to_callback_data(&TgCommand::TradingBotBuy).await,
+                                ),
+                                &mut None,
+                            )
+                            .await?;
+                    }
+                }
+                #[cfg(feature = "trading-bot-module")]
+                if let Some(args) = text.strip_prefix("/buy ") {
+                    match &args.split_once(' ') {
+                        Some((token_id, amount)) => {
+                            if let Ok(account_id) = token_id.parse::<AccountId>() {
+                                if get_ft_metadata(&account_id).await.is_ok() {
+                                    for module in bot.xeon().bot_modules().await.iter() {
+                                        module
+                                            .handle_message(
+                                                bot,
+                                                Some(user_id),
+                                                chat_id,
+                                                MessageCommand::TradingBotBuyAskForAmount {
+                                                    token_id: account_id.clone(),
+                                                },
+                                                amount,
+                                                message,
+                                            )
+                                            .await?;
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            let mut is_token_id = false;
+                            let token = args;
+                            if let Ok(account_id) = token.parse::<AccountId>() {
+                                if get_ft_metadata(&account_id).await.is_ok() {
+                                    is_token_id = true;
+                                    for module in bot.xeon().bot_modules().await.iter() {
+                                        module
+                                            .handle_callback(
+                                                TgCallbackContext::new(
+                                                    bot,
+                                                    user_id,
+                                                    chat_id,
+                                                    None,
+                                                    &bot.to_callback_data(
+                                                        &TgCommand::TradingBotBuyToken {
+                                                            token_id: account_id.clone(),
+                                                        },
+                                                    )
+                                                    .await,
+                                                ),
+                                                &mut None,
+                                            )
+                                            .await?;
+                                    }
+                                }
+                            }
+                            if !is_token_id {
+                                for module in bot.xeon().bot_modules().await.iter() {
+                                    module
+                                        .handle_message(
+                                            bot,
+                                            Some(user_id),
+                                            chat_id,
+                                            MessageCommand::TradingBotBuyAskForToken,
+                                            token,
+                                            message,
+                                        )
+                                        .await?;
+                                }
+                            }
+                        }
                     }
                 }
                 #[cfg(feature = "utilities-module")]
@@ -1307,6 +1435,46 @@ impl XeonBotModule for HubModule {
                             }
                         }
                     }
+                    if data == "snipe" {
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(&TgCommand::TradingBotSnipe).await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await?;
+                        }
+                    }
+                    if let Some(token_id) = data.strip_prefix("snipe-") {
+                        let token_id = token_id.replace('=', ".");
+                        if let Ok(token_id) = token_id.parse::<AccountId>() {
+                            for module in bot.xeon().bot_modules().await.iter() {
+                                module
+                                    .handle_callback(
+                                        TgCallbackContext::new(
+                                            bot,
+                                            user_id,
+                                            chat_id,
+                                            None,
+                                            &bot.to_callback_data(
+                                                &TgCommand::TradingBotSnipeAddByTokenId {
+                                                    token_id: token_id.clone(),
+                                                },
+                                            )
+                                            .await,
+                                        ),
+                                        &mut None,
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
                 }
                 #[cfg(feature = "utilities-module")]
                 {
@@ -1369,20 +1537,6 @@ impl XeonBotModule for HubModule {
                 }
             }
             MessageCommand::ChooseChat => {
-                if text == CANCEL_TEXT {
-                    bot.remove_message_command(&user_id).await?;
-                    bot.send_text_message(
-                        chat_id,
-                        "Cancelled".to_string(),
-                        ReplyMarkup::kb_remove(),
-                    )
-                    .await?;
-                    self.open_main_menu(&mut TgCallbackContext::new(
-                        bot, user_id, chat_id, None, DONT_CARE,
-                    ))
-                    .await?;
-                    return Ok(());
-                }
                 if let Some(ChatShared {
                     chat_id: target_chat_id,
                     ..
@@ -2244,7 +2398,7 @@ Developed by [Intear](tg://resolve?domain=intearchat)", tearbot_common::tgbot::N
 
 Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
             ];
-            messages.choose(&mut rand::thread_rng()).unwrap().clone()
+            messages.choose(&mut rand::thread_rng()).unwrap().clone() + "\n\nClick the button to get started, or paste Token Contract, Account ID, /buy, /positions, /pricealerts, or /near for quick access"
         };
         #[cfg(feature = "tear")]
         let message = "
@@ -2270,28 +2424,23 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         //             .await?,
         //     )
         // };
-        let mut buttons = create_notificatons_buttons(chat_id, context.bot()).await?;
+        let mut buttons = Vec::new();
+        #[cfg(feature = "trading-bot-module")]
+        buttons.push(vec![InlineKeyboardButton::callback(
+            "💰 Trade (BETA)",
+            context.bot().to_callback_data(&TgCommand::TradingBot).await,
+        )]);
+        buttons.push(vec![InlineKeyboardButton::callback(
+            "🔔 Notifications",
+            context
+                .bot()
+                .to_callback_data(&TgCommand::ChatSettings(chat_id))
+                .await,
+        )]);
         buttons.extend(vec![vec![InlineKeyboardButton::callback(
-            "📣 Set up for chat or channel 💬",
+            "📣 Tools for chats 💬",
             context.bot().to_callback_data(&TgCommand::ChooseChat).await,
         )]]);
-        #[cfg(feature = "utilities-module")]
-        buttons.push(vec![
-            InlineKeyboardButton::callback(
-                "💷 Token Info",
-                context
-                    .bot()
-                    .to_callback_data(&TgCommand::UtilitiesFtInfo)
-                    .await,
-            ),
-            InlineKeyboardButton::callback(
-                "👤 Account Info",
-                context
-                    .bot()
-                    .to_callback_data(&TgCommand::UtilitiesAccountInfo)
-                    .await,
-            ),
-        ]);
         #[cfg(feature = "price-commands-module")]
         buttons.push(vec![
             InlineKeyboardButton::callback(
@@ -2309,20 +2458,8 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     .await,
             ),
         ]);
-        #[cfg(feature = "near-tgi-module")]
-        buttons.push(vec![InlineKeyboardButton::callback(
-            "💻 Near TGI",
-            context
-                .bot()
-                .to_callback_data(&TgCommand::NearTgi("near".to_string()))
-                .await,
-        )]);
         #[cfg(feature = "trading-bot-module")]
         buttons.push(vec![
-            InlineKeyboardButton::callback(
-                "💱 Trade (BETA)",
-                context.bot().to_callback_data(&TgCommand::TradingBot).await,
-            ),
             InlineKeyboardButton::callback(
                 "🔥 $INTEAR Airdrop",
                 context
@@ -2330,7 +2467,15 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     .to_callback_data(&TgCommand::TradingBotPromo)
                     .await,
             ),
+            InlineKeyboardButton::callback(
+                "🔗 Referral",
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::ReferralDashboard)
+                    .await,
+            ),
         ]);
+        #[cfg(not(feature = "trading-bot-module"))]
         buttons.push(vec![InlineKeyboardButton::callback(
             "🔗 Referral",
             context
@@ -2601,18 +2746,6 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             self.open_main_menu(context).await?;
             return Ok(());
         };
-        if let Some(target_user_id) = target_chat_id.as_user() {
-            if target_user_id == context.user_id() {
-                self.open_main_menu(context).await?;
-            } else {
-                log::warn!(
-                    "User {} tried to access chat settings for chat {} which is a DM chat",
-                    context.user_id(),
-                    target_chat_id
-                );
-            }
-            return Ok(());
-        }
         if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id()).await {
             return Ok(());
         }
@@ -2657,13 +2790,15 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 }
             }
         }
-        buttons.push(vec![InlineKeyboardButton::callback(
-            "👤 Permissions",
-            context
-                .bot()
-                .to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))
-                .await,
-        )]);
+        if !target_chat_id.is_user() {
+            buttons.push(vec![InlineKeyboardButton::callback(
+                "👤 Permissions",
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::EditChatPermissions(target_chat_id))
+                    .await,
+            )]);
+        }
         buttons.push(vec![InlineKeyboardButton::callback(
             "⬅️ Back",
             context

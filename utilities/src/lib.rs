@@ -318,7 +318,49 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             "⤵️ Show top 100",
                             context
                                 .bot()
-                                .to_callback_data(&TgCommand::UtilitiesFt100Holders(token_id))
+                                .to_callback_data(&TgCommand::UtilitiesFt100Holders(
+                                    token_id.clone(),
+                                ))
+                                .await,
+                        ),
+                    ],
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "📈 Buy",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::TradingBotBuyToken {
+                                    token_id: token_id.clone(),
+                                })
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "📉 Sell",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::TradingBotPosition {
+                                    token_id: token_id.clone(),
+                                })
+                                .await,
+                        ),
+                    ],
+                    vec![
+                        InlineKeyboardButton::callback(
+                            "💷 Price",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::PriceCommandsDMPriceCommandToken(
+                                    token_id.clone(),
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "📈 Chart",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::PriceCommandsDMChartCommandToken(
+                                    token_id.clone(),
+                                ))
                                 .await,
                         ),
                     ],

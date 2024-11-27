@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::bot_commands::PoolId;
+use crate::utils::store::PersistentCachedStore;
 use crate::{
     bot_commands::{MessageCommand, PaymentReference},
     indexer_events::IndexerEventHandler,
@@ -16,7 +17,7 @@ use dashmap::{
 use inindexer::near_utils::dec_format;
 use mongodb::Database;
 use near_primitives::types::{AccountId, Balance};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use teloxide::prelude::{ChatId, Message, UserId};
 use tokio::sync::{RwLock, RwLockReadGuard};
@@ -27,7 +28,7 @@ pub struct Xeon {
 
 impl Xeon {
     pub async fn new(db: Database) -> Result<Self, anyhow::Error> {
-        let state = Arc::new(XeonState::new(db));
+        let state = Arc::new(XeonState::new(db).await);
         Ok(Self { state })
     }
 
@@ -59,6 +60,16 @@ pub struct XeonState {
     db: Database,
     prices: Arc<RwLock<HashMap<AccountId, TokenInfo>>>,
     spamlist: Arc<RwLock<Vec<AccountId>>>,
+    airdrop_state: PersistentCachedStore<UserId, AirdropState>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct AirdropState {
+    pub trading_points: f64,
+    pub stRRRRR_points: f64,
+    pub RReRRal_RRRRRs_points: f64,
+    pub RRRdRR_points: f64,
 }
 
 fn float_as_string<'de, D>(deserializer: D) -> Result<f64, D::Error>
@@ -107,7 +118,7 @@ pub struct TokenPartialMetadata {
 }
 
 impl XeonState {
-    pub fn new(db: Database) -> Self {
+    pub async fn new(db: Database) -> Self {
         let prices = Arc::new(RwLock::new(HashMap::new()));
         let prices_clone = Arc::clone(&prices);
         let spamlist = Arc::new(RwLock::new(Vec::new()));
@@ -150,6 +161,9 @@ impl XeonState {
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             }
         });
+        let airdrop_state = PersistentCachedStore::new(db.clone(), "global_airdrop_state")
+            .await
+            .unwrap();
         Self {
             bots: DashMap::new(),
             bot_modules: RwLock::new(Vec::new()),
@@ -157,6 +171,7 @@ impl XeonState {
             db,
             prices,
             spamlist,
+            airdrop_state,
         }
     }
 
@@ -236,6 +251,16 @@ impl XeonState {
 
     pub async fn get_spamlist(&self) -> RwLockReadGuard<Vec<AccountId>> {
         self.spamlist.read().await
+    }
+
+    pub async fn get_airdrop_state(&self, user_id: UserId) -> AirdropState {
+        self.airdrop_state.get(&user_id).await.unwrap_or_default()
+    }
+
+    pub async fn set_airdrop_state(&self, user_id: UserId, state: AirdropState) {
+        if let Err(err) = self.airdrop_state.insert_or_update(user_id, state).await {
+            log::warn!("Failed to update airdrop state: {err:?}");
+        }
     }
 }
 
