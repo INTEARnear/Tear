@@ -40,8 +40,10 @@ urlencoding = "2.1.3"
 bigdecimal = "0.4.5"
 inquire = { path = "./near-tgi/inquire" }
 keyring = { path = "./near-tgi/keyring" }
-near-api = "=0.2.1"
+near-api = "=0.3.0"
 serde_with = "3.11.0"
 imageproc = "0.25.0"
 ab_glyph = "0.2.29"
 qrcode = "0.14.1"
+near-token = "0.3.0"
+near-gas = "0.3.0"

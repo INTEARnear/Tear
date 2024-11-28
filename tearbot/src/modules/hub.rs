@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use itertools::Itertools;
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
-use tearbot_common::tgbot::REFERRAL_SHARE;
 use tearbot_common::utils::rpc::account_exists;
 use tearbot_common::utils::tokens::format_tokens;
 use tearbot_common::utils::tokens::get_ft_metadata;
@@ -34,6 +33,7 @@ use tearbot_common::{
     },
     xeon::{XeonBotModule, XeonState},
 };
+use tearbot_common::{tgbot::REFERRAL_SHARE, utils::tokens::format_account_id};
 
 const CANCEL_TEXT: &str = "Cancel";
 
@@ -467,24 +467,34 @@ impl XeonBotModule for HubModule {
                 }
                 #[cfg(feature = "trading-bot-module")]
                 if text == "/buy" {
-                    for module in bot.xeon().bot_modules().await.iter() {
-                        module
-                            .handle_callback(
-                                TgCallbackContext::new(
-                                    bot,
-                                    user_id,
-                                    chat_id,
-                                    None,
-                                    &bot.to_callback_data(&TgCommand::TradingBotBuy).await,
-                                ),
-                                &mut None,
-                            )
-                            .await?;
-                    }
+                    // Uses set_dm_message_command, but TradingBotModule goes after HubModule,
+                    // so avoid handling this message as input to /buy
+                    let xeon = Arc::clone(bot.xeon());
+                    let bot_id = bot.id();
+                    tokio::spawn(async move {
+                        let bot = xeon.bot(&bot_id).unwrap();
+                        for module in bot.xeon().bot_modules().await.iter() {
+                            if let Err(err) = module
+                                .handle_callback(
+                                    TgCallbackContext::new(
+                                        &bot,
+                                        user_id,
+                                        chat_id,
+                                        None,
+                                        &bot.to_callback_data(&TgCommand::TradingBotBuy).await,
+                                    ),
+                                    &mut None,
+                                )
+                                .await
+                            {
+                                log::warn!("Failed to handle /account: {err:?}");
+                            }
+                        }
+                    });
                 }
                 #[cfg(feature = "trading-bot-module")]
                 if let Some(args) = text.strip_prefix("/buy ") {
-                    match &args.split_once(' ') {
+                    match &args.trim().split_once(' ') {
                         Some((token_id, amount)) => {
                             if let Ok(account_id) = token_id.parse::<AccountId>() {
                                 if get_ft_metadata(&account_id).await.is_ok() {
@@ -507,7 +517,7 @@ impl XeonBotModule for HubModule {
                         }
                         None => {
                             let mut is_token_id = false;
-                            let token = args;
+                            let token = args.to_string();
                             if let Ok(account_id) = token.parse::<AccountId>() {
                                 if get_ft_metadata(&account_id).await.is_ok() {
                                     is_token_id = true;
@@ -533,18 +543,29 @@ impl XeonBotModule for HubModule {
                                 }
                             }
                             if !is_token_id {
-                                for module in bot.xeon().bot_modules().await.iter() {
-                                    module
-                                        .handle_message(
-                                            bot,
-                                            Some(user_id),
-                                            chat_id,
-                                            MessageCommand::TradingBotBuyAskForToken,
-                                            token,
-                                            message,
-                                        )
-                                        .await?;
-                                }
+                                // Uses set_dm_message_command, but TradingBotModule goes after HubModule,
+                                // so avoid handling this message as input to /buy
+                                let xeon = Arc::clone(bot.xeon());
+                                let bot_id = bot.id();
+                                let message = message.clone();
+                                tokio::spawn(async move {
+                                    let bot = xeon.bot(&bot_id).unwrap();
+                                    for module in bot.xeon().bot_modules().await.iter() {
+                                        if let Err(err) = module
+                                            .handle_message(
+                                                &bot,
+                                                Some(user_id),
+                                                chat_id,
+                                                MessageCommand::TradingBotBuyAskForToken,
+                                                &token,
+                                                &message,
+                                            )
+                                            .await
+                                        {
+                                            log::warn!("Failed to handle /buy token: {err:?}");
+                                        }
+                                    }
+                                });
                             }
                         }
                     }
@@ -1006,6 +1027,49 @@ impl XeonBotModule for HubModule {
                                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                                     bot.send_text_message(
                                         ChatId(referrer_id as i64),
+                                        message.to_string(),
+                                        reply_markup,
+                                    )
+                                    .await?;
+                                }
+                            }
+                        }
+                    }
+                }
+                const PREFIXES: &[(&str, UserId)] = &[
+                    ("mc", UserId(6144615924)),
+                    ("gm1", UserId(7091308405)),
+                    ("gm2", UserId(7091308405)),
+                    ("gm3", UserId(7091308405)),
+                    ("gm4", UserId(7091308405)),
+                    ("gm5", UserId(7091308405)),
+                    ("gm6", UserId(7091308405)),
+                    ("gm7", UserId(7091308405)),
+                    ("gm8", UserId(7091308405)),
+                    ("gm9", UserId(7091308405)),
+                ];
+                for (prefix, referrer_id) in PREFIXES {
+                    if let Some(data_without_referrer) = data.strip_prefix(&format!("{prefix}-")) {
+                        log::info!("REFERRER PREFIX: {prefix}");
+                        data = data_without_referrer.to_string();
+                        if self
+                            .users_first_interaction
+                            .insert_if_not_exists(user_id, DateTime::now())
+                            .await?
+                        {
+                            let message = "\n\nBy using this bot, you agree to /terms".to_string();
+                            let buttons = Vec::<Vec<_>>::new();
+                            let reply_markup = InlineKeyboardMarkup::new(buttons);
+                            bot.send_text_message(chat_id, message, reply_markup)
+                                .await?;
+                            bot.set_referrer(user_id, *referrer_id).await?;
+                            if let Some(bot_config) = self.referral_notifications.get(&bot.id()) {
+                                if let Some(true) = bot_config.get(referrer_id).await {
+                                    let message = "🎉 You have a new referral\\! Someone joined the bot using your referral link\\!";
+                                    let buttons = Vec::<Vec<_>>::new();
+                                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                    bot.send_text_message(
+                                        ChatId(referrer_id.0 as i64),
                                         message.to_string(),
                                         reply_markup,
                                     )
@@ -2185,7 +2249,7 @@ Your referrals: {}
 
 When your referral spends tokens in this bot, you will get {}% of it\\!
 
-Your withdrawable balance: {}
+Your withdrawable balance: {}, connected account: {}
                 ",
                     context.bot().get_referrals(context.user_id()).await.len(),
                     (REFERRAL_SHARE * 100f64).floor(),
@@ -2199,6 +2263,13 @@ Your withdrawable balance: {}
                             ));
                         }
                         tokens.into_iter().join(", ")
+                    },
+                    if let Some(account_id) =
+                        context.bot().get_connected_account(context.user_id()).await
+                    {
+                        format_account_id(&account_id.account_id).await
+                    } else {
+                        "None".to_string()
                     }
                 );
                 let referral_notifications_enabled = if let Some(bot_config) =
@@ -2276,6 +2347,10 @@ Your withdrawable balance: {}
                                         .bot()
                                         .to_callback_data(&TgCommand::ReferralWithdraw)
                                         .await,
+                                )],
+                                vec![InlineKeyboardButton::url(
+                                    "💭 Support",
+                                    "tg://resolve?domain=intearchat".parse().unwrap(),
                                 )],
                                 vec![InlineKeyboardButton::callback(
                                     "⬅️ Back",
@@ -2522,7 +2597,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             .bot()
             .set_message_command(context.user_id(), MessageCommand::ConnectAccountAnonymously)
             .await?;
-        let message = "Enter your NEAR account to connect it to Xeon".to_string();
+        let message = "Enter your NEAR account to connect it to Bettear".to_string();
         let reply_markup = InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
             "⬅️ Cancel",
             context

@@ -44,6 +44,9 @@ tokio-tungstenite = { version = "0.23.1", features = [
 inquire = { workspace = true, optional = true }
 serde_with = { workspace = true }
 bigdecimal = { workspace = true }
+near-api = { workspace = true }
+near-token = { workspace = true }
+near-gas = { workspace = true }
 
 [features]
 contract-logs-module = ["semver"]

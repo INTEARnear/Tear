@@ -10,6 +10,7 @@ use tearbot_common::teloxide::{
     types::{InlineKeyboardButton, InlineKeyboardMarkup},
 };
 use tearbot_common::tgbot::{BotData, BotType};
+use tearbot_common::utils::rpc::account_exists;
 use tearbot_common::utils::tokens::format_usd_amount;
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
@@ -72,6 +73,41 @@ impl XeonBotModule for UtilitiesModule {
             return Ok(());
         }
         match command {
+            MessageCommand::None => {
+                if let Ok(account_id) = text.parse::<AccountId>() {
+                    if get_ft_metadata(&account_id).await.is_ok() {
+                        self.handle_callback(
+                            TgCallbackContext::new(
+                                bot,
+                                user_id,
+                                chat_id,
+                                None,
+                                &bot.to_callback_data(&TgCommand::UtilitiesFtInfoSelected(
+                                    account_id.clone(),
+                                ))
+                                .await,
+                            ),
+                            &mut None,
+                        )
+                        .await?;
+                    } else if account_exists(&account_id).await {
+                        self.handle_callback(
+                            TgCallbackContext::new(
+                                bot,
+                                user_id,
+                                chat_id,
+                                None,
+                                &bot.to_callback_data(&TgCommand::UtilitiesAccountInfoAccount(
+                                    account_id.clone(),
+                                ))
+                                .await,
+                            ),
+                            &mut None,
+                        )
+                        .await?;
+                    }
+                }
+            }
             MessageCommand::UtilitiesFtInfo => {
                 let search = if text == WRAP_NEAR { "near" } else { text };
                 if search == "near" {

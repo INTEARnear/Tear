@@ -8,8 +8,12 @@ use std::{
 use dashmap::DashMap;
 use log::warn;
 use mongodb::bson::Bson;
+use near_api::prelude::{Contract, Tokens};
+use near_api::signer::Signer;
+use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
 use near_primitives::types::{AccountId, Balance};
+use near_token::NearToken;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use teloxide::payloads::SendAudioSetters;
@@ -37,7 +41,7 @@ use crate::utils::chat::ChatPermissionLevel;
 use crate::utils::format_duration;
 use crate::utils::requests::fetch_file_cached_1d;
 use crate::utils::store::PersistentCachedStore;
-use crate::utils::tokens::StringifiedBalance;
+use crate::utils::tokens::{StringifiedBalance, WRAP_NEAR};
 use crate::xeon::XeonState;
 use crate::{
     bot_commands::{MessageCommand, PaymentReference, TgCommand},
@@ -272,18 +276,72 @@ impl BotData {
 
     pub async fn withdraw_referral_balance(
         &self,
-        _user_id: UserId,
-        _account_id: &AccountId,
+        user_id: UserId,
+        account_id: &AccountId,
     ) -> Result<(), anyhow::Error> {
-        // let referral_balance = self
-        //     .referral_balance
-        //     .remove(&user_id)
-        //     .await
-        //     .unwrap_or_default();
-        // for (token_id, amount) in referral_balance {
-        //     // TODO
-        // }
-        Err(anyhow::anyhow!("Not implemented yet!"))
+        let referral_balance = self
+            .referral_balance
+            .remove(&user_id)
+            .await
+            .unwrap_or_default()
+            .unwrap_or_default();
+        log::info!("Paying referral rewards: {referral_balance:?}");
+        if referral_balance.is_empty() {
+            return Err(anyhow::anyhow!("No referral rewards to pay"));
+        }
+        for (token_id, amount) in referral_balance {
+            let tx = if token_id == WRAP_NEAR || token_id == "near" {
+                Tokens::of(
+                    std::env::var("REFERRAL_ACCOUNT_ID")
+                        .expect("REFERRAL_ACCOUNT_ID not set")
+                        .parse()
+                        .expect("Invalid REFERRAL_ACCOUNT_ID"),
+                )
+                .send_to(account_id.clone())
+                .near(NearToken::from_yoctonear(amount.0))
+                .with_signer(
+                    Signer::new(Signer::secret_key(
+                        std::env::var("REFERRAL_PRIVATE_KEY")
+                            .expect("REFERRAL_PRIVATE_KEY not set")
+                            .parse()
+                            .expect("Invalid REFERRAL_PRIVATE_KEY"),
+                    ))
+                    .unwrap(),
+                )
+                .send_to_mainnet()
+                .await?
+            } else {
+                Contract(token_id.clone())
+                    .call_function(
+                        "ft_transfer",
+                        serde_json::json!({
+                            "receiver_id": account_id.clone(),
+                            "amount": amount.0,
+                        }),
+                    )
+                    .unwrap()
+                    .transaction()
+                    .deposit(NearToken::from_yoctonear(1))
+                    .gas(NearGas::from_tgas(300))
+                    .with_signer(
+                        std::env::var("REFERRAL_ACCOUNT_ID")
+                            .expect("REFERRAL_ACCOUNT_ID not set")
+                            .parse()
+                            .expect("Invalid REFERRAL_ACCOUNT_ID"),
+                        Signer::new(Signer::secret_key(
+                            std::env::var("REFERRAL_PRIVATE_KEY")
+                                .expect("REFERRAL_PRIVATE_KEY not set")
+                                .parse()
+                                .expect("Invalid REFERRAL_PRIVATE_KEY"),
+                        ))
+                        .unwrap(),
+                    )
+                    .send_to_mainnet()
+                    .await?
+            };
+            log::info!("Paying {token_id}: {:?}", tx.status);
+        }
+        Ok(())
     }
 
     pub async fn get_referrals(&self, user_id: UserId) -> Vec<UserId> {
