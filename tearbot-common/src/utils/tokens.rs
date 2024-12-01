@@ -142,15 +142,47 @@ pub fn format_token_amount(amount: Balance, decimals: u32, symbol: &str) -> Stri
     )
 }
 
-pub fn format_usd_amount(amount: f64) -> String {
-    format!(
-        "${amount:.0$}",
-        if amount == 0f64 {
-            0
-        } else {
-            (3 - amount.log10() as isize).max(0) as usize
+fn format_number(num: f64, precision: usize) -> String {
+    // First format with the desired precision
+    let formatted = format!("{:.1$}", num, precision);
+
+    // Split into integer and decimal parts
+    let parts: Vec<&str> = formatted.split('.').collect();
+    let int_part = parts[0];
+
+    // Format integer part with separators
+    let mut result = String::new();
+    let mut count = 0;
+
+    // Handle negative numbers
+    let (num_str, is_negative) = if int_part.starts_with('-') {
+        (&int_part[1..], true)
+    } else {
+        (int_part, false)
+    };
+
+    for digit in num_str.chars().rev() {
+        if count != 0 && count % 3 == 0 {
+            result.insert(0, ',');
         }
-    )
+        result.insert(0, digit);
+        count += 1;
+    }
+
+    if is_negative {
+        result.insert(0, '-');
+    }
+
+    if parts.len() > 1 {
+        result.push('.');
+        result.push_str(parts[1]);
+    }
+
+    format!("${result}")
+}
+
+pub fn format_usd_amount(amount: f64) -> String {
+    format_number(amount, (3 - amount.log10() as isize).max(0) as usize)
 }
 
 pub async fn format_account_id(account_id: &AccountId) -> String {
