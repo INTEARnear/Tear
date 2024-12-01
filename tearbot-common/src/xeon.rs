@@ -63,13 +63,31 @@ pub struct XeonState {
     airdrop_state: PersistentCachedStore<UserId, AirdropState>,
 }
 
+pub const TRADING_POINTS_DAILY_CAP: f64 = 10.0;
+
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct AirdropState {
     pub trading_points: f64,
+    #[serde(default = "default_trading_points_cap")]
+    pub trading_points_cap: (f64, u32), // earned today, day of year from 1 to 366
     pub stRRRRR_points: f64,
-    pub RReRRal_RRRRRs_points: f64,
+    #[serde(default)]
+    pub special_events_points: f64,
+    #[serde(default)]
+    pub vote: Option<VoteOption>,
     pub RRRdRR_points: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum VoteOption {
+    Intear,
+    Tear,
+}
+
+fn default_trading_points_cap() -> (f64, u32) {
+    (0.0, 0)
 }
 
 fn float_as_string<'de, D>(deserializer: D) -> Result<f64, D::Error>

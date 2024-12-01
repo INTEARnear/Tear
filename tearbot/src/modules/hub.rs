@@ -7,10 +7,10 @@ use async_trait::async_trait;
 use itertools::Itertools;
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
-use tearbot_common::utils::rpc::account_exists;
 use tearbot_common::utils::tokens::format_tokens;
 use tearbot_common::utils::tokens::get_ft_metadata;
 use tearbot_common::utils::SLIME_USER_ID;
+use tearbot_common::utils::{apis::parse_meme_cooking_link, rpc::account_exists};
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     mongodb::bson::DateTime,
@@ -495,8 +495,17 @@ impl XeonBotModule for HubModule {
                 #[cfg(feature = "trading-bot-module")]
                 if let Some(args) = text.strip_prefix("/buy ") {
                     match &args.trim().split_once(' ') {
-                        Some((token_id, amount)) => {
-                            if let Ok(account_id) = token_id.parse::<AccountId>() {
+                        Some((token, amount)) => {
+                            let account_id = if let Ok(account_id) = token.parse::<AccountId>() {
+                                Some(account_id)
+                            } else if let Some((account_id, _)) =
+                                parse_meme_cooking_link(token).await
+                            {
+                                Some(account_id)
+                            } else {
+                                None
+                            };
+                            if let Some(account_id) = account_id {
                                 if get_ft_metadata(&account_id).await.is_ok() {
                                     for module in bot.xeon().bot_modules().await.iter() {
                                         module
@@ -518,7 +527,16 @@ impl XeonBotModule for HubModule {
                         None => {
                             let mut is_token_id = false;
                             let token = args.to_string();
-                            if let Ok(account_id) = token.parse::<AccountId>() {
+                            let account_id = if let Ok(account_id) = token.parse::<AccountId>() {
+                                Some(account_id)
+                            } else if let Some((account_id, _)) =
+                                parse_meme_cooking_link(&token).await
+                            {
+                                Some(account_id)
+                            } else {
+                                None
+                            };
+                            if let Some(account_id) = account_id {
                                 if get_ft_metadata(&account_id).await.is_ok() {
                                     is_token_id = true;
                                     for module in bot.xeon().bot_modules().await.iter() {

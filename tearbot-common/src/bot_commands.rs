@@ -14,6 +14,7 @@ use crate::{
         chat::ChatPermissionLevel,
         tokens::{format_near_amount, format_near_amount_without_price},
     },
+    xeon::VoteOption,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -751,6 +752,26 @@ pub enum TgCommand {
     TradingBotDcaStop {
         token_id: AccountId,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAll,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAllConfirm {
+        #[serde(with = "dec_format")]
+        amount: Option<Balance>,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAllMC,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAllMCConfirm {
+        #[serde(with = "dec_format")]
+        amount: Option<Balance>,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotVote,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotVoteConfirm {
+        option: VoteOption,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -956,6 +977,10 @@ pub enum MessageCommand {
         order_amount: Balance,
         interval: Duration,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAll,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSnipeAllMC,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -8,7 +8,7 @@ use crate::{
     xeon::XeonState,
 };
 
-use super::rpc::view_cached_1h;
+use super::rpc::{view_cached_1h, view_cached_30s};
 
 pub const NEAR_DECIMALS: u32 = 24;
 pub const WRAP_NEAR: &str = "wrap.near";
@@ -148,7 +148,7 @@ pub fn format_usd_amount(amount: f64) -> String {
         if amount == 0f64 {
             0
         } else {
-            (2 - amount.log10() as isize).max(0) as usize
+            (3 - amount.log10() as isize).max(0) as usize
         }
     )
 }
@@ -197,4 +197,55 @@ pub fn format_price_change(price_change: f64) -> String {
         Some(std::cmp::Ordering::Equal) => "Same 😐".to_string(),
         None => "Unknown 🥴".to_string(),
     }
+}
+
+#[derive(Deserialize, Debug)]
+#[allow(dead_code)]
+pub struct MemeCookingInfo {
+    pub id: u64,
+    pub owner: String,
+    #[serde(with = "dec_format")]
+    pub end_timestamp_ms: u64,
+    pub name: String,
+    pub symbol: String,
+    pub icon: String,
+    pub decimals: u32,
+    #[serde(with = "dec_format")]
+    pub total_supply: Balance,
+    pub reference: String,
+    pub reference_hash: String,
+    pub deposit_token_id: AccountId,
+    #[serde(with = "dec_format")]
+    pub total_staked: Balance,
+    #[serde(with = "dec_format")]
+    pub total_withdrawal_fees: Balance,
+}
+
+#[derive(Serialize, Debug)]
+struct MemeCokingRequest {
+    meme_id: u64,
+}
+
+pub const MEME_COOKING_CONTRACT_ID: &str = "meme-cooking.near";
+
+pub async fn get_memecooking_prelaunch_info(
+    meme_id: u64,
+) -> Result<Option<MemeCookingInfo>, anyhow::Error> {
+    view_cached_30s(
+        MEME_COOKING_CONTRACT_ID,
+        "get_meme",
+        &MemeCokingRequest { meme_id },
+    )
+    .await
+}
+
+pub async fn get_memecooking_finalized_info(
+    meme_id: u64,
+) -> Result<Option<MemeCookingInfo>, anyhow::Error> {
+    view_cached_30s(
+        MEME_COOKING_CONTRACT_ID,
+        "get_finalized_meme",
+        &MemeCokingRequest { meme_id },
+    )
+    .await
 }

@@ -1,11 +1,15 @@
 use std::{
     fmt::Debug,
+    future::Future,
     hash::Hash,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use dashmap::{mapref::multiple::RefMulti, DashMap};
-use futures_util::TryStreamExt;
+use futures_util::{lock::Mutex, TryStreamExt};
 use mongodb::{
     error::{ErrorKind, WriteError, WriteFailure},
     Database, IndexModel,
@@ -36,6 +40,7 @@ pub struct PersistentCachedStore<
     K: Serialize + Clone + Send + Sync + Unpin + 'static + Eq + Hash,
     V: Serialize + Clone + Send + Sync + Unpin + 'static,
 > {
+    locks: DashMap<K, Arc<Mutex<()>>>,
     cache: DashMap<K, V>,
     db: mongodb::Collection<CacheEntry<K, V>>,
     cached_all: AtomicBool,
@@ -72,7 +77,7 @@ where
     CacheEntry<K, V>: Serialize + for<'de> Deserialize<'de>,
 {
     pub async fn new(db: Database, name: &str) -> Result<Self, anyhow::Error> {
-        let cache = DashMap::new();
+        let cache = DashMap::<K, V>::new();
         let collection = db.collection(name);
         collection
             .create_index(
@@ -87,6 +92,10 @@ where
             )
             .await?;
         Ok(Self {
+            locks: cache
+                .iter()
+                .map(|e| (e.key().clone(), Arc::new(Mutex::new(()))))
+                .collect(),
             cache,
             db: collection,
             cached_all: AtomicBool::new(false),
@@ -134,6 +143,87 @@ where
             self.cache.insert(key, value);
             Ok(true)
         }
+    }
+
+    /// Edits the value of the key, and returns the result of the edit function.
+    pub async fn edit<R>(
+        &self,
+        key: K,
+        edit: impl FnOnce(&mut V) -> R,
+        default: Option<V>,
+    ) -> Result<R, anyhow::Error> {
+        let lock = self
+            .locks
+            .entry(key.clone())
+            .or_insert_with(|| Arc::new(Mutex::new(())));
+        let guard = lock.lock().await;
+        let mut value = self
+            .cache
+            .get(&key)
+            .map(|e| e.value().clone())
+            .or(default)
+            .ok_or_else(|| anyhow::anyhow!("No value found for key"))?;
+        let r = edit(&mut value);
+        self.insert_or_update(key, value).await?;
+        drop(guard);
+        Ok(r)
+    }
+
+    /// Edits the value of the key, and returns the result of the edit function.
+    pub async fn edit_async<R, F>(
+        &self,
+        key: K,
+        edit: impl FnOnce(V) -> F,
+        default: Option<V>,
+    ) -> Result<Option<R>, anyhow::Error>
+    where
+        F: Future<Output = Option<(V, R)>>,
+    {
+        let lock = self
+            .locks
+            .entry(key.clone())
+            .or_insert_with(|| Arc::new(Mutex::new(())));
+        let guard = lock.lock().await;
+        let value = self
+            .cache
+            .get(&key)
+            .map(|e| e.value().clone())
+            .or(default)
+            .ok_or_else(|| anyhow::anyhow!("No value found for key"))?;
+        let r = if let Some((new_value, r)) = edit(value).await {
+            self.insert_or_update(key, new_value).await?;
+            Some(r)
+        } else {
+            None
+        };
+        drop(guard);
+        Ok(r)
+    }
+
+    /// Edits the value of the key, if the edit function returns `Some`, returns
+    /// it and saves the new value. If the edit function returns `None`, returns
+    /// `None` and does not save the new value.
+    pub async fn edit_optional<R>(
+        &self,
+        key: K,
+        edit: impl FnOnce(&mut V) -> Option<R>,
+        default: Option<V>,
+    ) -> Result<Option<R>, anyhow::Error> {
+        let lock = self
+            .locks
+            .entry(key.clone())
+            .or_insert_with(|| Arc::new(Mutex::new(())));
+        let guard = lock.lock().await;
+        let mut value = self
+            .cache
+            .get(&key)
+            .map(|e| e.value().clone())
+            .or(default)
+            .ok_or_else(|| anyhow::anyhow!("No value found for key"))?;
+        let r = edit(&mut value);
+        self.insert_or_update(key, value).await?;
+        drop(guard);
+        Ok(r)
     }
 
     pub async fn insert_or_update(&self, key: K, value: V) -> Result<(), anyhow::Error> {
