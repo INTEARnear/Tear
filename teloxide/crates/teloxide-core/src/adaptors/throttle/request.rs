@@ -211,8 +211,8 @@ where
             let _ = freeze.send(FreezeUntil { until, after, chat }).await;
 
             if retry {
-                log::warn!("Freezing, before retrying: {:?}", retry_after);
-                tokio::time::sleep_until(until.into()).await;
+                log::warn!("(NOT) Freezing, before retrying: {:?}", retry_after);
+                // tokio::time::sleep_until(until.into()).await;
             }
         }
 

@@ -582,7 +582,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                     })
                     .collect::<Vec<_>>();
                 let mut tokens_balance = String::new();
-                for (_i, (token_id, balance, _)) in tokens.into_iter().enumerate() {
+                for (token_id, balance, _) in tokens.into_iter() {
                     tokens_balance.push_str(&format!(
                         "\\- [nb](https://nearblocks.io/token/{token_id}) {}\n",
                         markdown::escape(&format_tokens(balance, &token_id, Some(&xeon)).await),

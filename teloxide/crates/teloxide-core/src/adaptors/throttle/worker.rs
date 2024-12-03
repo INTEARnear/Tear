@@ -344,13 +344,13 @@ async fn freeze(
         // by the said slow mode and not by the global limits.
         if !slow_mode_enabled_and_likely_the_cause {
             log::warn!(
-                "freezing the bot for approximately {:?} due to `RetryAfter` error from telegram",
+                "(NOT) freezing the bot for approximately {:?} due to `RetryAfter` error from telegram",
                 after
             );
 
-            tokio::time::sleep_until(until.into()).await;
+            // tokio::time::sleep_until(until.into()).await;
 
-            log::warn!("unfreezing the bot");
+            log::warn!("(NOT) unfreezing the bot");
         }
     }
 }
