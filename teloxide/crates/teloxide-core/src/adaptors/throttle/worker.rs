@@ -306,6 +306,7 @@ async fn freeze(
     mut imm: Option<FreezeUntil>,
 ) {
     while let Some(freeze_until) = imm.take().or_else(|| rx.try_recv().ok()) {
+        #[allow(unused_variables)]
         let FreezeUntil { until, after, chat } = freeze_until;
 
         // Clippy thinks that this `.as_deref_mut()` doesn't change the type (&mut
@@ -344,7 +345,8 @@ async fn freeze(
         // by the said slow mode and not by the global limits.
         if !slow_mode_enabled_and_likely_the_cause {
             log::warn!(
-                "(NOT) freezing the bot for approximately {:?} due to `RetryAfter` error from telegram",
+                "(NOT) freezing the bot for approximately {:?} due to `RetryAfter` error from \
+                 telegram",
                 after
             );
 
