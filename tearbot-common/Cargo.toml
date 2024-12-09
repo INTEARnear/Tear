@@ -35,6 +35,7 @@ redis = { workspace = true, features = [
     "connection-manager",
 ], optional = true }
 inevents-redis = { workspace = true, optional = true }
+inevents-redis-v3 = { git = "https://github.com/INTEARnear/inevents", branch = "v3", package = "inevents-redis", optional = true }
 intear-events = { workspace = true }
 futures-util = { workspace = true }
 semver = { workspace = true, optional = true }
@@ -65,5 +66,5 @@ burrow-liquidations-module = []
 price-commands-module = []
 trading-bot-module = []
 
-redis-events = ["redis", "inevents-redis"]
+redis-events = ["redis", "inevents-redis", "inevents-redis-v3"]
 websocket-events = ["tokio-tungstenite"]

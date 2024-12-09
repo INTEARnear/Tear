@@ -2,6 +2,7 @@
 pub mod ai;
 pub mod apis;
 pub mod chat;
+pub mod nep297_events;
 pub mod requests;
 pub mod rpc;
 pub mod store;

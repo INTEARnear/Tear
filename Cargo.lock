@@ -2827,6 +2827,21 @@ dependencies = [
 [[package]]
 name = "inevents-redis"
 version = "0.1.0"
+source = "git+https://github.com/INTEARnear/inevents?branch=v3#172655d1eca4ec14e7b87e6d2feafbef497f11f8"
+dependencies = [
+ "anyhow",
+ "dotenvy",
+ "log",
+ "redis",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
+name = "inevents-redis"
+version = "0.1.0"
 source = "git+https://github.com/INTEARnear/inevents#81226476284317b4945f3470265b05a58b033633"
 dependencies = [
  "anyhow",
@@ -2914,7 +2929,7 @@ dependencies = [
  "chrono",
  "dotenvy",
  "futures",
- "inevents-redis",
+ "inevents-redis 0.1.0 (git+https://github.com/INTEARnear/inevents)",
  "inindexer 0.2.0",
  "log",
  "num-traits",
@@ -7157,7 +7172,8 @@ dependencies = [
  "chrono",
  "dashmap",
  "futures-util",
- "inevents-redis",
+ "inevents-redis 0.1.0 (git+https://github.com/INTEARnear/inevents?branch=v3)",
+ "inevents-redis 0.1.0 (git+https://github.com/INTEARnear/inevents)",
  "inindexer 1.0.0",
  "inquire 0.7.5",
  "intear-events",

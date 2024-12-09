@@ -2,23 +2,14 @@
 use async_trait::async_trait;
 
 use intear_events::events::ft::ft_transfer::FtTransferEventData;
-use intear_events::events::newcontract::meme_cooking_token::NewMemeCookingTokenEvent;
-use intear_events::events::newcontract::meme_cooking_token::NewMemeCookingTokenEventData;
 use intear_events::events::trade::liquidity_pool::LiquidityPoolEvent;
 use intear_events::events::trade::liquidity_pool::LiquidityPoolEventData;
-use intear_events::events::trade::memecooking_deposit::MemeCookingDepositEvent;
-use intear_events::events::trade::memecooking_deposit::MemeCookingDepositEventData;
-use intear_events::events::trade::memecooking_withdraw::MemeCookingWithdrawEvent;
-use intear_events::events::trade::memecooking_withdraw::MemeCookingWithdrawEventData;
 use intear_events::events::{
     log::{
         log_nep297::{LogNep297Event, LogNep297EventData},
         log_text::{LogTextEvent, LogTextEventData},
     },
-    newcontract::{
-        meme_cooking_meme::{NewMemeCookingMemeEvent, NewMemeCookingMemeEventData},
-        nep141::{NewContractNep141Event, NewContractNep141EventData},
-    },
+    newcontract::nep141::{NewContractNep141Event, NewContractNep141EventData},
     nft::{
         nft_burn::{NftBurnEvent, NftBurnEventData},
         nft_mint::{NftMintEvent, NftMintEventData},
@@ -54,93 +45,106 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         .expect("Failed to create redis connection");
     let (tx, mut rx) = tokio::sync::mpsc::channel(1000);
 
-    tokio::spawn(stream_events::<NftMintEventData>(
+    #[cfg(feature = "redis-events")]
+    let redis_client_experimental = redis::Client::open(
+        std::env::var("REDIS_URL_EXPERIMENTAL")
+            .expect("REDIS_URL_EXPERIMENTAL enviroment variable not set"),
+    )
+    .expect("Failed to create experimental redis client");
+    #[cfg(feature = "redis-events")]
+    let connection_experimental = redis::aio::ConnectionManager::new(redis_client_experimental)
+        .await
+        .expect("Failed to create experimental redis connection");
+
+    tokio::spawn(stream_experimental_events::<NftMintEventData>(
         NftMintEvent::ID,
         false,
         IndexerEvent::NftMint,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<NftTransferEventData>(
+    tokio::spawn(stream_experimental_events::<NftTransferEventData>(
         NftTransferEvent::ID,
         false,
         IndexerEvent::NftTransfer,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<NftBurnEventData>(
+    tokio::spawn(stream_experimental_events::<NftBurnEventData>(
         NftBurnEvent::ID,
         false,
         IndexerEvent::NftBurn,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<PotlockDonationEventData>(
+    tokio::spawn(stream_experimental_events::<PotlockDonationEventData>(
         PotlockDonationEvent::ID,
         false,
         IndexerEvent::PotlockDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<PotlockPotProjectDonationEventData>(
+    tokio::spawn(stream_experimental_events::<
+        PotlockPotProjectDonationEventData,
+    >(
         PotlockPotProjectDonationEvent::ID,
         false,
         IndexerEvent::PotlockPotProjectDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<PotlockPotDonationEventData>(
+    tokio::spawn(stream_experimental_events::<PotlockPotDonationEventData>(
         PotlockPotDonationEvent::ID,
         false,
         IndexerEvent::PotlockPotDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<TradeSwapEventData>(
+    tokio::spawn(stream_experimental_events::<TradeSwapEventData>(
         TradeSwapEvent::ID,
         false,
         IndexerEvent::TradeSwap,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<PriceTokenEventData>(
+    tokio::spawn(stream_experimental_events::<PriceTokenEventData>(
         PriceTokenEvent::ID,
         false,
         IndexerEvent::PriceToken,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<NewContractNep141EventData>(
+    tokio::spawn(stream_experimental_events::<NewContractNep141EventData>(
         NewContractNep141Event::ID,
         false,
         IndexerEvent::NewContractNep141,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<TradePoolChangeEventData>(
+    tokio::spawn(stream_experimental_events::<TradePoolChangeEventData>(
         TradePoolChangeEvent::ID,
         false,
         IndexerEvent::TradePoolChange,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<LogTextEventData>(
+    tokio::spawn(stream_experimental_events::<LogTextEventData>(
         LogTextEvent::ID,
         false,
         IndexerEvent::LogText,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
     tokio::spawn(stream_events::<LogTextEventData>(
         LogTextEvent::ID,
@@ -150,13 +154,13 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection.clone(),
     ));
-    tokio::spawn(stream_events::<LogNep297EventData>(
+    tokio::spawn(stream_experimental_events::<LogNep297EventData>(
         LogNep297Event::ID,
         false,
         IndexerEvent::LogNep297,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
     tokio::spawn(stream_events::<LogNep297EventData>(
         LogNep297Event::ID,
@@ -166,61 +170,29 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection.clone(),
     ));
-    tokio::spawn(stream_events::<SocialDBIndexEventData>(
+    tokio::spawn(stream_experimental_events::<SocialDBIndexEventData>(
         SocialDBIndexEvent::ID,
         false,
         IndexerEvent::SocialDBIndex,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<NewMemeCookingMemeEventData>(
-        NewMemeCookingMemeEvent::ID,
-        false,
-        IndexerEvent::NewMemeCookingMeme,
-        tx.clone(),
-        #[cfg(feature = "redis-events")]
-        connection.clone(),
-    ));
-    tokio::spawn(stream_events::<MemeCookingDepositEventData>(
-        MemeCookingDepositEvent::ID,
-        false,
-        IndexerEvent::MemeCookingDeposit,
-        tx.clone(),
-        #[cfg(feature = "redis-events")]
-        connection.clone(),
-    ));
-    tokio::spawn(stream_events::<MemeCookingWithdrawEventData>(
-        MemeCookingWithdrawEvent::ID,
-        false,
-        IndexerEvent::MemeCookingWithdraw,
-        tx.clone(),
-        #[cfg(feature = "redis-events")]
-        connection.clone(),
-    ));
-    tokio::spawn(stream_events::<NewMemeCookingTokenEventData>(
-        NewMemeCookingTokenEvent::ID,
-        false,
-        IndexerEvent::NewMemeCookingToken,
-        tx.clone(),
-        #[cfg(feature = "redis-events")]
-        connection.clone(),
-    ));
-    tokio::spawn(stream_events::<LiquidityPoolEventData>(
+    tokio::spawn(stream_experimental_events::<LiquidityPoolEventData>(
         LiquidityPoolEvent::ID,
         false,
         IndexerEvent::LiquidityPool,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
-    tokio::spawn(stream_events::<FtTransferEventData>(
+    tokio::spawn(stream_experimental_events::<FtTransferEventData>(
         FtTransferEvent::ID,
         false,
         IndexerEvent::FtTransfer,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_experimental.clone(),
     ));
 
     tokio::spawn(async move {
@@ -307,6 +279,39 @@ async fn stream_events<
         .unwrap();
 }
 
+#[cfg(feature = "redis-events")]
+async fn stream_experimental_events<
+    E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
+>(
+    event_id: &'static str,
+    testnet: bool,
+    convert: fn(E) -> IndexerEvent,
+    tx: tokio::sync::mpsc::Sender<IndexerEvent>,
+    connection: redis::aio::ConnectionManager,
+) {
+    use std::convert::Infallible;
+
+    let id = if testnet {
+        format!("{event_id}_testnet")
+    } else {
+        event_id.to_string()
+    };
+    inevents_redis_v3::RedisEventStream::new(connection, id)
+        .start_reading_events(
+            "xeon",
+            move |event: E| {
+                let tx = tx.clone();
+                async move {
+                    tx.send(convert(event)).await.unwrap();
+                    Ok::<(), Infallible>(())
+                }
+            },
+            || false,
+        )
+        .await
+        .unwrap();
+}
+
 #[cfg(feature = "websocket-events")]
 async fn stream_events<
     E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
@@ -360,6 +365,61 @@ async fn stream_events<
     }
 }
 
+#[cfg(feature = "websocket-events")]
+async fn stream_experimental_events<
+    E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
+>(
+    event_id: &'static str,
+    testnet: bool,
+    convert: fn(E) -> IndexerEvent,
+    tx: tokio::sync::mpsc::Sender<IndexerEvent>,
+) {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::Message;
+
+    let events = if testnet { "events-testnet" } else { "events" };
+    'outer: loop {
+        let (mut stream, _) = tokio_tungstenite::connect_async(format!(
+            "wss://ws-events-v3-experimental.intear.tech/{events}/{event_id}"
+        ))
+        .await
+        .expect("Failed to connect to event stream");
+        stream
+            .send(Message::Text(r#"{"And":[]}"#.to_string()))
+            .await
+            .expect("Failed to send empty filter");
+        while let Some(message) = stream.next().await {
+            let Ok(msg) = message else {
+                continue 'outer;
+            };
+            match msg {
+                Message::Close(_) => {
+                    log::warn!("Event stream {events}/{event_id} closed");
+                    break 'outer;
+                }
+                tokio_tungstenite::tungstenite::Message::Ping(data) => {
+                    stream
+                        .send(Message::Pong(data))
+                        .await
+                        .expect("Failed to pong");
+                }
+                Message::Pong(_) => {}
+                Message::Text(text) => {
+                    let events: Vec<E> =
+                        serde_json::from_str(&text).expect("Failed to parse message as json");
+                    for event in events {
+                        let event = convert(event);
+                        tx.send(event).await.expect("Failed to send event");
+                    }
+                }
+                Message::Binary(_) => {}
+                Message::Frame(_) => unreachable!(),
+            }
+        }
+        log::warn!("Reconnecting to event stream {events}/{event_id}");
+    }
+}
+
 #[derive(Debug)]
 pub enum IndexerEvent {
     NftMint(NftMintEventData),
@@ -377,10 +437,6 @@ pub enum IndexerEvent {
     LogNep297(LogNep297EventData),
     TestnetLogNep297(LogNep297EventData),
     SocialDBIndex(SocialDBIndexEventData),
-    NewMemeCookingMeme(NewMemeCookingMemeEventData),
-    MemeCookingDeposit(MemeCookingDepositEventData),
-    MemeCookingWithdraw(MemeCookingWithdrawEventData),
-    NewMemeCookingToken(NewMemeCookingTokenEventData),
     LiquidityPool(LiquidityPoolEventData),
     FtTransfer(FtTransferEventData),
 }
@@ -404,10 +460,6 @@ impl IndexerEvent {
             IndexerEvent::LogNep297(event) => event.block_timestamp_nanosec,
             IndexerEvent::TestnetLogNep297(event) => event.block_timestamp_nanosec,
             IndexerEvent::SocialDBIndex(event) => event.block_timestamp_nanosec,
-            IndexerEvent::NewMemeCookingMeme(event) => event.block_timestamp_nanosec,
-            IndexerEvent::MemeCookingDeposit(event) => event.block_timestamp_nanosec,
-            IndexerEvent::MemeCookingWithdraw(event) => event.block_timestamp_nanosec,
-            IndexerEvent::NewMemeCookingToken(event) => event.block_timestamp_nanosec,
             IndexerEvent::LiquidityPool(event) => event.block_timestamp_nanosec,
             IndexerEvent::FtTransfer(event) => event.block_timestamp_nanosec,
         };
