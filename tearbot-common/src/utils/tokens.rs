@@ -152,21 +152,19 @@ fn format_number(num: f64, precision: usize) -> String {
 
     // Format integer part with separators
     let mut result = String::new();
-    let mut count = 0;
 
     // Handle negative numbers
-    let (num_str, is_negative) = if int_part.starts_with('-') {
-        (&int_part[1..], true)
+    let (num_str, is_negative) = if let Some(int_part) = int_part.strip_prefix('-') {
+        (int_part, true)
     } else {
         (int_part, false)
     };
 
-    for digit in num_str.chars().rev() {
+    for (count, digit) in num_str.chars().rev().enumerate() {
         if count != 0 && count % 3 == 0 {
             result.insert(0, ',');
         }
         result.insert(0, digit);
-        count += 1;
     }
 
     if is_negative {
