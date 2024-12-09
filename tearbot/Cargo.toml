@@ -101,4 +101,4 @@ burrow-liquidations-module = [
     "burrow-liquidations",
 ]
 price-commands-module = ["tearbot-common/price-commands-module", "price-commands"]
-trading-bot-module = ["tearbot-common/trading-bot-module", "trading-bot"]
+trading-bot-module = ["tearbot-common/trading-bot-module", "trading-bot", "utilities/trading-bot"]

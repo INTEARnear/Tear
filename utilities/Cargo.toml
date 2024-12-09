@@ -13,3 +13,6 @@ serde_json = { workspace = true }
 futures-util = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 itertools = { workspace = true }
+
+[features]
+trading-bot = []

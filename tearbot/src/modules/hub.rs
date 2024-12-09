@@ -1,3 +1,5 @@
+#![allow(unused_imports)] // If some features are not enabled, we don't want to get warnings
+
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,

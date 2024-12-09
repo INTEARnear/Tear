@@ -320,18 +320,24 @@ async fn stream_events<
     use tokio_tungstenite::tungstenite::Message;
 
     let events = if testnet { "events-testnet" } else { "events" };
-    loop {
+    'outer: loop {
         let (mut stream, _) = tokio_tungstenite::connect_async(format!(
             "wss://ws-events.intear.tech/{events}/{event_id}"
         ))
         .await
         .expect("Failed to connect to event stream");
+        stream
+            .send(Message::Text("{}".to_string()))
+            .await
+            .expect("Failed to send empty filter");
         while let Some(message) = stream.next().await {
-            let msg = message.expect("Failed to receive message");
+            let Ok(msg) = message else {
+                continue 'outer;
+            };
             match msg {
                 Message::Close(_) => {
                     log::warn!("Event stream {events}/{event_id} closed");
-                    break;
+                    break 'outer;
                 }
                 tokio_tungstenite::tungstenite::Message::Ping(data) => {
                     stream

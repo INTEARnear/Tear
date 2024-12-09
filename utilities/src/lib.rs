@@ -339,28 +339,26 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                         "No chart available".to_string()
                     },
                 );
-                let buttons = InlineKeyboardMarkup::new(vec![
-                    vec![
-                        InlineKeyboardButton::callback(
-                            "🔄 Refresh",
-                            context
-                                .bot()
-                                .to_callback_data(&TgCommand::UtilitiesFtInfoSelected(
-                                    token_id.clone(),
-                                ))
-                                .await,
-                        ),
-                        InlineKeyboardButton::callback(
-                            "⤵️ Show top 100",
-                            context
-                                .bot()
-                                .to_callback_data(&TgCommand::UtilitiesFt100Holders(
-                                    token_id.clone(),
-                                ))
-                                .await,
-                        ),
-                    ],
-                    vec![
+                let mut buttons = Vec::new();
+                buttons.push(vec![
+                    InlineKeyboardButton::callback(
+                        "🔄 Refresh",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::UtilitiesFtInfoSelected(token_id.clone()))
+                            .await,
+                    ),
+                    InlineKeyboardButton::callback(
+                        "⤵️ Show top 100",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::UtilitiesFt100Holders(token_id.clone()))
+                            .await,
+                    ),
+                ]);
+                #[cfg(feature = "trading-bot")]
+                {
+                    buttons.push(vec![
                         InlineKeyboardButton::callback(
                             "📈 Buy",
                             context
@@ -379,35 +377,36 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                                 })
                                 .await,
                         ),
-                    ],
-                    vec![
-                        InlineKeyboardButton::callback(
-                            "💷 Price",
-                            context
-                                .bot()
-                                .to_callback_data(&TgCommand::PriceCommandsDMPriceCommandToken(
-                                    token_id.clone(),
-                                ))
-                                .await,
-                        ),
-                        InlineKeyboardButton::callback(
-                            "📈 Chart",
-                            context
-                                .bot()
-                                .to_callback_data(&TgCommand::PriceCommandsDMChartCommandToken(
-                                    token_id.clone(),
-                                ))
-                                .await,
-                        ),
-                    ],
-                    vec![InlineKeyboardButton::callback(
-                        "⬅️ Back",
+                    ]);
+                }
+                buttons.push(vec![
+                    InlineKeyboardButton::callback(
+                        "💷 Price",
                         context
                             .bot()
-                            .to_callback_data(&TgCommand::OpenMainMenu)
+                            .to_callback_data(&TgCommand::PriceCommandsDMPriceCommandToken(
+                                token_id.clone(),
+                            ))
                             .await,
-                    )],
+                    ),
+                    InlineKeyboardButton::callback(
+                        "📈 Chart",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::PriceCommandsDMChartCommandToken(
+                                token_id.clone(),
+                            ))
+                            .await,
+                    ),
                 ]);
+                buttons.push(vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::OpenMainMenu)
+                        .await,
+                )]);
+                let buttons = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, buttons).await?;
             }
             TgCommand::UtilitiesFt100Holders(token_id) => {
