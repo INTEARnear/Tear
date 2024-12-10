@@ -35,7 +35,7 @@ use tearbot_common::{
     },
     xeon::{XeonBotModule, XeonState},
 };
-use tearbot_common::{tgbot::REFERRAL_SHARE, utils::tokens::format_account_id};
+use tearbot_common::{tgbot::BASE_REFERRAL_SHARE, utils::tokens::format_account_id};
 
 const CANCEL_TEXT: &str = "Cancel";
 
@@ -1057,7 +1057,7 @@ impl XeonBotModule for HubModule {
                     }
                 }
                 const PREFIXES: &[(&str, UserId)] = &[
-                    ("mc", UserId(6144615924)),
+                    ("mc", UserId(28757995)),
                     ("gm1", UserId(7091308405)),
                     ("gm2", UserId(7091308405)),
                     ("gm3", UserId(7091308405)),
@@ -2272,7 +2272,7 @@ When your referral spends tokens in this bot, you will get {}% of it\\!
 Your withdrawable balance: {}, connected account: {}
                 ",
                     context.bot().get_referrals(context.user_id()).await.len(),
-                    (REFERRAL_SHARE * 100f64).floor(),
+                    (BASE_REFERRAL_SHARE * 100f64).floor(),
                     if balance.is_empty() {
                         "None".to_string()
                     } else {

@@ -52,7 +52,7 @@ pub type TgBot = CacheMe<Throttle<Bot>>;
 
 /// Use this as callback data if you're 100% sure that the callback data will never be used
 pub const DONT_CARE: &str = "dontcare";
-pub const REFERRAL_SHARE: f64 = 0.15;
+pub const BASE_REFERRAL_SHARE: f64 = 0.15;
 pub const STARS_PER_USD: u32 = 77; // 77 stars = $1
 pub const NOTIFICATION_LIMIT_5M: usize = 20;
 pub const NOTIFICATION_LIMIT_1H: usize = 150;
@@ -227,13 +227,31 @@ impl BotData {
     }
 
     pub async fn user_spent(&self, user_id: UserId, token_id: AccountId, amount: Balance) {
-        self.give_referrer(user_id, token_id, (amount as f64 * REFERRAL_SHARE) as u128)
-            .await;
+        self.give_referrer_share(user_id, token_id, amount).await;
     }
 
-    pub async fn give_referrer(&self, referral_id: UserId, token_id: AccountId, amount: Balance) {
+    pub fn get_referral_share(&self, user_id: UserId) -> f64 {
+        // Meme.cooking (Mario)
+        if user_id == UserId(28757995) {
+            0.5
+        } else {
+            BASE_REFERRAL_SHARE
+        }
+    }
+
+    pub async fn give_referrer_share(
+        &self,
+        referral_id: UserId,
+        token_id: AccountId,
+        amount: Balance,
+    ) {
         if let Some(referrer_id) = self.get_referrer(referral_id).await {
-            self.give_to(referrer_id, token_id, amount).await;
+            self.give_to(
+                referrer_id,
+                token_id,
+                (amount as f64 * self.get_referral_share(referrer_id)) as Balance,
+            )
+            .await;
         }
     }
 
