@@ -2272,7 +2272,7 @@ When your referral spends tokens in this bot, you will get {}% of it\\!
 Your withdrawable balance: {}, connected account: {}
                 ",
                     context.bot().get_referrals(context.user_id()).await.len(),
-                    (BASE_REFERRAL_SHARE * 100f64).floor(),
+                    (context.bot().get_referral_share(context.user_id()) * 100f64).floor(),
                     if balance.is_empty() {
                         "None".to_string()
                     } else {
