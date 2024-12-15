@@ -5,6 +5,8 @@ use bigdecimal::BigDecimal;
 use inindexer::near_utils::dec_format;
 use mongodb::bson::Bson;
 use near_primitives::types::{AccountId, Balance};
+use near_token::NearToken;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::{ChatId, UserId};
 
@@ -772,6 +774,114 @@ pub enum TgCommand {
     TradingBotVoteConfirm {
         option: VoteOption,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMeme,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbol {
+        symbol: String,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolName {
+        symbol: String,
+        name: String,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescription {
+        symbol: String,
+        name: String,
+        description: String,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImage {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageSetTwitter {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageSetWebsite {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageSetTelegram {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageRotateCap {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageRotateTime {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageConfirm {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -981,6 +1091,62 @@ pub enum MessageCommand {
     TradingBotSnipeAll,
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAllMC,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbol,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolName {
+        symbol: String,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescription {
+        symbol: String,
+        name: String,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImage {
+        symbol: String,
+        name: String,
+        description: String,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageSetTwitter {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageSetTelegram {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateMemeSymbolNameDescriptionImageSetWebsite {
+        symbol: String,
+        name: String,
+        description: String,
+        image_jpeg: Vec<u8>,
+        twitter: Option<Url>,
+        website: Option<Url>,
+        telegram: Option<Url>,
+        soft_cap: NearToken,
+        hard_cap: NearToken,
+        time: Duration,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

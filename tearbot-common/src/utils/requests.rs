@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 
 lazy_static! {
     static ref CLIENT: reqwest::Client = reqwest::Client::builder()
-        .user_agent("Intear Xeon")
+        .user_agent("Tear Bot")
         .build()
         .expect("Failed to create reqwest client");
 }
