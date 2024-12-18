@@ -66,7 +66,7 @@ pub async fn handle_set_prompt_button(
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    if !utils::is_in_moderator_chat_or_dm(ctx.chat_id(), target_chat_id, ctx.bot(), bot_configs)
+    if !utils::is_in_moderator_chat_or_dm(*ctx.chat_id(), target_chat_id, ctx.bot(), bot_configs)
         .await
     {
         return Ok(());
@@ -102,7 +102,7 @@ async fn set_prompt(
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    if !utils::is_in_moderator_chat_or_dm(ctx.chat_id(), target_chat_id, ctx.bot(), bot_configs)
+    if !utils::is_in_moderator_chat_or_dm(*ctx.chat_id(), target_chat_id, ctx.bot(), bot_configs)
         .await
     {
         return Ok(());
@@ -173,7 +173,7 @@ pub async fn handle_edit_prompt_input(
     let buttons = Vec::<Vec<_>>::new();
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     let message_id = bot
-        .send_text_message(chat_id, message, reply_markup)
+        .send_text_message(chat_id.into(), message, reply_markup)
         .await?
         .id;
 
@@ -302,7 +302,7 @@ pub async fn handle_edit_prompt_button(
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    if !utils::is_in_moderator_chat_or_dm(ctx.chat_id(), target_chat_id, ctx.bot(), bot_configs)
+    if !utils::is_in_moderator_chat_or_dm(*ctx.chat_id(), target_chat_id, ctx.bot(), bot_configs)
         .await
     {
         return Ok(());

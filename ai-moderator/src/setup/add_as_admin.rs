@@ -32,8 +32,12 @@ pub async fn handle_input(
     }
     if message.text() == Some(CANCEL_TEXT) {
         bot.remove_message_command(&user_id).await?;
-        bot.send_text_message(chat_id, "Cancelled".to_string(), ReplyMarkup::kb_remove())
-            .await?;
+        bot.send_text_message(
+            chat_id.into(),
+            "Cancelled".to_string(),
+            ReplyMarkup::kb_remove(),
+        )
+        .await?;
         moderator::open_main(
             &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
             target_chat_id,
@@ -53,7 +57,7 @@ pub async fn handle_input(
         if *provided_chat_id == target_chat_id {
             let message = "Done\\! The bot has been added as an admin in this chat and given all necessary permissions".to_string();
             let reply_markup = ReplyMarkup::kb_remove();
-            bot.send_text_message(chat_id, message, reply_markup)
+            bot.send_text_message(chat_id.into(), message, reply_markup)
                 .await?;
             moderator::open_main(
                 &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
@@ -64,7 +68,7 @@ pub async fn handle_input(
         } else {
             let message = format!(
                 "Please share the same chat \\({}\\)\\. This will add the bot as an admin in this chat",
-                get_chat_title_cached_5m(bot.bot(), target_chat_id)
+                get_chat_title_cached_5m(bot.bot(), target_chat_id.into())
                     .await?
                     .unwrap_or("Unknown".to_string())
             );
@@ -73,7 +77,7 @@ pub async fn handle_input(
                 bot.to_callback_data(&TgCommand::CancelChat).await,
             )]];
             let reply_markup = InlineKeyboardMarkup::new(buttons);
-            bot.send_text_message(chat_id, message, reply_markup)
+            bot.send_text_message(chat_id.into(), message, reply_markup)
                 .await?;
         }
     } else {
@@ -83,7 +87,7 @@ pub async fn handle_input(
             bot.to_callback_data(&TgCommand::CancelChat).await,
         )]];
         let reply_markup = InlineKeyboardMarkup::new(buttons);
-        bot.send_text_message(chat_id, message, reply_markup)
+        bot.send_text_message(chat_id.into(), message, reply_markup)
             .await?;
     }
     Ok(())

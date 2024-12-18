@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use fantoccini::{ClientBuilder, Locator};
 use serde::{Deserialize, Serialize};
 use tearbot_common::teloxide::prelude::Requester;
-use tearbot_common::tgbot::Attachment;
+use tearbot_common::tgbot::{Attachment, NotificationDestination};
 use tearbot_common::utils::apis::search_token;
 use tearbot_common::utils::requests::get_reqwest_client;
 use tearbot_common::utils::tokens::{
@@ -73,10 +73,10 @@ impl XeonBotModule for PriceCommandsModule {
     async fn export_settings(
         &self,
         bot_id: UserId,
-        chat_id: ChatId,
+        chat_id: NotificationDestination,
     ) -> Result<serde_json::Value, anyhow::Error> {
         let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
+            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id.chat_id()).await {
                 chat_config
             } else {
                 return Ok(serde_json::Value::Null);
@@ -90,7 +90,7 @@ impl XeonBotModule for PriceCommandsModule {
     async fn import_settings(
         &self,
         bot_id: UserId,
-        chat_id: ChatId,
+        chat_id: NotificationDestination,
         settings: serde_json::Value,
     ) -> Result<(), anyhow::Error> {
         let chat_config = serde_json::from_value(settings)?;
@@ -100,7 +100,7 @@ impl XeonBotModule for PriceCommandsModule {
             }
             bot_config
                 .chat_configs
-                .insert_or_update(chat_id, chat_config)
+                .insert_or_update(chat_id.chat_id(), chat_config)
                 .await?;
         }
         Ok(())
@@ -110,13 +110,17 @@ impl XeonBotModule for PriceCommandsModule {
         true
     }
 
-    async fn pause(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+    async fn pause(
+        &self,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
+    ) -> Result<(), anyhow::Error> {
         if let Some(bot_config) = self.bot_configs.get(&bot_id) {
             if let Some(config) = bot_config.chat_configs.get(&chat_id).await {
                 bot_config
                     .chat_configs
                     .insert_or_update(
-                        chat_id,
+                        chat_id.chat_id(),
                         PriceCommandsChatConfig {
                             enabled: false,
                             ..config.clone()
@@ -128,13 +132,17 @@ impl XeonBotModule for PriceCommandsModule {
         Ok(())
     }
 
-    async fn resume(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+    async fn resume(
+        &self,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
+    ) -> Result<(), anyhow::Error> {
         if let Some(bot_config) = self.bot_configs.get(&bot_id) {
             if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
                 bot_config
                     .chat_configs
                     .insert_or_update(
-                        chat_id,
+                        chat_id.chat_id(),
                         PriceCommandsChatConfig {
                             enabled: true,
                             ..chat_config.clone()
@@ -194,7 +202,7 @@ impl XeonBotModule for PriceCommandsModule {
                 let message = "This command is disabled\\. Let admins know that they can enable it by selecting a token by entering `/pricecommands` in this chat".to_string();
                 let buttons = Vec::<Vec<_>>::new();
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
                 return Ok(());
             };
@@ -202,7 +210,7 @@ impl XeonBotModule for PriceCommandsModule {
             let message = get_price_message(token, bot.xeon()).await;
             let buttons = Vec::<Vec<_>>::new();
             let reply_markup = InlineKeyboardMarkup::new(buttons);
-            bot.send_text_message(chat_id, message, reply_markup)
+            bot.send_text_message(chat_id.into(), message, reply_markup)
                 .await?;
             return Ok(());
         }
@@ -237,14 +245,14 @@ impl XeonBotModule for PriceCommandsModule {
                 let message = "This command is disabled\\. Let admins know that they can enable it by selecting a token by entering `/pricecommands` in this chat".to_string();
                 let buttons = Vec::<Vec<_>>::new();
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
                 return Ok(());
             };
             let message = "Please wait, it usually takes 3\\-5 seconds \\.\\.\\.".to_string();
             let reply_markup = InlineKeyboardMarkup::new(Vec::<Vec<_>>::new());
             let defer_message = bot
-                .send_text_message(chat_id, message, reply_markup)
+                .send_text_message(chat_id.into(), message, reply_markup)
                 .await?;
             let (message, attachment) = get_chart(token, bot, &self.ports).await;
             let buttons = Vec::<Vec<_>>::new();
@@ -274,7 +282,7 @@ impl XeonBotModule for PriceCommandsModule {
                 let message = "This command is disabled\\. Let admins know that they can enable it by selecting a token by entering `/pricecommands` in this chat".to_string();
                 let buttons = Vec::<Vec<_>>::new();
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
                 return Ok(());
             };
@@ -313,7 +321,7 @@ impl XeonBotModule for PriceCommandsModule {
                     .unwrap(),
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
                 return Ok(());
             }
@@ -340,7 +348,7 @@ impl XeonBotModule for PriceCommandsModule {
                             .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                     return Ok(());
                 }
@@ -374,7 +382,7 @@ impl XeonBotModule for PriceCommandsModule {
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 let message =
                     "Choose the token you want to choose, or enter the token again".to_string();
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
             }
             MessageCommand::PriceCommandsDMPriceCommand => {
@@ -390,7 +398,7 @@ impl XeonBotModule for PriceCommandsModule {
                         bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                     return Ok(());
                 }
@@ -422,7 +430,7 @@ impl XeonBotModule for PriceCommandsModule {
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 let message =
                     "Choose the token you want to choose, or enter the token again".to_string();
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
             }
             MessageCommand::PriceCommandsDMChartCommand => {
@@ -438,7 +446,7 @@ impl XeonBotModule for PriceCommandsModule {
                         bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                     return Ok(());
                 }
@@ -470,7 +478,7 @@ impl XeonBotModule for PriceCommandsModule {
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 let message =
                     "Choose the token you want to choose, or enter the token again".to_string();
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
             }
             _ => {}
@@ -655,7 +663,7 @@ impl XeonBotModule for PriceCommandsModule {
                     };
                     bot_config
                         .chat_configs
-                        .insert_or_update(target_chat_id, subscriber)
+                        .insert_or_update(target_chat_id.chat_id(), subscriber)
                         .await?;
                 }
                 self.handle_callback(
@@ -693,7 +701,7 @@ impl XeonBotModule for PriceCommandsModule {
                     };
                     bot_config
                         .chat_configs
-                        .insert_or_update(target_chat_id, subscriber)
+                        .insert_or_update(target_chat_id.chat_id(), subscriber)
                         .await?;
                 }
                 self.handle_callback(
@@ -731,7 +739,7 @@ impl XeonBotModule for PriceCommandsModule {
                     };
                     bot_config
                         .chat_configs
-                        .insert_or_update(target_chat_id, subscriber)
+                        .insert_or_update(target_chat_id.chat_id(), subscriber)
                         .await?;
                 }
                 self.handle_callback(
@@ -769,7 +777,7 @@ impl XeonBotModule for PriceCommandsModule {
                     };
                     bot_config
                         .chat_configs
-                        .insert_or_update(target_chat_id, subscriber)
+                        .insert_or_update(target_chat_id.chat_id(), subscriber)
                         .await?;
                 }
                 self.handle_callback(
@@ -807,7 +815,7 @@ impl XeonBotModule for PriceCommandsModule {
                     };
                     bot_config
                         .chat_configs
-                        .insert_or_update(target_chat_id, subscriber)
+                        .insert_or_update(target_chat_id.chat_id(), subscriber)
                         .await?;
                 }
                 self.handle_callback(
@@ -845,7 +853,7 @@ impl XeonBotModule for PriceCommandsModule {
                     };
                     bot_config
                         .chat_configs
-                        .insert_or_update(target_chat_id, subscriber)
+                        .insert_or_update(target_chat_id.chat_id(), subscriber)
                         .await?;
                 }
                 self.handle_callback(
@@ -883,7 +891,7 @@ impl XeonBotModule for PriceCommandsModule {
                     };
                     bot_config
                         .chat_configs
-                        .insert_or_update(target_chat_id, subscriber)
+                        .insert_or_update(target_chat_id.chat_id(), subscriber)
                         .await?;
                 }
                 self.handle_callback(

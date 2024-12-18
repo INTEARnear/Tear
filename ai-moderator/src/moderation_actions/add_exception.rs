@@ -83,7 +83,7 @@ The AI Moderator can't flag for review, update its model, or do anything other t
             "Old Prompt: {}\n\nMessage: {}\n\nReasoning:{}",
             chat_config.prompt, message_text, reasoning,
         );
-        let model = if reached_gpt4o_rate_limit(chat_id) {
+        let model = if reached_gpt4o_rate_limit(*chat_id) {
             Model::Gpt4oMini
         } else {
             Model::Gpt4o

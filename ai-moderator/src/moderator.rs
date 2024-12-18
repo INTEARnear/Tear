@@ -40,7 +40,7 @@ pub async fn open_main(
         format!(
             " in *{}*",
             markdown::escape(
-                &get_chat_title_cached_5m(ctx.bot().bot(), target_chat_id)
+                &get_chat_title_cached_5m(ctx.bot().bot(), target_chat_id.into())
                     .await?
                     .unwrap_or(DM_CHAT.to_string()),
             )
@@ -102,7 +102,9 @@ pub async fn open_main(
         );
     }
     let moderator_chat_name = if let Some(moderator_chat) = chat_config.moderator_chat {
-        if let Ok(chat_name) = get_chat_title_cached_5m(ctx.bot().bot(), moderator_chat).await {
+        if let Ok(chat_name) =
+            get_chat_title_cached_5m(ctx.bot().bot(), moderator_chat.into()).await
+        {
             if let Some(chat_name) = chat_name {
                 chat_name
             } else {
@@ -336,7 +338,7 @@ Your balance: *{credits} credits*\\. Each message checked costs you {credit_cost
         vec![InlineKeyboardButton::callback(
             "⬅️ Back",
             ctx.bot()
-                .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
+                .to_callback_data(&TgCommand::ChatSettings(target_chat_id.into()))
                 .await,
         )],
     ];
@@ -410,7 +412,7 @@ pub async fn handle_test_message_input(
     let buttons = Vec::<Vec<_>>::new();
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     let message_sent = bot
-        .send_text_message(chat_id, message_to_send, reply_markup)
+        .send_text_message(chat_id.into(), message_to_send, reply_markup)
         .await?;
 
     let future = get_message_rating(

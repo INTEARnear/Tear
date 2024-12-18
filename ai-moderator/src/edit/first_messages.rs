@@ -35,7 +35,7 @@ pub async fn handle_input(
                 .await,
         )]];
         let reply_markup = InlineKeyboardMarkup::new(buttons);
-        bot.send_text_message(chat_id, message, reply_markup)
+        bot.send_text_message(chat_id.into(), message, reply_markup)
             .await?;
         return Ok(());
     };

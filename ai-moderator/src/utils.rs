@@ -147,7 +147,7 @@ pub async fn get_message_rating(
         return MessageRating::NotApplicableNoText;
     }
 
-    let title = get_chat_title_cached_5m(bot.bot(), chat_id).await;
+    let title = get_chat_title_cached_5m(bot.bot(), chat_id.into()).await;
     let additional_instructions = format!(
         "{}\n\nAdmins have set these rules:\n\n{}",
         if let Ok(Some(title)) = title {

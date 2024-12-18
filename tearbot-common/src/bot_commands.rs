@@ -4,14 +4,14 @@ use std::{fmt::Display, time::Duration};
 use bigdecimal::BigDecimal;
 use inindexer::near_utils::dec_format;
 use mongodb::bson::Bson;
-use near_primitives::types::{AccountId, Balance};
+use near_primitives::{hash::CryptoHash, types::{AccountId, Balance}};
 use near_token::NearToken;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use teloxide::prelude::{ChatId, UserId};
+use teloxide::{prelude::UserId, types::ChatId};
 
 use crate::{
-    tgbot::{Attachment, MigrationData},
+    tgbot::{Attachment, MigrationData, NotificationDestination},
     utils::{
         chat::ChatPermissionLevel,
         tokens::{format_near_amount, format_near_amount_without_price},
@@ -23,78 +23,82 @@ use crate::{
 pub enum TgCommand {
     OpenMainMenu,
     ChooseChat,
-    ChatSettings(ChatId),
+    ChatSettings(NotificationDestination),
     CancelChat,
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsSettings(ChatId),
+    NftNotificationsSettings(NotificationDestination),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsAddSubscribtion(ChatId),
+    NftNotificationsAddSubscribtion(NotificationDestination),
     #[cfg(feature = "nft-buybot-module")]
-    CancelNftNotificationsAddSubscribtion(ChatId),
+    CancelNftNotificationsAddSubscribtion(NotificationDestination),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsConfigureSubscription(ChatId, CollectionId),
+    NftNotificationsConfigureSubscription(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsRemoveSubscription(ChatId, CollectionId),
+    NftNotificationsRemoveSubscription(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsManageSubscription(ChatId, CollectionId),
+    NftNotificationsManageSubscription(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsEnableSubscriptionMint(ChatId, CollectionId),
+    NftNotificationsEnableSubscriptionMint(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsDisableSubscriptionMint(ChatId, CollectionId),
+    NftNotificationsDisableSubscriptionMint(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsEnableSubscriptionTrade(ChatId, CollectionId),
+    NftNotificationsEnableSubscriptionTrade(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsDisableSubscriptionTrade(ChatId, CollectionId),
+    NftNotificationsDisableSubscriptionTrade(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsEnableSubscriptionBurn(ChatId, CollectionId),
+    NftNotificationsEnableSubscriptionBurn(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsDisableSubscriptionBurn(ChatId, CollectionId),
+    NftNotificationsDisableSubscriptionBurn(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsChangeSubscriptionAttachment(ChatId, CollectionId),
+    NftNotificationsChangeSubscriptionAttachment(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
     NftNotificationsSubscriptionAttachmentSettings(
-        ChatId,
+        NotificationDestination,
         CollectionId,
         NftBuybotSettingsAttachment,
     ),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsSetSubscriptionAttachment(ChatId, CollectionId, NftBuybotMessageAttachment),
+    NftNotificationsSetSubscriptionAttachment(
+        NotificationDestination,
+        CollectionId,
+        NftBuybotMessageAttachment,
+    ),
     #[cfg(feature = "nft-buybot-module")]
-    CancelNftNotificationsAttachment(ChatId, CollectionId),
+    CancelNftNotificationsAttachment(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsPreview(ChatId, CollectionId),
+    NftNotificationsPreview(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsEditButtons(ChatId, CollectionId),
+    NftNotificationsEditButtons(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsEditLinks(ChatId, CollectionId),
+    NftNotificationsEditLinks(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    CancelNftNotificationsEditButtons(ChatId, CollectionId),
+    CancelNftNotificationsEditButtons(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    CancelNftNotificationsEditLinks(ChatId, CollectionId),
+    CancelNftNotificationsEditLinks(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsDisableSubscriptionTransfer(ChatId, CollectionId),
+    NftNotificationsDisableSubscriptionTransfer(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsEnableSubscriptionTransfer(ChatId, CollectionId),
+    NftNotificationsEnableSubscriptionTransfer(NotificationDestination, CollectionId),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsSettings(ChatId),
+    PotlockNotificationsSettings(NotificationDestination),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsProjects(ChatId),
+    PotlockNotificationsProjects(NotificationDestination),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsAddProject(ChatId),
+    PotlockNotificationsAddProject(NotificationDestination),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsRemoveProject(ChatId, AccountId),
+    PotlockNotificationsRemoveProject(NotificationDestination, AccountId),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsProject(ChatId, AccountId),
+    PotlockNotificationsProject(NotificationDestination, AccountId),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsEnableAll(ChatId),
+    PotlockNotificationsEnableAll(NotificationDestination),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsDisableAll(ChatId),
+    PotlockNotificationsDisableAll(NotificationDestination),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsChangeAttachment(ChatId),
+    PotlockNotificationsChangeAttachment(NotificationDestination),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsAttachmentSettings(ChatId, PotlockAttachmentType),
+    PotlockNotificationsAttachmentSettings(NotificationDestination, PotlockAttachmentType),
     #[cfg(feature = "potlock-module")]
-    CancelPotlockNotificationsAttachment(ChatId),
+    CancelPotlockNotificationsAttachment(NotificationDestination),
     #[cfg(feature = "utilities-module")]
     UtilitiesFt100Holders(AccountId),
     #[cfg(feature = "utilities-module")]
@@ -110,250 +114,293 @@ pub enum TgCommand {
     #[cfg(feature = "utilities-module")]
     UtilitiesAccountInfoAccount(AccountId),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSettings(ChatId),
+    FtNotificationsSettings(NotificationDestination),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsAddSubscribtion(ChatId),
+    FtNotificationsAddSubscribtion(NotificationDestination),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsAddSubscribtionConfirm(ChatId, Token),
+    FtNotificationsAddSubscribtionConfirm(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsConfigureSubscription(ChatId, Token),
+    FtNotificationsConfigureSubscription(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsRemoveSubscription(ChatId, Token),
+    FtNotificationsRemoveSubscription(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsManageSubscription(ChatId, Token),
+    FtNotificationsManageSubscription(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEnableSubscriptionBuys(ChatId, Token),
+    FtNotificationsEnableSubscriptionBuys(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsDisableSubscriptionBuys(ChatId, Token),
+    FtNotificationsDisableSubscriptionBuys(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEnableSubscriptionSells(ChatId, Token),
+    FtNotificationsEnableSubscriptionSells(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsDisableSubscriptionSells(ChatId, Token),
+    FtNotificationsDisableSubscriptionSells(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionAttachments(ChatId, Token),
+    FtNotificationsChangeSubscriptionAttachments(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionAttachmentsAmounts(ChatId, Token),
+    FtNotificationsChangeSubscriptionAttachmentsAmounts(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionAttachment(ChatId, Token, usize),
+    FtNotificationsChangeSubscriptionAttachment(NotificationDestination, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentNone(ChatId, Token, usize),
+    FtNotificationsSubscriptionAttachmentNone(NotificationDestination, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentPhoto(ChatId, Token, usize),
+    FtNotificationsSubscriptionAttachmentPhoto(NotificationDestination, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentAnimation(ChatId, Token, usize),
+    FtNotificationsSubscriptionAttachmentAnimation(NotificationDestination, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsPreview(ChatId, Token),
+    FtNotificationsPreview(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEditButtons(ChatId, Token),
+    FtNotificationsEditButtons(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEditLinks(ChatId, Token),
+    FtNotificationsEditLinks(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionMinAmount(ChatId, Token),
+    FtNotificationsChangeSubscriptionMinAmount(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponents(ChatId, Token),
+    FtNotificationsComponents(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsReorderComponents(ChatId, Token, ReorderMode),
+    FtNotificationsReorderComponents(NotificationDestination, Token, ReorderMode),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsReorderComponents1(ChatId, Token, usize, ReorderMode),
+    FtNotificationsReorderComponents1(NotificationDestination, Token, usize, ReorderMode),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsReorderComponents2(ChatId, Token, usize, usize, ReorderMode),
+    FtNotificationsReorderComponents2(NotificationDestination, Token, usize, usize, ReorderMode),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentPrice(ChatId, Token),
+    FtNotificationsComponentPrice(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentPriceEnable(ChatId, Token),
+    FtNotificationsComponentPriceEnable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentPriceDisable(ChatId, Token),
+    FtNotificationsComponentPriceDisable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentContractAddress(ChatId, Token),
+    FtNotificationsComponentContractAddress(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentContractAddressEnable(ChatId, Token),
+    FtNotificationsComponentContractAddressEnable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentContractAddressDisable(ChatId, Token),
+    FtNotificationsComponentContractAddressDisable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentNearPrice(ChatId, Token),
+    FtNotificationsComponentNearPrice(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentNearPriceEnable(ChatId, Token),
+    FtNotificationsComponentNearPriceEnable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentNearPriceDisable(ChatId, Token),
+    FtNotificationsComponentNearPriceDisable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojis(ChatId, Token),
+    FtNotificationsComponentEmojis(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEnable(ChatId, Token),
+    FtNotificationsComponentEmojisEnable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisDisable(ChatId, Token),
+    FtNotificationsComponentEmojisDisable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditEmojis(ChatId, Token),
+    FtNotificationsComponentEmojisEditEmojis(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditAmountFormulaLinearStep(ChatId, Token),
+    FtNotificationsComponentEmojisEditAmountFormulaLinearStep(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditDistributionSet(ChatId, Token, EmojiDistribution),
+    FtNotificationsComponentEmojisEditDistributionSet(
+        NotificationDestination,
+        Token,
+        EmojiDistribution,
+    ),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentTrader(ChatId, Token),
+    FtNotificationsComponentTrader(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentTraderEnable(ChatId, Token),
+    FtNotificationsComponentTraderEnable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentTraderDisable(ChatId, Token),
+    FtNotificationsComponentTraderDisable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentAmount(ChatId, Token),
+    FtNotificationsComponentAmount(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentAmountEnable(ChatId, Token),
+    FtNotificationsComponentAmountEnable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentAmountDisable(ChatId, Token),
+    FtNotificationsComponentAmountDisable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentFullyDilutedValuation(ChatId, Token),
+    FtNotificationsComponentFullyDilutedValuation(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentFullyDilutedValuationEnable(ChatId, Token),
+    FtNotificationsComponentFullyDilutedValuationEnable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentFullyDilutedValuationDisable(ChatId, Token),
+    FtNotificationsComponentFullyDilutedValuationDisable(NotificationDestination, Token),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsNotificationsSettings(ChatId),
+    PriceAlertsNotificationsSettings(NotificationDestination),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsAddToken(ChatId),
+    PriceAlertsAddToken(NotificationDestination),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsAddTokenConfirm(ChatId, AccountId),
+    PriceAlertsAddTokenConfirm(NotificationDestination, AccountId),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsAddTokenAlert(ChatId, AccountId),
+    PriceAlertsAddTokenAlert(NotificationDestination, AccountId),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsAddTokenAlertDirection(ChatId, AccountId, Threshold, PriceAlertDirection),
+    PriceAlertsAddTokenAlertDirection(
+        NotificationDestination,
+        AccountId,
+        Threshold,
+        PriceAlertDirection,
+    ),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsAddTokenAlertConfirm(ChatId, AccountId, Threshold, PriceAlertDirection, bool),
+    PriceAlertsAddTokenAlertConfirm(
+        NotificationDestination,
+        AccountId,
+        Threshold,
+        PriceAlertDirection,
+        bool,
+    ),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsTokenSettings(ChatId, AccountId),
+    PriceAlertsTokenSettings(NotificationDestination, AccountId),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsRemoveToken(ChatId, AccountId),
+    PriceAlertsRemoveToken(NotificationDestination, AccountId),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsRemoveAlert(ChatId, AccountId, Threshold),
+    PriceAlertsRemoveAlert(NotificationDestination, AccountId, Threshold),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsSettings(ChatId),
+    NewTokenNotificationsSettings(NotificationDestination),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsEnableAll(ChatId),
+    NewTokenNotificationsEnableAll(NotificationDestination),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsDisableAll(ChatId),
+    NewTokenNotificationsDisableAll(NotificationDestination),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsSettings(ChatId),
+    NewLPNotificationsSettings(NotificationDestination),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsEnableAll(ChatId),
+    NewLPNotificationsEnableAll(NotificationDestination),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsDisableAll(ChatId),
+    NewLPNotificationsDisableAll(NotificationDestination),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsAddTokenPrompt(ChatId),
+    NewLPNotificationsAddTokenPrompt(NotificationDestination),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsAddToken(ChatId, AccountId),
+    NewLPNotificationsAddToken(NotificationDestination, AccountId),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsRemoveToken(ChatId, AccountId),
+    NewLPNotificationsRemoveToken(NotificationDestination, AccountId),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsSetMaxAge(ChatId),
+    NewLPNotificationsSetMaxAge(NotificationDestination),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsSetMaxAgeConfirm(ChatId, std::time::Duration),
+    NewLPNotificationsSetMaxAgeConfirm(NotificationDestination, std::time::Duration),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsResetMaxAge(ChatId),
+    NewLPNotificationsResetMaxAge(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    ContractLogsNotificationsSettings(ChatId),
+    ContractLogsNotificationsSettings(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextAddFilter(ChatId),
+    CustomLogsNotificationsTextAddFilter(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextAddFilterConfirm(ChatId, AccountId),
+    CustomLogsNotificationsTextAddFilterConfirm(NotificationDestination, AccountId),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsText(ChatId),
+    CustomLogsNotificationsText(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEdit(ChatId, usize),
+    CustomLogsNotificationsTextEdit(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditAccountId(ChatId, usize),
+    CustomLogsNotificationsTextEditAccountId(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditAccountIdConfirm(ChatId, usize, AccountId),
+    CustomLogsNotificationsTextEditAccountIdConfirm(NotificationDestination, usize, AccountId),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditPredecessorId(ChatId, usize),
+    CustomLogsNotificationsTextEditPredecessorId(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditPredecessorIdConfirm(ChatId, usize, Option<AccountId>),
+    CustomLogsNotificationsTextEditPredecessorIdConfirm(
+        NotificationDestination,
+        usize,
+        Option<AccountId>,
+    ),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditExactMatch(ChatId, usize),
+    CustomLogsNotificationsTextEditExactMatch(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditExactMatchConfirm(ChatId, usize, Option<String>),
+    CustomLogsNotificationsTextEditExactMatchConfirm(
+        NotificationDestination,
+        usize,
+        Option<String>,
+    ),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditStartsWith(ChatId, usize),
+    CustomLogsNotificationsTextEditStartsWith(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditStartsWithConfirm(ChatId, usize, Option<String>),
+    CustomLogsNotificationsTextEditStartsWithConfirm(
+        NotificationDestination,
+        usize,
+        Option<String>,
+    ),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditEndsWith(ChatId, usize),
+    CustomLogsNotificationsTextEditEndsWith(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditEndsWithConfirm(ChatId, usize, Option<String>),
+    CustomLogsNotificationsTextEditEndsWithConfirm(NotificationDestination, usize, Option<String>),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditContains(ChatId, usize),
+    CustomLogsNotificationsTextEditContains(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditContainsConfirm(ChatId, usize, Option<String>),
+    CustomLogsNotificationsTextEditContainsConfirm(NotificationDestination, usize, Option<String>),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextRemoveOne(ChatId, usize),
+    CustomLogsNotificationsTextRemoveOne(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextRemoveAll(ChatId),
+    CustomLogsNotificationsTextRemoveAll(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297(ChatId),
+    CustomLogsNotificationsNep297(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297AddFilter(ChatId),
+    CustomLogsNotificationsNep297AddFilter(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297Edit(ChatId, usize),
+    CustomLogsNotificationsNep297Edit(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditAccountId(ChatId, usize),
+    CustomLogsNotificationsNep297EditAccountId(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditAccountIdConfirm(ChatId, usize, Option<AccountId>),
+    CustomLogsNotificationsNep297EditAccountIdConfirm(
+        NotificationDestination,
+        usize,
+        Option<AccountId>,
+    ),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditPredecessorId(ChatId, usize),
+    CustomLogsNotificationsNep297EditPredecessorId(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditPredecessorIdConfirm(ChatId, usize, Option<AccountId>),
+    CustomLogsNotificationsNep297EditPredecessorIdConfirm(
+        NotificationDestination,
+        usize,
+        Option<AccountId>,
+    ),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditStandard(ChatId, usize),
+    CustomLogsNotificationsNep297EditStandard(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditStandardConfirm(ChatId, usize, Option<String>),
+    CustomLogsNotificationsNep297EditStandardConfirm(
+        NotificationDestination,
+        usize,
+        Option<String>,
+    ),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditVersion(ChatId, usize),
+    CustomLogsNotificationsNep297EditVersion(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditVersionConfirm(ChatId, usize, Option<WrappedVersionReq>),
+    CustomLogsNotificationsNep297EditVersionConfirm(
+        NotificationDestination,
+        usize,
+        Option<WrappedVersionReq>,
+    ),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditEvent(ChatId, usize),
+    CustomLogsNotificationsNep297EditEvent(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditEventConfirm(ChatId, usize, Option<String>),
+    CustomLogsNotificationsNep297EditEventConfirm(NotificationDestination, usize, Option<String>),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297RemoveOne(ChatId, usize),
+    CustomLogsNotificationsNep297RemoveOne(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297RemoveAll(ChatId),
+    CustomLogsNotificationsNep297RemoveAll(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditNetwork(ChatId, usize),
+    CustomLogsNotificationsNep297EditNetwork(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditNetworkConfirm(ChatId, usize, Option<bool>),
+    CustomLogsNotificationsNep297EditNetworkConfirm(NotificationDestination, usize, Option<bool>),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditNetwork(ChatId, usize),
+    CustomLogsNotificationsTextEditNetwork(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditNetworkConfirm(ChatId, usize, Option<bool>),
-    EditChatPermissions(ChatId),
-    SetChatPermissions(ChatId, ChatPermissionLevel),
-    ChatPermissionsManageWhitelist(ChatId, usize),
-    ChatPermissionsAddToWhitelist(ChatId),
-    ChatPermissionsRemoveFromWhitelist(ChatId, UserId),
+    CustomLogsNotificationsTextEditNetworkConfirm(NotificationDestination, usize, Option<bool>),
+    EditChatPermissions(NotificationDestination),
+    SetChatPermissions(NotificationDestination, ChatPermissionLevel),
+    ChatPermissionsManageWhitelist(NotificationDestination, usize),
+    ChatPermissionsAddToWhitelist(NotificationDestination),
+    ChatPermissionsRemoveFromWhitelist(NotificationDestination, UserId),
     #[cfg(feature = "socialdb-module")]
-    SocialDBNotificationsSettings(ChatId),
+    SocialDBNotificationsSettings(NotificationDestination),
     #[cfg(feature = "socialdb-module")]
-    SocialDBNotificationsKeys(ChatId),
+    SocialDBNotificationsKeys(NotificationDestination),
     #[cfg(feature = "socialdb-module")]
-    SocialDBNotificationsAddKey(ChatId),
+    SocialDBNotificationsAddKey(NotificationDestination),
     #[cfg(feature = "socialdb-module")]
-    SocialDBNotificationsAddKeyConfirm(ChatId, serde_json::Value),
+    SocialDBNotificationsAddKeyConfirm(NotificationDestination, serde_json::Value),
     #[cfg(feature = "socialdb-module")]
-    SocialDBNotificationsRemoveKey(ChatId, serde_json::Value),
+    SocialDBNotificationsRemoveKey(NotificationDestination, serde_json::Value),
     #[cfg(feature = "socialdb-module")]
-    SocialDBNotificationsUnsubscribeFromEvent(ChatId, NearSocialEvent),
+    SocialDBNotificationsUnsubscribeFromEvent(NotificationDestination, NearSocialEvent),
     #[cfg(feature = "socialdb-module")]
-    SocialDBNotificationsSubscribeToEvent(ChatId, NearSocialEvent),
+    SocialDBNotificationsSubscribeToEvent(NotificationDestination, NearSocialEvent),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsEnableMemeCooking(ChatId),
+    NewTokenNotificationsEnableMemeCooking(NotificationDestination),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsDisableMemeCooking(ChatId),
+    NewTokenNotificationsDisableMemeCooking(NotificationDestination),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsEnableParent(ChatId, AccountId),
+    NewTokenNotificationsEnableParent(NotificationDestination, AccountId),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsDisableParent(ChatId, AccountId),
+    NewTokenNotificationsDisableParent(NotificationDestination, AccountId),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsEnableOtherParents(ChatId),
+    NewTokenNotificationsEnableOtherParents(NotificationDestination),
     #[cfg(feature = "new-tokens-module")]
-    NewTokenNotificationsDisableOtherParents(ChatId),
+    NewTokenNotificationsDisableOtherParents(NotificationDestination),
     #[cfg(feature = "near-tgi-module")]
     NearTgi(String),
     #[cfg(feature = "near-tgi-module")]
@@ -479,16 +526,16 @@ pub enum TgCommand {
     #[cfg(feature = "image-gen-module")]
     ImageGen,
     #[cfg(feature = "burrow-liquidations-module")]
-    BurrowLiquidationsSettings(ChatId),
+    BurrowLiquidationsSettings(NotificationDestination),
     #[cfg(feature = "burrow-liquidations-module")]
-    BurrowLiquidationsRemove(ChatId, AccountId),
+    BurrowLiquidationsRemove(NotificationDestination, AccountId),
     #[cfg(feature = "burrow-liquidations-module")]
-    BurrowLiquidationsRemoveAll(ChatId),
+    BurrowLiquidationsRemoveAll(NotificationDestination),
     #[cfg(feature = "burrow-liquidations-module")]
-    BurrowLiquidationsAddAccount(ChatId),
+    BurrowLiquidationsAddAccount(NotificationDestination),
     #[cfg(feature = "burrow-liquidations-module")]
-    BurrowLiquidationsAddAccountConfirm(ChatId, AccountId),
-    MigrateToNewBot(ChatId),
+    BurrowLiquidationsAddAccountConfirm(NotificationDestination, AccountId),
+    MigrateToNewBot(NotificationDestination),
     MigrateConfirm(MigrationData),
     ReferralDashboard,
     ReferralWithdraw,
@@ -496,29 +543,29 @@ pub enum TgCommand {
     DisconnectAccount,
     SetReferralNotifications(bool),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEnableSubscriptionLpAdd(ChatId, Token),
+    FtNotificationsEnableSubscriptionLpAdd(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsDisableSubscriptionLpAdd(ChatId, Token),
+    FtNotificationsDisableSubscriptionLpAdd(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEnableSubscriptionLpRemove(ChatId, Token),
+    FtNotificationsEnableSubscriptionLpRemove(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsDisableSubscriptionLpRemove(ChatId, Token),
+    FtNotificationsDisableSubscriptionLpRemove(NotificationDestination, Token),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorRotateModel(ChatId),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsChatSettings(ChatId),
+    PriceCommandsChatSettings(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsSetToken(ChatId),
+    PriceCommandsSetToken(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsSetTokenConfirm(ChatId, AccountId),
+    PriceCommandsSetTokenConfirm(NotificationDestination, AccountId),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsEnableTokenCommand(ChatId),
+    PriceCommandsEnableTokenCommand(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsDisableTokenCommand(ChatId),
+    PriceCommandsDisableTokenCommand(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsEnableChartCommand(ChatId),
+    PriceCommandsEnableChartCommand(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsDisableChartCommand(ChatId),
+    PriceCommandsDisableChartCommand(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
     PriceCommandsDMPriceCommand,
     #[cfg(feature = "price-commands-module")]
@@ -528,9 +575,9 @@ pub enum TgCommand {
     #[cfg(feature = "price-commands-module")]
     PriceCommandsDMChartCommandToken(AccountId),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsEnableCaCommand(ChatId),
+    PriceCommandsEnableCaCommand(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsDisableCaCommand(ChatId),
+    PriceCommandsDisableCaCommand(NotificationDestination),
     #[cfg(feature = "trading-bot-module")]
     TradingBot,
     #[cfg(feature = "trading-bot-module")]
@@ -890,21 +937,21 @@ pub enum MessageCommand {
     Start(String),
     ChooseChat,
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsAddCollection(ChatId),
+    NftNotificationsAddCollection(NotificationDestination),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsSubscriptionAttachmentFixedImage(ChatId, CollectionId),
+    NftNotificationsSubscriptionAttachmentFixedImage(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsSubscriptionAttachmentFixedAnimation(ChatId, CollectionId),
+    NftNotificationsSubscriptionAttachmentFixedAnimation(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsEditButtons(ChatId, CollectionId),
+    NftNotificationsEditButtons(NotificationDestination, CollectionId),
     #[cfg(feature = "nft-buybot-module")]
-    NftNotificationsEditLinks(ChatId, CollectionId),
+    NftNotificationsEditLinks(NotificationDestination, CollectionId),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsAddProject(ChatId),
+    PotlockNotificationsAddProject(NotificationDestination),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsSetAttachment(ChatId, PotlockAttachmentType),
+    PotlockNotificationsSetAttachment(NotificationDestination, PotlockAttachmentType),
     #[cfg(feature = "potlock-module")]
-    PotlockNotificationsSetProjectMinAmountUsd(ChatId, AccountId),
+    PotlockNotificationsSetProjectMinAmountUsd(NotificationDestination, AccountId),
     #[cfg(feature = "utilities-module")]
     UtilitiesFtInfo,
     // #[cfg(feature = "utilities-module")]
@@ -912,58 +959,58 @@ pub enum MessageCommand {
     #[cfg(feature = "utilities-module")]
     UtilitiesAccountInfo,
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsAddToken(ChatId),
+    FtNotificationsAddToken(NotificationDestination),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentPhoto(ChatId, Token, usize),
+    FtNotificationsSubscriptionAttachmentPhoto(NotificationDestination, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsSubscriptionAttachmentAnimation(ChatId, Token, usize),
+    FtNotificationsSubscriptionAttachmentAnimation(NotificationDestination, Token, usize),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEditButtons(ChatId, Token),
+    FtNotificationsEditButtons(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsEditLinks(ChatId, Token),
+    FtNotificationsEditLinks(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionMinAmount(ChatId, Token),
+    FtNotificationsChangeSubscriptionMinAmount(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsChangeSubscriptionAttachmentsAmounts(ChatId, Token),
+    FtNotificationsChangeSubscriptionAttachmentsAmounts(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditEmojis(ChatId, Token),
+    FtNotificationsComponentEmojisEditEmojis(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
-    FtNotificationsComponentEmojisEditAmountFormulaLinearStep(ChatId, Token),
+    FtNotificationsComponentEmojisEditAmountFormulaLinearStep(NotificationDestination, Token),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsAddToken(ChatId),
+    PriceAlertsAddToken(NotificationDestination),
     #[cfg(feature = "price-alerts-module")]
-    PriceAlertsAddTokenAlert(ChatId, AccountId),
+    PriceAlertsAddTokenAlert(NotificationDestination, AccountId),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsAddToken(ChatId),
+    NewLPNotificationsAddToken(NotificationDestination),
     #[cfg(feature = "new-liquidity-pools-module")]
-    NewLPNotificationsSetMaxAge(ChatId),
+    NewLPNotificationsSetMaxAge(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextAddFilter(ChatId),
+    CustomLogsNotificationsTextAddFilter(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditAccountId(ChatId, usize),
+    CustomLogsNotificationsTextEditAccountId(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditPredecessorId(ChatId, usize),
+    CustomLogsNotificationsTextEditPredecessorId(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditExactMatch(ChatId, usize),
+    CustomLogsNotificationsTextEditExactMatch(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditStartsWith(ChatId, usize),
+    CustomLogsNotificationsTextEditStartsWith(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditEndsWith(ChatId, usize),
+    CustomLogsNotificationsTextEditEndsWith(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsTextEditContains(ChatId, usize),
+    CustomLogsNotificationsTextEditContains(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditAccountId(ChatId, usize),
+    CustomLogsNotificationsNep297EditAccountId(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditPredecessorId(ChatId, usize),
+    CustomLogsNotificationsNep297EditPredecessorId(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditStandard(ChatId, usize),
+    CustomLogsNotificationsNep297EditStandard(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditVersion(ChatId, usize),
+    CustomLogsNotificationsNep297EditVersion(NotificationDestination, usize),
     #[cfg(feature = "contract-logs-module")]
-    CustomLogsNotificationsNep297EditEvent(ChatId, usize),
-    ChatPermissionsAddToWhitelist(ChatId),
+    CustomLogsNotificationsNep297EditEvent(NotificationDestination, usize),
+    ChatPermissionsAddToWhitelist(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
-    SocialDBNotificationsAddKey(ChatId),
+    SocialDBNotificationsAddKey(NotificationDestination),
     #[cfg(feature = "near-tgi-module")]
     NearTgi(String),
     #[cfg(feature = "near-tgi-module")]
@@ -999,10 +1046,10 @@ pub enum MessageCommand {
         images: Vec<(String, Option<String>)>,
     },
     #[cfg(feature = "burrow-liquidations-module")]
-    BurrowLiquidationsAddAccount(ChatId),
+    BurrowLiquidationsAddAccount(NotificationDestination),
     ConnectAccountAnonymously,
     #[cfg(feature = "price-commands-module")]
-    PriceCommandsSetToken(ChatId),
+    PriceCommandsSetToken(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
     PriceCommandsDMPriceCommand,
     #[cfg(feature = "price-commands-module")]

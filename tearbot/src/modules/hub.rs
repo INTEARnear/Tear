@@ -9,8 +9,6 @@ use async_trait::async_trait;
 use itertools::Itertools;
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
-use tearbot_common::utils::tokens::format_tokens;
-use tearbot_common::utils::tokens::get_ft_metadata;
 use tearbot_common::utils::SLIME_USER_ID;
 use tearbot_common::utils::{apis::parse_meme_cooking_link, rpc::account_exists};
 use tearbot_common::{
@@ -35,6 +33,11 @@ use tearbot_common::{
     },
     xeon::{XeonBotModule, XeonState},
 };
+use tearbot_common::{
+    teloxide::types::{MessageId, ThreadId},
+    utils::tokens::get_ft_metadata,
+};
+use tearbot_common::{tgbot::NotificationDestination, utils::tokens::format_tokens};
 use tearbot_common::{tgbot::BASE_REFERRAL_SHARE, utils::tokens::format_account_id};
 
 const CANCEL_TEXT: &str = "Cancel";
@@ -93,7 +96,7 @@ impl XeonBotModule for HubModule {
         chat_id: ChatId,
         command: MessageCommand,
         text: &str,
-        message: &Message,
+        user_message: &Message,
     ) -> Result<(), anyhow::Error> {
         if bot.bot_type() != BotType::Main {
             return Ok(());
@@ -103,7 +106,7 @@ impl XeonBotModule for HubModule {
                 bot.remove_message_command(&user_id).await?;
                 let message = "Cancelled\\.".to_string();
                 let reply_markup = ReplyMarkup::kb_remove();
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
             }
         }
@@ -111,252 +114,81 @@ impl XeonBotModule for HubModule {
             if let Some(user_id) = user_id {
                 if let Ok(old_bot_id) = std::env::var("MIGRATION_OLD_BOT_ID") {
                     if bot.id().0 == old_bot_id.parse::<u64>().unwrap() {
-                        start_migration(bot, chat_id, user_id).await?;
+                        start_migration(bot, chat_id.into(), user_id).await?;
                     }
                 }
             }
         }
         if !chat_id.is_user() {
-            if text == "/setup" || text == "/start" {
+            let bot_username = bot
+                .bot()
+                .get_me()
+                .await?
+                .username
+                .clone()
+                .expect("Bot has no username");
+            if text == "/setup"
+                || text == "/start"
+                || text.to_lowercase() == format!("/start@{bot_username}").to_lowercase()
+            {
+                let buttons = if let Some(thread_id) = user_message.thread_id {
+                    vec![
+                        vec![InlineKeyboardButton::url(
+                            "Setup for entire chat",
+                            format!(
+                                "tg://resolve?domain={bot_username}&start=setup-{chat_id}",
+                                bot_username = bot
+                                    .bot()
+                                    .get_me()
+                                    .await?
+                                    .username
+                                    .as_ref()
+                                    .expect("Bot has no username"),
+                            )
+                            .parse()
+                            .unwrap(),
+                        )],
+                        vec![InlineKeyboardButton::url(
+                            "Setup only this topic",
+                            format!(
+                                "tg://resolve?domain={bot_username}&start=setup-{chat_id}={thread_id}",
+                                bot_username = bot
+                                    .bot()
+                                    .get_me()
+                                    .await?
+                                    .username
+                                    .as_ref()
+                                    .expect("Bot has no username"),
+                            )
+                            .parse()
+                            .unwrap(),
+                        )],
+                    ]
+                } else {
+                    vec![vec![InlineKeyboardButton::url(
+                        "Setup",
+                        format!(
+                            "tg://resolve?domain={bot_username}&start=setup-{chat_id}",
+                            bot_username = bot
+                                .bot()
+                                .get_me()
+                                .await?
+                                .username
+                                .as_ref()
+                                .expect("Bot has no username"),
+                        )
+                        .parse()
+                        .unwrap(),
+                    )]]
+                };
                 let message = "Click here to set up the bot".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=setup-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "ft-buybot-module")]
-            if text == "/buybot" {
-                let message = "Click here to set up buybot".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=buybot-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "nft-buybot-module")]
-            if text == "/nftbuybot" {
-                let message = "Click here to set up NFT buybot".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=nftbuybot-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "potlock-module")]
-            if text == "/potlock" {
-                let message = "Click here to set up potlock donation alerts".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Potlock Bot",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=potlock-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "price-alerts-module")]
-            if text == "/pricealerts" {
-                let message = "Click here to set up price alerts".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=pricealerts-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "new-tokens-module")]
-            if text == "/newtokens" {
-                let message = "Click here to set up new token notifications".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=newtokens-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "new-liquidity-pools-module")]
-            if text == "/lp" || text == "/pools" || text == "/liquiditypools" {
-                let message = "Click here to set up new liquidity pool notifications".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=lp-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "socialdb-module")]
-            if text == "/nearsocial" {
-                let message = "Click here to set up Near Social notifications".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=nearsocial-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "contract-logs-module")]
-            if text == "/contractlogs" || text == "/logs" {
-                let message = "Click here to set up contract logs notifications".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=contractlogs-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "contract-logs-module")]
-            if text == "/textlogs" {
-                let message = "Click here to set up text logs notifications".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Text Logs Bot",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=textlogs-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
-            }
-            #[cfg(feature = "contract-logs-module")]
-            if text == "/nep297" {
-                let message = "Click here to set up NEP\\-297 logs notifications".to_string();
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Setup",
-                    format!(
-                        "tg://resolve?domain={bot_username}&start=nep297-{chat_id}",
-                        bot_username = bot
-                            .bot()
-                            .get_me()
-                            .await?
-                            .username
-                            .as_ref()
-                            .expect("Bot has no username"),
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
-                    .await?;
+                bot.send_text_message(
+                    NotificationDestination::from_message(user_message),
+                    message,
+                    reply_markup,
+                )
+                .await?;
             }
             #[cfg(feature = "ai-moderator-module")]
             if text == "/mod" || text == "/aimod" {
@@ -377,7 +209,7 @@ impl XeonBotModule for HubModule {
                     .unwrap(),
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
             }
             #[cfg(feature = "price-commands-module")]
@@ -399,7 +231,7 @@ impl XeonBotModule for HubModule {
                     .unwrap(),
                 )]];
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
             }
             return Ok(());
@@ -519,7 +351,7 @@ impl XeonBotModule for HubModule {
                                                     token_id: account_id.clone(),
                                                 },
                                                 amount,
-                                                message,
+                                                user_message,
                                             )
                                             .await?;
                                     }
@@ -567,7 +399,7 @@ impl XeonBotModule for HubModule {
                                 // so avoid handling this message as input to /buy
                                 let xeon = Arc::clone(bot.xeon());
                                 let bot_id = bot.id();
-                                let message = message.clone();
+                                let message = user_message.clone();
                                 tokio::spawn(async move {
                                     let bot = xeon.bot(&bot_id).unwrap();
                                     for module in bot.xeon().bot_modules().await.iter() {
@@ -654,7 +486,7 @@ impl XeonBotModule for HubModule {
                                 chat_id,
                                 MessageCommand::UtilitiesFtInfo,
                                 token_id,
-                                message,
+                                user_message,
                             )
                             .await?;
                     }
@@ -718,7 +550,7 @@ impl XeonBotModule for HubModule {
                                 chat_id,
                                 MessageCommand::UtilitiesFtInfo,
                                 token_id,
-                                message,
+                                user_message,
                             )
                             .await?;
                     }
@@ -785,7 +617,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     MessageCommand::UtilitiesAccountInfo,
                                     account_id,
-                                    message,
+                                    user_message,
                                 )
                                 .await?;
                         }
@@ -802,7 +634,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(&TgCommand::FtNotificationsSettings(
-                                        chat_id,
+                                        chat_id.into(),
                                     ))
                                     .await,
                                 ),
@@ -822,7 +654,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(&TgCommand::NftNotificationsSettings(
-                                        chat_id,
+                                        chat_id.into(),
                                     ))
                                     .await,
                                 ),
@@ -842,7 +674,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(
-                                        &TgCommand::PotlockNotificationsSettings(chat_id),
+                                        &TgCommand::PotlockNotificationsSettings(chat_id.into()),
                                     )
                                     .await,
                                 ),
@@ -862,7 +694,9 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(
-                                        &TgCommand::PriceAlertsNotificationsSettings(chat_id),
+                                        &TgCommand::PriceAlertsNotificationsSettings(
+                                            chat_id.into(),
+                                        ),
                                     )
                                     .await,
                                 ),
@@ -882,7 +716,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(
-                                        &TgCommand::NewTokenNotificationsSettings(chat_id),
+                                        &TgCommand::NewTokenNotificationsSettings(chat_id.into()),
                                     )
                                     .await,
                                 ),
@@ -902,7 +736,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(&TgCommand::NewLPNotificationsSettings(
-                                        chat_id,
+                                        chat_id.into(),
                                     ))
                                     .await,
                                 ),
@@ -922,7 +756,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(
-                                        &TgCommand::SocialDBNotificationsSettings(chat_id),
+                                        &TgCommand::SocialDBNotificationsSettings(chat_id.into()),
                                     )
                                     .await,
                                 ),
@@ -942,7 +776,9 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(
-                                        &TgCommand::ContractLogsNotificationsSettings(chat_id),
+                                        &TgCommand::ContractLogsNotificationsSettings(
+                                            chat_id.into(),
+                                        ),
                                     )
                                     .await,
                                 ),
@@ -962,7 +798,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(&TgCommand::CustomLogsNotificationsText(
-                                        chat_id,
+                                        chat_id.into(),
                                     ))
                                     .await,
                                 ),
@@ -982,7 +818,7 @@ impl XeonBotModule for HubModule {
                                     chat_id,
                                     None,
                                     &bot.to_callback_data(
-                                        &TgCommand::CustomLogsNotificationsNep297(chat_id),
+                                        &TgCommand::CustomLogsNotificationsNep297(chat_id.into()),
                                     )
                                     .await,
                                 ),
@@ -1008,7 +844,7 @@ impl XeonBotModule for HubModule {
                         bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                     return Ok(());
                 }
@@ -1016,7 +852,7 @@ impl XeonBotModule for HubModule {
                     let message = "To request a refund, please send a direct message to @slimytentacles\\. If you're eligible for a full refund by /terms, you don't have to state a reason, just send the invoice number from Telegram Settings \\-\\> My Stars\\.".to_string();
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                     return Ok(());
                 }
@@ -1036,7 +872,7 @@ impl XeonBotModule for HubModule {
                         let message = "\n\nBy using this bot, you agree to /terms".to_string();
                         let buttons = Vec::<Vec<_>>::new();
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
-                        bot.send_text_message(chat_id, message, reply_markup)
+                        bot.send_text_message(chat_id.into(), message, reply_markup)
                             .await?;
                         if let Ok(referrer_id) = referrer.parse() {
                             bot.set_referrer(user_id, UserId(referrer_id)).await?;
@@ -1046,7 +882,7 @@ impl XeonBotModule for HubModule {
                                     let buttons = Vec::<Vec<_>>::new();
                                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                                     bot.send_text_message(
-                                        ChatId(referrer_id as i64),
+                                        ChatId(referrer_id as i64).into(),
                                         message.to_string(),
                                         reply_markup,
                                     )
@@ -1067,6 +903,7 @@ impl XeonBotModule for HubModule {
                     ("gm7", UserId(7091308405)),
                     ("gm8", UserId(7091308405)),
                     ("gm9", UserId(7091308405)),
+                    ("dt", UserId(1888839649)),
                 ];
                 for (prefix, referrer_id) in PREFIXES {
                     if let Some(data_without_referrer) = data.strip_prefix(&format!("{prefix}-")) {
@@ -1080,7 +917,7 @@ impl XeonBotModule for HubModule {
                             let message = "\n\nBy using this bot, you agree to /terms".to_string();
                             let buttons = Vec::<Vec<_>>::new();
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            bot.send_text_message(chat_id, message, reply_markup)
+                            bot.send_text_message(chat_id.into(), message, reply_markup)
                                 .await?;
                             bot.set_referrer(user_id, *referrer_id).await?;
                             if let Some(bot_config) = self.referral_notifications.get(&bot.id()) {
@@ -1089,7 +926,7 @@ impl XeonBotModule for HubModule {
                                     let buttons = Vec::<Vec<_>>::new();
                                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                                     bot.send_text_message(
-                                        ChatId(referrer_id.0 as i64),
+                                        ChatId(referrer_id.0 as i64).into(),
                                         message.to_string(),
                                         reply_markup,
                                     )
@@ -1107,7 +944,7 @@ impl XeonBotModule for HubModule {
                 }
                 if let Some(migration_hash) = data.strip_prefix("migrate-") {
                     if let Ok(migration) = bot.parse_migration_data(migration_hash).await {
-                        let chat = bot.bot().get_chat(migration.chat_id).await;
+                        let chat = bot.bot().get_chat(migration.chat_id.chat_id()).await;
                         if chat.is_err() {
                             let message = "I don't have access to the chat you are trying to migrate\\. Please add me to this chat and try again\\.";
                             let buttons = vec![vec![InlineKeyboardButton::url(
@@ -1126,8 +963,12 @@ impl XeonBotModule for HubModule {
                                 .unwrap(),
                             )]];
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            bot.send_text_message(chat_id, message.to_string(), reply_markup)
-                                .await?;
+                            bot.send_text_message(
+                                chat_id.into(),
+                                message.to_string(),
+                                reply_markup,
+                            )
+                            .await?;
                             return Ok(());
                         }
                         if !check_admin_permission_in_chat(bot, migration.chat_id, user_id).await {
@@ -1187,10 +1028,25 @@ impl XeonBotModule for HubModule {
                     }
                 }
                 if let Some(target_chat_id) = data.strip_prefix("setup-") {
-                    if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
+                    if let Ok([target_chat_id, thread_id]) =
+                        <[&str; 2]>::try_from(target_chat_id.split('=').collect::<Vec<_>>())
+                    {
+                        if let (Ok(target_chat_id), Ok(target_thread_id)) =
+                            (target_chat_id.parse::<i64>(), thread_id.parse::<i32>())
+                        {
+                            self.open_chat_settings(
+                                &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
+                                Some(NotificationDestination::Topic(
+                                    ChatId(target_chat_id),
+                                    ThreadId(MessageId(target_thread_id)),
+                                )),
+                            )
+                            .await?;
+                        }
+                    } else if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
                         self.open_chat_settings(
                             &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
-                            Some(ChatId(target_chat_id)),
+                            Some(NotificationDestination::Chat(ChatId(target_chat_id))),
                         )
                         .await?;
                     }
@@ -1207,7 +1063,7 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(&TgCommand::FtNotificationsSettings(
-                                            ChatId(target_chat_id),
+                                            ChatId(target_chat_id).into(),
                                         ))
                                         .await,
                                     ),
@@ -1229,9 +1085,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::NftNotificationsSettings(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::NftNotificationsSettings(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1253,9 +1109,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::PotlockNotificationsSettings(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::PotlockNotificationsSettings(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1277,9 +1133,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::PriceAlertsNotificationsSettings(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::PriceAlertsNotificationsSettings(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1301,9 +1157,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::NewTokenNotificationsSettings(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::NewTokenNotificationsSettings(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1325,9 +1181,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::NewLPNotificationsSettings(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::NewLPNotificationsSettings(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1349,9 +1205,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::SocialDBNotificationsSettings(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::SocialDBNotificationsSettings(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1373,9 +1229,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::ContractLogsNotificationsSettings(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::ContractLogsNotificationsSettings(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1397,9 +1253,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::CustomLogsNotificationsText(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::CustomLogsNotificationsText(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1421,9 +1277,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::CustomLogsNotificationsNep297(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::CustomLogsNotificationsNep297(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1467,9 +1323,9 @@ impl XeonBotModule for HubModule {
                                         chat_id,
                                         None,
                                         &bot.to_callback_data(
-                                            &TgCommand::PriceCommandsChatSettings(ChatId(
-                                                target_chat_id,
-                                            )),
+                                            &TgCommand::PriceCommandsChatSettings(
+                                                ChatId(target_chat_id).into(),
+                                            ),
                                         )
                                         .await,
                                     ),
@@ -1616,7 +1472,7 @@ impl XeonBotModule for HubModule {
                                 .await,
                         )]]);
                     bot.remove_message_command(&user_id).await?;
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                 }
             }
@@ -1624,21 +1480,21 @@ impl XeonBotModule for HubModule {
                 if let Some(ChatShared {
                     chat_id: target_chat_id,
                     ..
-                }) = message.shared_chat()
+                }) = user_message.shared_chat()
                 {
                     bot.remove_message_command(&user_id).await?;
                     let chat_name = markdown::escape(
-                        &get_chat_title_cached_5m(bot.bot(), *target_chat_id)
+                        &get_chat_title_cached_5m(bot.bot(), (*target_chat_id).into())
                             .await?
                             .unwrap_or("DM".to_string()),
                     );
                     let message = format!("You have selected {chat_name}");
                     let reply_markup = ReplyMarkup::kb_remove();
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                     self.open_chat_settings(
                         &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
-                        Some(*target_chat_id),
+                        Some((*target_chat_id).into()),
                     )
                     .await?;
                 } else {
@@ -1648,7 +1504,7 @@ impl XeonBotModule for HubModule {
                         bot.to_callback_data(&TgCommand::CancelChat).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                 }
             }
@@ -1656,7 +1512,7 @@ impl XeonBotModule for HubModule {
                 if text == CANCEL_TEXT {
                     bot.remove_message_command(&user_id).await?;
                     bot.send_text_message(
-                        chat_id,
+                        chat_id.into(),
                         "Cancelled".to_string(),
                         ReplyMarkup::kb_remove(),
                     )
@@ -1667,23 +1523,27 @@ impl XeonBotModule for HubModule {
                     .await?;
                     return Ok(());
                 }
-                let member = bot.bot().get_chat_member(target_chat_id, user_id).await?;
+                let member = bot
+                    .bot()
+                    .get_chat_member(target_chat_id.chat_id(), user_id)
+                    .await?;
                 if !member.is_owner() {
                     let message =
                         "You must be the owner of the group / channel to edit permissions"
                             .to_string();
-                    bot.send_text_message(chat_id, message, ReplyMarkup::kb_remove())
+                    bot.send_text_message(chat_id.into(), message, ReplyMarkup::kb_remove())
                         .await?;
                     return Ok(());
                 }
-                let mut whitelist = if let ChatPermissionLevel::Whitelist(whitelist) =
-                    bot.get_chat_permission_level(target_chat_id).await
+                let mut whitelist = if let ChatPermissionLevel::Whitelist(whitelist) = bot
+                    .get_chat_permission_level(target_chat_id.chat_id())
+                    .await
                 {
                     whitelist
                 } else {
                     return Ok(());
                 };
-                if let Some(UsersShared { user_ids, .. }) = message.shared_users() {
+                if let Some(UsersShared { user_ids, .. }) = user_message.shared_users() {
                     let old_length = whitelist.len();
                     whitelist.extend(user_ids);
                     let text_message = format!(
@@ -1699,12 +1559,12 @@ impl XeonBotModule for HubModule {
                         }
                     );
                     bot.set_chat_permission_level(
-                        target_chat_id,
+                        target_chat_id.chat_id(),
                         ChatPermissionLevel::Whitelist(whitelist),
                     )
                     .await?;
                     let reply_markup = ReplyMarkup::kb_remove();
-                    bot.send_text_message(chat_id, text_message, reply_markup)
+                    bot.send_text_message(chat_id.into(), text_message, reply_markup)
                         .await?;
                     self.handle_callback(
                         TgCallbackContext::new(
@@ -1781,7 +1641,7 @@ impl XeonBotModule for HubModule {
                 let member = context
                     .bot()
                     .bot()
-                    .get_chat_member(target_chat_id, context.user_id())
+                    .get_chat_member(target_chat_id.chat_id(), context.user_id())
                     .await?;
                 if !member.is_owner() {
                     let message = "You must be the owner of the chat / channel to edit permissions"
@@ -1798,7 +1658,7 @@ impl XeonBotModule for HubModule {
 
                 let permission_level = context
                     .bot()
-                    .get_chat_permission_level(target_chat_id)
+                    .get_chat_permission_level(target_chat_id.chat_id())
                     .await;
 
                 let description = match &permission_level {
@@ -1812,7 +1672,7 @@ impl XeonBotModule for HubModule {
                                 let first_name = if let Ok(member) = context
                                     .bot()
                                     .bot()
-                                    .get_chat_member(target_chat_id, *member_id)
+                                    .get_chat_member(target_chat_id.chat_id(), *member_id)
                                     .await
                                 {
                                     member.user.first_name.clone()
@@ -1919,7 +1779,7 @@ impl XeonBotModule for HubModule {
                 let member = context
                     .bot()
                     .bot()
-                    .get_chat_member(target_chat_id, context.user_id())
+                    .get_chat_member(target_chat_id.chat_id(), context.user_id())
                     .await?;
                 if !member.is_owner() {
                     let message = if cfg!(feature = "configure-channels") {
@@ -1940,7 +1800,7 @@ impl XeonBotModule for HubModule {
 
                 context
                     .bot()
-                    .set_chat_permission_level(target_chat_id, permission_level)
+                    .set_chat_permission_level(target_chat_id.chat_id(), permission_level)
                     .await?;
                 self.handle_callback(
                     TgCallbackContext::new(
@@ -1967,7 +1827,7 @@ impl XeonBotModule for HubModule {
                 let member = context
                     .bot()
                     .bot()
-                    .get_chat_member(target_chat_id, context.user_id())
+                    .get_chat_member(target_chat_id.chat_id(), context.user_id())
                     .await?;
                 if !member.is_owner() {
                     let message = if cfg!(feature = "configure-channels") {
@@ -1988,7 +1848,7 @@ impl XeonBotModule for HubModule {
 
                 let permission_level = context
                     .bot()
-                    .get_chat_permission_level(target_chat_id)
+                    .get_chat_permission_level(target_chat_id.chat_id())
                     .await;
                 let total_members = match permission_level {
                     ChatPermissionLevel::Whitelist(members) => members,
@@ -2007,7 +1867,7 @@ impl XeonBotModule for HubModule {
                     let name = if let Ok(member) = context
                         .bot()
                         .bot()
-                        .get_chat_member(target_chat_id, member_id)
+                        .get_chat_member(target_chat_id.chat_id(), member_id)
                         .await
                     {
                         format!(
@@ -2096,7 +1956,7 @@ impl XeonBotModule for HubModule {
                 let member = context
                     .bot()
                     .bot()
-                    .get_chat_member(target_chat_id, context.user_id())
+                    .get_chat_member(target_chat_id.chat_id(), context.user_id())
                     .await?;
                 if !member.is_owner() {
                     let message = if cfg!(feature = "configure-channels") {
@@ -2117,7 +1977,7 @@ impl XeonBotModule for HubModule {
 
                 let permission_level = context
                     .bot()
-                    .get_chat_permission_level(target_chat_id)
+                    .get_chat_permission_level(target_chat_id.chat_id())
                     .await;
                 if !matches!(permission_level, ChatPermissionLevel::Whitelist(_)) {
                     return Ok(());
@@ -2155,7 +2015,7 @@ impl XeonBotModule for HubModule {
                 let member = context
                     .bot()
                     .bot()
-                    .get_chat_member(target_chat_id, context.user_id())
+                    .get_chat_member(target_chat_id.chat_id(), context.user_id())
                     .await?;
                 if !member.is_owner() {
                     let message = if cfg!(feature = "configure-channels") {
@@ -2176,14 +2036,14 @@ impl XeonBotModule for HubModule {
 
                 let permission_level = context
                     .bot()
-                    .get_chat_permission_level(target_chat_id)
+                    .get_chat_permission_level(target_chat_id.chat_id())
                     .await;
                 if let ChatPermissionLevel::Whitelist(mut members) = permission_level {
                     members.remove(&user_id);
                     context
                         .bot()
                         .set_chat_permission_level(
-                            target_chat_id,
+                            target_chat_id.chat_id(),
                             ChatPermissionLevel::Whitelist(members),
                         )
                         .await?;
@@ -2529,7 +2389,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             "🔔 Notifications",
             context
                 .bot()
-                .to_callback_data(&TgCommand::ChatSettings(chat_id))
+                .to_callback_data(&TgCommand::ChatSettings(chat_id.into()))
                 .await,
         )]);
         buttons.extend(vec![vec![InlineKeyboardButton::callback(
@@ -2657,7 +2517,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                 )],
             ]);
-            bot.send_text_message(chat_id, message, reply_markup)
+            bot.send_text_message(chat_id.into(), message, reply_markup)
                 .await?;
             bot.remove_message_command(&user_id).await?;
             return Ok(());
@@ -2670,7 +2530,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 bot.to_callback_data(&TgCommand::OpenMainMenu).await,
             )]];
             let reply_markup = InlineKeyboardMarkup::new(buttons);
-            bot.send_text_message(chat_id, message, reply_markup)
+            bot.send_text_message(chat_id.into(), message, reply_markup)
                 .await?;
             return Ok(());
         }
@@ -2691,7 +2551,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 bot.to_callback_data(&TgCommand::OpenMainMenu).await,
             )],
         ]);
-        bot.send_text_message(chat_id, message, reply_markup)
+        bot.send_text_message(chat_id.into(), message, reply_markup)
             .await?;
         Ok(())
     }
@@ -2832,7 +2692,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
     async fn open_chat_settings<'a>(
         &'a self,
         context: &mut TgCallbackContext<'a>,
-        target_chat_id: Option<ChatId>,
+        target_chat_id: Option<NotificationDestination>,
     ) -> Result<(), anyhow::Error> {
         if context.bot().bot_type() != BotType::Main {
             return Ok(());
@@ -2853,39 +2713,53 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         let mut buttons = create_notificatons_buttons(target_chat_id, context.bot()).await?;
         #[cfg(feature = "ai-moderator-module")]
         {
-            let chat = context.bot().bot().get_chat(target_chat_id).await?;
+            let chat = context
+                .bot()
+                .bot()
+                .get_chat(target_chat_id.chat_id())
+                .await?;
             if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
                 if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
                 | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
                 {
-                    buttons.push(vec![InlineKeyboardButton::callback(
-                        "🤖 AI Moderator",
-                        context
-                            .bot()
-                            .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                            .await,
-                    )]);
+                    if target_chat_id.thread_id().is_none() {
+                        buttons.push(vec![InlineKeyboardButton::callback(
+                            "🤖 AI Moderator",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::AiModerator(target_chat_id.chat_id()))
+                                .await,
+                        )]);
+                    }
                 }
             }
         }
         #[cfg(feature = "price-commands-module")]
         {
-            let chat = context.bot().bot().get_chat(target_chat_id).await?;
+            let chat = context
+                .bot()
+                .bot()
+                .get_chat(target_chat_id.chat_id())
+                .await?;
             if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
                 if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
                 | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
                 {
-                    buttons.push(vec![InlineKeyboardButton::callback(
-                        "📈 Price Commands",
-                        context
-                            .bot()
-                            .to_callback_data(&TgCommand::PriceCommandsChatSettings(target_chat_id))
-                            .await,
-                    )]);
+                    if target_chat_id.thread_id().is_none() {
+                        buttons.push(vec![InlineKeyboardButton::callback(
+                            "📈 Price Commands",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::PriceCommandsChatSettings(
+                                    target_chat_id,
+                                ))
+                                .await,
+                        )]);
+                    }
                 }
             }
         }
-        if !target_chat_id.is_user() {
+        if !target_chat_id.is_user() && target_chat_id.thread_id().is_none() {
             buttons.push(vec![InlineKeyboardButton::callback(
                 "👤 Permissions",
                 context
@@ -2908,7 +2782,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
 }
 
 async fn create_notificatons_buttons(
-    target_chat_id: ChatId,
+    target_chat_id: NotificationDestination,
     bot: &BotData,
 ) -> Result<Vec<Vec<InlineKeyboardButton>>, anyhow::Error> {
     #[allow(unused_mut)]
@@ -3000,7 +2874,7 @@ async fn create_notificatons_buttons(
 
 async fn start_migration(
     bot: &BotData,
-    target_chat_id: ChatId,
+    target_chat_id: NotificationDestination,
     user_id: UserId,
 ) -> Result<(), anyhow::Error> {
     if let Ok(new_bot_username) = std::env::var("MIGRATION_NEW_BOT_USERNAME") {
@@ -3039,7 +2913,7 @@ async fn start_migration(
                     .await,
             )],
         ]);
-        bot.send_text_message(ChatId(user_id.0 as i64), message, reply_markup)
+        bot.send_text_message(ChatId(user_id.0 as i64).into(), message, reply_markup)
             .await?;
     } else {
         log::warn!("MIGRATION_NEW_BOT_USERNAME is not set");

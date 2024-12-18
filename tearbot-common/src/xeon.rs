@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::bot_commands::PoolId;
+use crate::tgbot::NotificationDestination;
 use crate::utils::store::PersistentCachedStore;
 use crate::{
     bot_commands::{MessageCommand, PaymentReference},
@@ -327,7 +328,7 @@ pub trait XeonBotModule: Send + Sync + 'static {
     async fn export_settings(
         &self,
         _bot_id: UserId,
-        _chat_id: ChatId,
+        _chat_id: NotificationDestination,
     ) -> Result<serde_json::Value, anyhow::Error> {
         unimplemented!("supports_migration is true, but export_settings is not implemented")
     }
@@ -335,7 +336,7 @@ pub trait XeonBotModule: Send + Sync + 'static {
     async fn import_settings(
         &self,
         _bot_id: UserId,
-        _chat_id: ChatId,
+        _chat_id: NotificationDestination,
         _settings: serde_json::Value,
     ) -> Result<(), anyhow::Error> {
         unimplemented!("supports_migration is true, but import_settings is not implemented")
@@ -344,11 +345,19 @@ pub trait XeonBotModule: Send + Sync + 'static {
     /// If true, implement `pause` and `resume` methods
     fn supports_pause(&self) -> bool;
 
-    async fn pause(&self, _bot_id: UserId, _chat_id: ChatId) -> Result<(), anyhow::Error> {
+    async fn pause(
+        &self,
+        _bot_id: UserId,
+        _chat_id: NotificationDestination,
+    ) -> Result<(), anyhow::Error> {
         unimplemented!("supports_pause is true, but pause is not implemented")
     }
 
-    async fn resume(&self, _bot_id: UserId, _chat_id: ChatId) -> Result<(), anyhow::Error> {
+    async fn resume(
+        &self,
+        _bot_id: UserId,
+        _chat_id: NotificationDestination,
+    ) -> Result<(), anyhow::Error> {
         unimplemented!("supports_pause is true, but resume is not implemented")
     }
 }

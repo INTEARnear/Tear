@@ -17,7 +17,6 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use tearbot_common::utils::ai::Model;
 use tearbot_common::utils::chat::get_chat_title_cached_5m;
 use tearbot_common::utils::SLIME_USER_ID;
 use tearbot_common::{
@@ -40,6 +39,7 @@ use tearbot_common::{
     utils::{chat::expandable_blockquote, store::PersistentCachedStore},
     xeon::{XeonBotModule, XeonState},
 };
+use tearbot_common::{tgbot::NotificationDestination, utils::ai::Model};
 use tokio::sync::RwLock;
 
 use crate::utils::MessageRating;
@@ -75,7 +75,7 @@ impl XeonBotModule for AiModeratorModule {
     async fn export_settings(
         &self,
         bot_id: UserId,
-        chat_id: ChatId,
+        chat_id: NotificationDestination,
     ) -> Result<serde_json::Value, anyhow::Error> {
         let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot_id) {
             if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
@@ -92,7 +92,7 @@ impl XeonBotModule for AiModeratorModule {
     async fn import_settings(
         &self,
         bot_id: UserId,
-        chat_id: ChatId,
+        chat_id: NotificationDestination,
         settings: serde_json::Value,
     ) -> Result<(), anyhow::Error> {
         let chat_config = serde_json::from_value(settings)?;
@@ -102,7 +102,7 @@ impl XeonBotModule for AiModeratorModule {
             }
             bot_config
                 .chat_configs
-                .insert_or_update(chat_id, chat_config)
+                .insert_or_update(chat_id.chat_id(), chat_config)
                 .await?;
         }
         Ok(())
@@ -112,13 +112,17 @@ impl XeonBotModule for AiModeratorModule {
         true
     }
 
-    async fn pause(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+    async fn pause(
+        &self,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
+    ) -> Result<(), anyhow::Error> {
         if let Some(bot_config) = self.bot_configs.get(&bot_id) {
             if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
                 bot_config
                     .chat_configs
                     .insert_or_update(
-                        chat_id,
+                        chat_id.chat_id(),
                         AiModeratorChatConfig {
                             enabled: false,
                             ..chat_config.clone()
@@ -130,13 +134,17 @@ impl XeonBotModule for AiModeratorModule {
         Ok(())
     }
 
-    async fn resume(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+    async fn resume(
+        &self,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
+    ) -> Result<(), anyhow::Error> {
         if let Some(bot_config) = self.bot_configs.get(&bot_id) {
             if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
                 bot_config
                     .chat_configs
                     .insert_or_update(
-                        chat_id,
+                        chat_id.chat_id(),
                         AiModeratorChatConfig {
                             enabled: true,
                             ..chat_config.clone()
@@ -217,7 +225,7 @@ impl XeonBotModule for AiModeratorModule {
                 Vec::new()
             };
             bot.send_text_message(
-                chat_id,
+                chat_id.into(),
                 "Sending announcement\\.\\.\\.".to_string(),
                 InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
             )
@@ -239,7 +247,7 @@ impl XeonBotModule for AiModeratorModule {
                         Ok(_) => {
                             let _ = bot
                                 .send_text_message(
-                                    chat_id,
+                                    chat_id.into(),
                                     format!(
                                         "Sent announcement to {}/{}",
                                         i + 1,
@@ -253,7 +261,7 @@ impl XeonBotModule for AiModeratorModule {
                             log::warn!("Failed to send announcement: {err:?}");
                             let _ = bot
                                 .send_text_message(
-                                    chat_id,
+                                    chat_id.into(),
                                     format!(
                                         "Failed to send announcement to {}/{}",
                                         i + 1,
@@ -267,7 +275,7 @@ impl XeonBotModule for AiModeratorModule {
                 }
                 let _ = bot
                     .send_text_message(
-                        chat_id,
+                        chat_id.into(),
                         "Sent announcement to all moderator chats".to_string(),
                         InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
                     )
@@ -627,7 +635,7 @@ impl XeonBotModule for AiModeratorModule {
                 billing::add_balance::handle_buy_credits(
                     ctx.bot(),
                     ctx.user_id(),
-                    ctx.chat_id(),
+                    *ctx.chat_id(),
                     target_chat_id,
                     credits,
                 )
@@ -929,12 +937,12 @@ impl AiModeratorModule {
                                 .insert(chat_id, Instant::now());
                             let message = format!(
                                 "{chat_name} has run out of credits\\. Please make sure your balance is greater than 0",
-                                chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id).await?.unwrap_or_default()),
+                                chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id.into()).await?.unwrap_or_default()),
                             );
                             let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                             bot.send_text_message(
-                                chat_config.moderator_chat.unwrap_or(chat_id),
+                                chat_config.moderator_chat.unwrap_or(chat_id).into(),
                                 message,
                                 reply_markup,
                             )
@@ -981,7 +989,7 @@ impl AiModeratorModule {
 
                 // Send reports to human moderators for evaluation
                 if let Ok(human_moderators) = std::env::var("HUMAN_MODERATORS") {
-                    let chat_name = get_chat_title_cached_5m(bot.bot(), chat_id)
+                    let chat_name = get_chat_title_cached_5m(bot.bot(), chat_id.into())
                         .await
                         .map(|maybe_name| maybe_name.unwrap_or_else(|| "<No name>".to_string()))
                         .unwrap_or_else(|_| "<Error fetching name>".to_string());
@@ -1105,7 +1113,7 @@ impl AiModeratorModule {
                         other => *other,
                     }
                 };
-                let chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id).await?.unwrap_or_default());
+                let chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id.into()).await?.unwrap_or_default());
                 match action {
                     ModerationAction::Ban => {
                         if !chat_config.debug_mode {
@@ -1133,7 +1141,7 @@ impl AiModeratorModule {
                                 let message = format!("Failed to ban user: {err}");
                                 let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
                                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                bot.send_text_message(chat_id, message, reply_markup)
+                                bot.send_text_message(chat_id.into(), message, reply_markup)
                                     .await?;
                             }
                         }
@@ -1208,7 +1216,7 @@ impl AiModeratorModule {
                                 let message = format!("Failed to mute user: {err}");
                                 let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
                                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                bot.send_text_message(chat_id, message, reply_markup)
+                                bot.send_text_message(chat_id.into(), message, reply_markup)
                                     .await?;
                             }
                         }
@@ -1285,7 +1293,7 @@ impl AiModeratorModule {
                                 let message = format!("Failed to mute user: {err}");
                                 let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
                                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                bot.send_text_message(chat_id, message, reply_markup)
+                                bot.send_text_message(chat_id.into(), message, reply_markup)
                                     .await?;
                             }
                         }
@@ -1353,7 +1361,7 @@ impl AiModeratorModule {
                                 let message = format!("Failed to delete message: {err}");
                                 let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
                                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                bot.send_text_message(chat_id, message, reply_markup)
+                                bot.send_text_message(chat_id.into(), message, reply_markup)
                                     .await?;
                             }
                         }

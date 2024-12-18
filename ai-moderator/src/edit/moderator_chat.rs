@@ -33,8 +33,12 @@ pub async fn handle_input(
     }
     if message.text() == Some(CANCEL_TEXT) {
         bot.remove_message_command(&user_id).await?;
-        bot.send_text_message(chat_id, "Cancelled".to_string(), ReplyMarkup::kb_remove())
-            .await?;
+        bot.send_text_message(
+            chat_id.into(),
+            "Cancelled".to_string(),
+            ReplyMarkup::kb_remove(),
+        )
+        .await?;
         moderator::open_main(
             &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
             target_chat_id,
@@ -55,7 +59,7 @@ pub async fn handle_input(
             let message = "Moderator chat must be different from the chat you're moderating\\. Try again\\. If you don't have one yet, create a new one just for yourself and other moderators".to_string();
             let buttons = Vec::<Vec<_>>::new();
             let reply_markup = InlineKeyboardMarkup::new(buttons);
-            bot.send_text_message(chat_id, message, reply_markup)
+            bot.send_text_message(chat_id.into(), message, reply_markup)
                 .await?;
             return Ok(());
         }
@@ -73,13 +77,13 @@ pub async fn handle_input(
                 .await?;
         }
         let chat_name = markdown::escape(
-            &get_chat_title_cached_5m(bot.bot(), *provided_chat_id)
+            &get_chat_title_cached_5m(bot.bot(), (*provided_chat_id).into())
                 .await?
                 .unwrap_or("DM".to_string()),
         );
         let message = format!("You have selected {chat_name} as the moderator chat");
         let reply_markup = ReplyMarkup::kb_remove();
-        bot.send_text_message(chat_id, message, reply_markup)
+        bot.send_text_message(chat_id.into(), message, reply_markup)
             .await?;
         moderator::open_main(
             &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
@@ -94,7 +98,7 @@ pub async fn handle_input(
             bot.to_callback_data(&TgCommand::CancelChat).await,
         )]];
         let reply_markup = InlineKeyboardMarkup::new(buttons);
-        bot.send_text_message(chat_id, message, reply_markup)
+        bot.send_text_message(chat_id.into(), message, reply_markup)
             .await?;
     }
     Ok(())

@@ -83,7 +83,7 @@ pub async fn handle_input(
     let Ok(number) = text.parse::<u32>() else {
         let buttons = Vec::<Vec<_>>::new();
         let reply_markup = ReplyMarkup::InlineKeyboard(InlineKeyboardMarkup::new(buttons));
-        bot.send_text_message(chat_id, "Invalid number".to_owned(), reply_markup)
+        bot.send_text_message(chat_id.into(), "Invalid number".to_owned(), reply_markup)
             .await?;
         return Ok(());
     };
@@ -105,11 +105,11 @@ pub async fn handle_buy_credits(
             let message = "Please migrate to the new bot to buy credits";
             let buttons = vec![vec![InlineKeyboardButton::callback(
                 "⬆️ Migrate",
-                bot.to_callback_data(&TgCommand::MigrateToNewBot(target_chat_id))
+                bot.to_callback_data(&TgCommand::MigrateToNewBot(target_chat_id.into()))
                     .await,
             )]];
             let reply_markup = InlineKeyboardMarkup::new(buttons);
-            bot.send_text_message(chat_id, message.to_owned(), reply_markup)
+            bot.send_text_message(chat_id.into(), message.to_owned(), reply_markup)
                 .await?;
             return Ok(());
         }
@@ -179,7 +179,7 @@ pub async fn handle_bought_credits(
     )]];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     bot.send_text_message(
-        chat_id,
+        chat_id.into(),
         format!("You have bought {credits_bought} AI moderated messages",),
         reply_markup,
     )

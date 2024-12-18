@@ -8,7 +8,7 @@ use teloxide::{
     utils::markdown,
 };
 
-use crate::tgbot::{BotData, TgBot};
+use crate::tgbot::{BotData, NotificationDestination, TgBot};
 use crate::utils::SLIME_USER_ID;
 
 pub const DM_CHAT: &str = "you in DM";
@@ -45,33 +45,38 @@ pub async fn get_chat_not_cached(
 
 #[cached(
     result = true,
-    convert = "{ chat_id.0 }",
+    convert = "{ chat_id.chat_id().0 }",
     ty = "TimedSizedCache<i64, Option<String>>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 300) }"
 )]
 pub async fn get_chat_title_cached_5m(
     bot: &TgBot,
-    chat_id: ChatId,
+    chat_id: NotificationDestination,
 ) -> Result<Option<String>, anyhow::Error> {
-    _internal_get_chat(bot, chat_id)
-        .await
-        .map(|chat| chat.title().map(|s| s.to_owned()))
+    get_chat_title_not_cached(bot, chat_id).await
 }
 
 pub async fn get_chat_title_not_cached(
     bot: &TgBot,
-    chat_id: ChatId,
+    chat_id: NotificationDestination,
 ) -> Result<Option<String>, anyhow::Error> {
-    _internal_get_chat(bot, chat_id)
+    let chat_title = _internal_get_chat(bot, chat_id.chat_id())
         .await
-        .map(|chat| chat.title().map(|s| s.to_owned()))
+        .map(|chat| chat.title().map(|s| s.to_owned()));
+    match chat_id {
+        NotificationDestination::Chat(_) => chat_title,
+        NotificationDestination::Topic(_, thread_id) => chat_title.map(|chat_title| {
+            chat_title.map(|chat_title| format!("{chat_title} (topic with id={thread_id})"))
+        }),
+    }
 }
 
 pub async fn check_admin_permission_in_chat(
     bot: &BotData,
-    chat_id: ChatId,
+    chat_id: impl Into<ChatId>,
     user_id: UserId,
 ) -> bool {
+    let chat_id = chat_id.into();
     if chat_id.as_user() == Some(user_id) {
         return true;
     }
@@ -106,7 +111,7 @@ pub async fn check_admin_permission_in_chat(
     };
     if !is_allowed {
         bot
-            .send_text_message(ChatId(user_id.0 as i64), "You don't have permission to manage this chat\\. If you believe this is a mistake, contact the owner and ask them to change group permissions in the bot".to_string(), ReplyMarkup::inline_kb(Vec::<Vec<_>>::new()))
+            .send_text_message(ChatId(user_id.0 as i64).into(), "You don't have permission to manage this chat\\. If you believe this is a mistake, contact the owner and ask them to change group permissions in the bot".to_string(), ReplyMarkup::inline_kb(Vec::<Vec<_>>::new()))
             .await
             .ok();
     }

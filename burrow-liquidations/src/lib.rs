@@ -16,6 +16,7 @@ use tearbot_common::{
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
     },
+    tgbot::NotificationDestination,
     utils::{
         chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, DM_CHAT},
         store::PersistentCachedStore,
@@ -111,7 +112,7 @@ impl BurrowLiquidationsModule {
                             let Some(bot) = xeon.bot(&bot_id) else {
                                 return;
                             };
-                            if bot.reached_notification_limit(chat_id).await {
+                            if bot.reached_notification_limit(chat_id.chat_id()).await {
                                 return;
                             }
                             let message = format!(
@@ -171,7 +172,7 @@ impl XeonBotModule for BurrowLiquidationsModule {
     async fn export_settings(
         &self,
         bot_id: UserId,
-        chat_id: ChatId,
+        chat_id: NotificationDestination,
     ) -> Result<serde_json::Value, anyhow::Error> {
         let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot_id) {
             if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
@@ -188,7 +189,7 @@ impl XeonBotModule for BurrowLiquidationsModule {
     async fn import_settings(
         &self,
         bot_id: UserId,
-        chat_id: ChatId,
+        chat_id: NotificationDestination,
         settings: serde_json::Value,
     ) -> Result<(), anyhow::Error> {
         let chat_config = serde_json::from_value(settings)?;
@@ -208,7 +209,11 @@ impl XeonBotModule for BurrowLiquidationsModule {
         true
     }
 
-    async fn pause(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+    async fn pause(
+        &self,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
+    ) -> Result<(), anyhow::Error> {
         if let Some(bot_config) = self.bot_configs.get(&bot_id) {
             if let Some(config) = bot_config.subscribers.get(&chat_id).await {
                 bot_config
@@ -226,7 +231,11 @@ impl XeonBotModule for BurrowLiquidationsModule {
         Ok(())
     }
 
-    async fn resume(&self, bot_id: UserId, chat_id: ChatId) -> Result<(), anyhow::Error> {
+    async fn resume(
+        &self,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
+    ) -> Result<(), anyhow::Error> {
         if let Some(bot_config) = self.bot_configs.get(&bot_id) {
             if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
                 bot_config
@@ -278,7 +287,7 @@ impl XeonBotModule for BurrowLiquidationsModule {
                         .await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                     return Ok(());
                 };
@@ -539,7 +548,8 @@ impl XeonBotModule for BurrowLiquidationsModule {
 }
 
 struct BurrowLiquidationsConfig {
-    pub subscribers: PersistentCachedStore<ChatId, BurrowLiqudationsSubscriberConfig>,
+    pub subscribers:
+        PersistentCachedStore<NotificationDestination, BurrowLiqudationsSubscriberConfig>,
 }
 
 impl BurrowLiquidationsConfig {

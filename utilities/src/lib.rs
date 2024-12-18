@@ -134,7 +134,7 @@ impl XeonBotModule for UtilitiesModule {
                         bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                     )]];
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id, message, reply_markup)
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
                         .await?;
                     return Ok(());
                 }
@@ -163,7 +163,7 @@ impl XeonBotModule for UtilitiesModule {
                 )]);
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 let message = "Choose the token you want, or enter the token again".to_string();
-                bot.send_text_message(chat_id, message, reply_markup)
+                bot.send_text_message(chat_id.into(), message, reply_markup)
                     .await?;
             }
             MessageCommand::UtilitiesAccountInfo => {
@@ -190,7 +190,8 @@ impl XeonBotModule for UtilitiesModule {
                             "⬅️ Cancel",
                             bot.to_callback_data(&TgCommand::OpenMainMenu).await,
                         )]]);
-                    bot.send_text_message(chat_id, message, buttons).await?;
+                    bot.send_text_message(chat_id.into(), message, buttons)
+                        .await?;
                 }
             }
             _ => {}
