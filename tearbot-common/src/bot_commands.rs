@@ -1,10 +1,14 @@
 #![allow(unused_imports)]
-use std::{fmt::Display, time::Duration};
+use std::{collections::HashMap, fmt::Display, time::Duration};
 
 use bigdecimal::BigDecimal;
-use inindexer::near_utils::dec_format;
+use chrono::{DateTime, Utc};
+use inindexer::near_utils::{dec_format, dec_format_map};
 use mongodb::bson::Bson;
-use near_primitives::{hash::CryptoHash, types::{AccountId, Balance}};
+use near_primitives::{
+    hash::CryptoHash,
+    types::{AccountId, Balance},
+};
 use near_token::NearToken;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -929,6 +933,41 @@ pub enum TgCommand {
         hard_cap: NearToken,
         time: Duration,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridge,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeNetwork {
+        network_id: String,
+        chain_id: String,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeCheck {
+        network_id: String,
+        chain_id: String,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeSwapToNear {
+        defuse_asset_identifier: String,
+        near_poa_asset_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgePublishIntent {
+        quotes: Vec<Quote>,
+        defuse_asset_identifier: String,
+        near_poa_asset_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Quote {
+    pub quote_hash: CryptoHash,
+    /// Key is the asset id, value is the amount i128 stringified
+    pub token_diff: HashMap<String, String>,
+    pub expiration_time: DateTime<Utc>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -79,7 +79,7 @@ pub struct RpcResponse<T> {
     id: Option<String>,
     #[allow(dead_code)]
     jsonrpc: String,
-    result: T,
+    pub result: T,
 }
 
 #[derive(Deserialize, Debug)]
