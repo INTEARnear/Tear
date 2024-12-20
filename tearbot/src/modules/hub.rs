@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
+    time::Duration,
 };
 
 use async_trait::async_trait;
@@ -241,6 +242,108 @@ impl XeonBotModule for HubModule {
         };
         match command {
             MessageCommand::None => {
+                if user_id == SLIME_USER_ID && chat_id.is_user() {
+                    if let Some(message) = text.strip_prefix("/spam") {
+                        let message = message.trim().to_string();
+                        let attachment = if let Some(photo) = user_message.photo() {
+                            Attachment::PhotoFileId(photo.last().unwrap().file.id.clone())
+                        } else {
+                            Attachment::None
+                        };
+                        let (message, reply_markup) =
+                            if let Some((text, buttons)) = message.split_once("\n\n===\n\n") {
+                                let mut button_rows: Vec<_> = Vec::new();
+                                for button in buttons.split("\n") {
+                                    let mut row = Vec::new();
+                                    for button in button.split("|||") {
+                                        if let Some((text, url)) = button.split_once(" :: ") {
+                                            row.push(InlineKeyboardButton::url(
+                                                text.to_string(),
+                                                url.parse()?,
+                                            ));
+                                        }
+                                    }
+                                    button_rows.push(row);
+                                }
+                                (text.to_string(), InlineKeyboardMarkup::new(button_rows))
+                            } else {
+                                let buttons = Vec::<Vec<_>>::new();
+                                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                (message.to_string(), reply_markup)
+                            };
+                        bot.send(
+                            ChatId(user_id.0 as i64),
+                            format!("Sending this message:\n\n{message}"),
+                            reply_markup.clone(),
+                            attachment.clone(),
+                        )
+                        .await?;
+
+                        let xeon = Arc::clone(bot.xeon());
+                        let bot_id = bot.id();
+                        let chats = self
+                            .users_first_interaction
+                            .values()
+                            .await?
+                            .map(|entry| *entry.key())
+                            .map(|user_id| ChatId(user_id.0 as i64))
+                            .collect::<Vec<_>>();
+                        tokio::spawn(async move {
+                            let bot = xeon.bot(&bot_id).unwrap();
+                            let mut interval = tokio::time::interval(Duration::from_millis(100));
+                            for (i, moderator_chat) in chats.iter().copied().enumerate() {
+                                interval.tick().await;
+                                match bot
+                                    .send(
+                                        moderator_chat,
+                                        message.clone(),
+                                        reply_markup.clone(),
+                                        attachment.clone(),
+                                    )
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        if i % 10usize.pow((i as f64).log10() as u32) == 0 {
+                                            let _ = bot
+                                                .send_text_message(
+                                                    chat_id.into(),
+                                                    format!(
+                                                        "Sent announcement to {}/{}",
+                                                        i + 1,
+                                                        chats.len()
+                                                    ),
+                                                    InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                                                )
+                                                .await;
+                                        }
+                                    }
+                                    Err(err) => {
+                                        log::warn!("Failed to send announcement: {err:?}");
+                                        let _ = bot
+                                            .send_text_message(
+                                                chat_id.into(),
+                                                format!(
+                                                    "Failed to send announcement to {}/{}",
+                                                    i + 1,
+                                                    chats.len()
+                                                ),
+                                                InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                                            )
+                                            .await;
+                                    }
+                                }
+                            }
+                            let _ = bot
+                                .send_text_message(
+                                    chat_id.into(),
+                                    "Sent announcement to all users".to_string(),
+                                    InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                                )
+                                .await;
+                        });
+                    }
+                }
+
                 if text == "/setup" {
                     self.open_chat_settings(
                         &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),

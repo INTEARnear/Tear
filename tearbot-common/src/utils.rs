@@ -15,7 +15,7 @@ use serde::Deserialize;
 use teloxide::prelude::UserId;
 
 pub const SLIME_USER_ID: UserId = if cfg!(debug_assertions) {
-    UserId(5000089432)
+    UserId(5000703525)
 } else {
     UserId(7091308405)
 };
