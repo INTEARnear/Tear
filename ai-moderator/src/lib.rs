@@ -1138,11 +1138,13 @@ impl AiModeratorModule {
                                     }
                                     other => other.to_string(),
                                 };
-                                let message = format!("Failed to ban user: {err}");
-                                let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                bot.send_text_message(chat_id.into(), message, reply_markup)
-                                    .await?;
+                                if chat_config.debug_mode {
+                                    let message = format!("Failed to ban user: {err}");
+                                    let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                    bot.send_text_message(chat_id.into(), message, reply_markup)
+                                        .await?;
+                                }
                             }
                         }
                         let message_to_send = format!(
@@ -1213,11 +1215,13 @@ impl AiModeratorModule {
                                     }
                                     other => other.to_string(),
                                 };
-                                let message = format!("Failed to mute user: {err}");
-                                let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                bot.send_text_message(chat_id.into(), message, reply_markup)
-                                    .await?;
+                                if chat_config.debug_mode {
+                                    let message = format!("Failed to mute user: {err}");
+                                    let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                    bot.send_text_message(chat_id.into(), message, reply_markup)
+                                        .await?;
+                                }
                             }
                         }
                         let message_to_send = format!(
@@ -1290,11 +1294,13 @@ impl AiModeratorModule {
                                     }
                                     other => other.to_string(),
                                 };
-                                let message = format!("Failed to mute user: {err}");
-                                let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                bot.send_text_message(chat_id.into(), message, reply_markup)
-                                    .await?;
+                                if chat_config.debug_mode {
+                                    let message = format!("Failed to mute user: {err}");
+                                    let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                    bot.send_text_message(chat_id.into(), message, reply_markup)
+                                        .await?;
+                                }
                             }
                         }
                         let message_to_send = format!(
@@ -1358,11 +1364,13 @@ impl AiModeratorModule {
                                     }
                                     other => other.to_string(),
                                 };
-                                let message = format!("Failed to delete message: {err}");
-                                let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                bot.send_text_message(chat_id.into(), message, reply_markup)
-                                    .await?;
+                                if chat_config.debug_mode {
+                                    let message = format!("Failed to delete message: {err}");
+                                    let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
+                                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                    bot.send_text_message(chat_id.into(), message, reply_markup)
+                                        .await?;
+                                }
                             }
                         }
                         let message_to_send = format!(
