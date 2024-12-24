@@ -366,6 +366,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                                 .bot()
                                 .to_callback_data(&TgCommand::TradingBotBuyToken {
                                     token_id: token_id.clone(),
+                                    selected_account_id: None,
                                 })
                                 .await,
                         ),
@@ -375,6 +376,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                                 .bot()
                                 .to_callback_data(&TgCommand::TradingBotPosition {
                                     token_id: token_id.clone(),
+                                    selected_account_id: None,
                                 })
                                 .await,
                         ),

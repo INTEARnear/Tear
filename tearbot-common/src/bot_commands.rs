@@ -585,45 +585,55 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBot,
     #[cfg(feature = "trading-bot-module")]
-    TradingBotBuy,
+    TradingBotBuy {
+        selected_account_id: Option<AccountId>,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuyToken {
         token_id: AccountId,
+        selected_account_id: Option<AccountId>,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuyTokenAmount {
         token_id: AccountId,
         token_amount: BuyAmount,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotPositions,
+    TradingBotPositions {
+        selected_account_id: Option<AccountId>,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPosition {
         token_id: AccountId,
+        selected_account_id: Option<AccountId>,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositionReduce {
         token_id: AccountId,
         #[serde(with = "dec_format")]
         amount: Balance,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotWithdrawNear,
+    TradingBotWithdrawNear {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawNearAmount {
         #[serde(with = "dec_format")]
         amount: Balance,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawNearAmountAccount {
         #[serde(with = "dec_format")]
         amount: Balance,
         withdraw_to: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotExportSeedPhrase,
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotComingSoon,
     #[cfg(feature = "trading-bot-module")]
     TradingBotRefresh,
     #[cfg(feature = "trading-bot-module")]
@@ -644,17 +654,23 @@ pub enum TgCommand {
         amount: BuyButtonAmount,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotTriggerOrders,
+    TradingBotTriggerOrders {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotTriggerOrderCreate,
+    TradingBotTriggerOrderCreate {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateToken {
         token_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateTokenDirection {
         token_id: AccountId,
         is_buy: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateTokenDirectionAmount {
@@ -663,6 +679,7 @@ pub enum TgCommand {
         #[serde(with = "dec_format")]
         amount: Balance,
         is_buy: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateTokenDirectionAmountPrice {
@@ -672,20 +689,27 @@ pub enum TgCommand {
         amount: Balance,
         is_buy: bool,
         price: BigDecimal,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCancel {
         order_id: i64,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPromo,
     #[cfg(feature = "trading-bot-module")]
-    TradingBotSnipe,
+    TradingBotSnipe {
+        selected_account_id: Option<AccountId>,
+    },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotSnipeAddByToken,
+    TradingBotSnipeAddByToken {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAddByTokenId {
         token_id: AccountId,
+        selected_account_id: Option<AccountId>,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAddByTokenIdAmount {
@@ -693,27 +717,36 @@ pub enum TgCommand {
         /// Amount of NEAR
         #[serde(with = "dec_format")]
         amount: Balance,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeByTokenCancel {
         token_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositionReducePrompt {
         token_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotCopytrade,
+    TradingBotCopytrade {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotCopytradeAdd,
+    TradingBotCopytradeAdd {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeAddAccount {
         account_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeAddAccountPercentage {
         account_id: AccountId,
         percentage: f64,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeAddAccountPercentageDirections {
@@ -721,54 +754,69 @@ pub enum TgCommand {
         percentage: f64,
         copy_buys: bool,
         copy_sells: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeEditAccount {
         account_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradePause {
         account_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeUnpause {
         account_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeSetEnableBuys {
         account_id: AccountId,
         new_copy_buys: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeSetEnableSells {
         account_id: AccountId,
         new_copy_sells: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeEditPercentage {
         account_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeSetPercentage {
         account_id: AccountId,
         new_percentage: f64,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeRemove {
         account_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotDca,
+    TradingBotDca {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotDcaAdd,
+    TradingBotDcaAdd {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddToken {
         token_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirection {
         token_id: AccountId,
         is_buy: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirectionAmount {
@@ -777,6 +825,7 @@ pub enum TgCommand {
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
         order_amount: Balance,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirectionAmountInterval {
@@ -786,6 +835,7 @@ pub enum TgCommand {
         #[serde(with = "dec_format")]
         order_amount: Balance,
         interval: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirectionAmountIntervalOrders {
@@ -796,28 +846,37 @@ pub enum TgCommand {
         order_amount: Balance,
         interval: Duration,
         orders: u32,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaView {
         token_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaStop {
         token_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotSnipeAll,
+    TradingBotSnipeAll {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAllConfirm {
         #[serde(with = "dec_format")]
         amount: Option<Balance>,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotSnipeAllMC,
+    TradingBotSnipeAllMC {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAllMCConfirm {
         #[serde(with = "dec_format")]
         amount: Option<Balance>,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotVote,
@@ -826,21 +885,26 @@ pub enum TgCommand {
         option: VoteOption,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotCreateMeme,
+    TradingBotCreateMeme {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbol {
         symbol: String,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolName {
         symbol: String,
         name: String,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescription {
         symbol: String,
         name: String,
         description: String,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImage {
@@ -854,6 +918,7 @@ pub enum TgCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageSetTwitter {
@@ -867,6 +932,7 @@ pub enum TgCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageSetWebsite {
@@ -880,6 +946,7 @@ pub enum TgCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageSetTelegram {
@@ -893,6 +960,7 @@ pub enum TgCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageRotateCap {
@@ -906,6 +974,7 @@ pub enum TgCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageRotateTime {
@@ -919,6 +988,7 @@ pub enum TgCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageConfirm {
@@ -932,18 +1002,23 @@ pub enum TgCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotBridge,
+    TradingBotBridge {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgeNetwork {
         network_id: String,
         chain_id: String,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgeCheck {
         network_id: String,
         chain_id: String,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgeSwapToNear {
@@ -951,19 +1026,35 @@ pub enum TgCommand {
         near_poa_asset_id: AccountId,
         #[serde(with = "dec_format")]
         amount: Balance,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgePublishIntent {
-        quotes: Vec<Quote>,
+        quotes: Vec<IntentQuote>,
         defuse_asset_identifier: String,
         near_poa_asset_id: AccountId,
         #[serde(with = "dec_format")]
         amount: Balance,
+        selected_account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotAccounts {
+        page: usize,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSelectAccount {
+        account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateAccount,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateAccountConfirm {
+        account_id: AccountId,
     },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Quote {
+pub struct IntentQuote {
     pub quote_hash: CryptoHash,
     /// Key is the asset id, value is the amount i128 stringified
     pub token_diff: HashMap<String, String>,
@@ -1094,17 +1185,23 @@ pub enum MessageCommand {
     #[cfg(feature = "price-commands-module")]
     PriceCommandsDMChartCommand,
     #[cfg(feature = "trading-bot-module")]
-    TradingBotBuyAskForToken,
+    TradingBotBuyAskForToken {
+        selected_account_id: Option<AccountId>,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuyAskForAmount {
         token_id: AccountId,
+        selected_account_id: Option<AccountId>,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotWithdrawAskForAmount,
+    TradingBotWithdrawAskForAmount {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawAskForAccount {
         #[serde(with = "dec_format")]
         amount: Balance,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotSettingsSetSlippage,
@@ -1115,11 +1212,14 @@ pub enum MessageCommand {
         button_index: usize,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotTriggerOrderCreate,
+    TradingBotTriggerOrderCreate {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateTokenDirection {
         token_id: AccountId,
         is_buy: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrderCreateTokenDirectionAmount {
@@ -1128,33 +1228,45 @@ pub enum MessageCommand {
         #[serde(with = "dec_format")]
         amount: Balance,
         is_buy: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotSnipeAddByToken,
+    TradingBotSnipeAddByToken {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAddByTokenId {
         token_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositionReducePrompt {
         token_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotCopytradeAdd,
+    TradingBotCopytradeAdd {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeAddAccount {
         account_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCopytradeEditPercentage {
         account_id: AccountId,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotDcaAdd,
+    TradingBotDcaAdd {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirection {
         token_id: AccountId,
         is_buy: bool,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirectionAmount {
@@ -1163,6 +1275,7 @@ pub enum MessageCommand {
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
         order_amount: Balance,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirectionAmountInterval {
@@ -1172,27 +1285,37 @@ pub enum MessageCommand {
         #[serde(with = "dec_format")]
         order_amount: Balance,
         interval: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotSnipeAll,
+    TradingBotSnipeAll {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotSnipeAllMC,
+    TradingBotSnipeAllMC {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotCreateMemeSymbol,
+    TradingBotCreateMemeSymbol {
+        selected_account_id: AccountId,
+    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolName {
         symbol: String,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescription {
         symbol: String,
         name: String,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImage {
         symbol: String,
         name: String,
         description: String,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageSetTwitter {
@@ -1206,6 +1329,7 @@ pub enum MessageCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageSetTelegram {
@@ -1219,6 +1343,7 @@ pub enum MessageCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMemeSymbolNameDescriptionImageSetWebsite {
@@ -1232,7 +1357,10 @@ pub enum MessageCommand {
         soft_cap: NearToken,
         hard_cap: NearToken,
         time: Duration,
+        selected_account_id: AccountId,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateAccount,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

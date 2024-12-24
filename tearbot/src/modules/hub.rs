@@ -378,7 +378,10 @@ impl XeonBotModule for HubModule {
                                     user_id,
                                     chat_id,
                                     None,
-                                    &bot.to_callback_data(&TgCommand::TradingBotSnipe).await,
+                                    &bot.to_callback_data(&TgCommand::TradingBotSnipe {
+                                        selected_account_id: None,
+                                    })
+                                    .await,
                                 ),
                                 &mut None,
                             )
@@ -395,7 +398,10 @@ impl XeonBotModule for HubModule {
                                     user_id,
                                     chat_id,
                                     None,
-                                    &bot.to_callback_data(&TgCommand::TradingBotPositions).await,
+                                    &bot.to_callback_data(&TgCommand::TradingBotPositions {
+                                        selected_account_id: None,
+                                    })
+                                    .await,
                                 ),
                                 &mut None,
                             )
@@ -418,7 +424,10 @@ impl XeonBotModule for HubModule {
                                         user_id,
                                         chat_id,
                                         None,
-                                        &bot.to_callback_data(&TgCommand::TradingBotBuy).await,
+                                        &bot.to_callback_data(&TgCommand::TradingBotBuy {
+                                            selected_account_id: None,
+                                        })
+                                        .await,
                                     ),
                                     &mut None,
                                 )
@@ -452,6 +461,7 @@ impl XeonBotModule for HubModule {
                                                 chat_id,
                                                 MessageCommand::TradingBotBuyAskForAmount {
                                                     token_id: account_id.clone(),
+                                                    selected_account_id: None,
                                                 },
                                                 amount,
                                                 user_message,
@@ -487,6 +497,7 @@ impl XeonBotModule for HubModule {
                                                     &bot.to_callback_data(
                                                         &TgCommand::TradingBotBuyToken {
                                                             token_id: account_id.clone(),
+                                                            selected_account_id: None,
                                                         },
                                                     )
                                                     .await,
@@ -511,7 +522,9 @@ impl XeonBotModule for HubModule {
                                                 &bot,
                                                 Some(user_id),
                                                 chat_id,
-                                                MessageCommand::TradingBotBuyAskForToken,
+                                                MessageCommand::TradingBotBuyAskForToken {
+                                                    selected_account_id: None,
+                                                },
                                                 &token,
                                                 &message,
                                             )
@@ -1469,6 +1482,7 @@ impl XeonBotModule for HubModule {
                                             None,
                                             &bot.to_callback_data(&TgCommand::TradingBotBuyToken {
                                                 token_id: token_id.clone(),
+                                                selected_account_id: None,
                                             })
                                             .await,
                                         ),
@@ -1487,7 +1501,10 @@ impl XeonBotModule for HubModule {
                                         user_id,
                                         chat_id,
                                         None,
-                                        &bot.to_callback_data(&TgCommand::TradingBotSnipe).await,
+                                        &bot.to_callback_data(&TgCommand::TradingBotSnipe {
+                                            selected_account_id: None,
+                                        })
+                                        .await,
                                     ),
                                     &mut None,
                                 )
@@ -1508,6 +1525,7 @@ impl XeonBotModule for HubModule {
                                             &bot.to_callback_data(
                                                 &TgCommand::TradingBotSnipeAddByTokenId {
                                                     token_id: token_id.clone(),
+                                                    selected_account_id: None,
                                                 },
                                             )
                                             .await,
