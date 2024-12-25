@@ -46,105 +46,102 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1000);
 
     #[cfg(feature = "redis-events")]
-    let redis_client_experimental = redis::Client::open(
-        std::env::var("REDIS_URL_EXPERIMENTAL")
-            .expect("REDIS_URL_EXPERIMENTAL enviroment variable not set"),
+    let redis_client_v3 = redis::Client::open(
+        std::env::var("REDIS_URL_V3").expect("REDIS_URL_V3 enviroment variable not set"),
     )
-    .expect("Failed to create experimental redis client");
+    .expect("Failed to create v3 redis client");
     #[cfg(feature = "redis-events")]
-    let connection_experimental = redis::aio::ConnectionManager::new(redis_client_experimental)
+    let connection_v3 = redis::aio::ConnectionManager::new(redis_client_v3)
         .await
-        .expect("Failed to create experimental redis connection");
+        .expect("Failed to create v3 redis connection");
 
-    tokio::spawn(stream_experimental_events::<NftMintEventData>(
+    tokio::spawn(stream_v3_events::<NftMintEventData>(
         NftMintEvent::ID,
         false,
         IndexerEvent::NftMint,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<NftTransferEventData>(
+    tokio::spawn(stream_v3_events::<NftTransferEventData>(
         NftTransferEvent::ID,
         false,
         IndexerEvent::NftTransfer,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<NftBurnEventData>(
+    tokio::spawn(stream_v3_events::<NftBurnEventData>(
         NftBurnEvent::ID,
         false,
         IndexerEvent::NftBurn,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<PotlockDonationEventData>(
+    tokio::spawn(stream_v3_events::<PotlockDonationEventData>(
         PotlockDonationEvent::ID,
         false,
         IndexerEvent::PotlockDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<
-        PotlockPotProjectDonationEventData,
-    >(
+    tokio::spawn(stream_v3_events::<PotlockPotProjectDonationEventData>(
         PotlockPotProjectDonationEvent::ID,
         false,
         IndexerEvent::PotlockPotProjectDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<PotlockPotDonationEventData>(
+    tokio::spawn(stream_v3_events::<PotlockPotDonationEventData>(
         PotlockPotDonationEvent::ID,
         false,
         IndexerEvent::PotlockPotDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<TradeSwapEventData>(
+    tokio::spawn(stream_v3_events::<TradeSwapEventData>(
         TradeSwapEvent::ID,
         false,
         IndexerEvent::TradeSwap,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<PriceTokenEventData>(
+    tokio::spawn(stream_v3_events::<PriceTokenEventData>(
         PriceTokenEvent::ID,
         false,
         IndexerEvent::PriceToken,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<NewContractNep141EventData>(
+    tokio::spawn(stream_v3_events::<NewContractNep141EventData>(
         NewContractNep141Event::ID,
         false,
         IndexerEvent::NewContractNep141,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<TradePoolChangeEventData>(
+    tokio::spawn(stream_v3_events::<TradePoolChangeEventData>(
         TradePoolChangeEvent::ID,
         false,
         IndexerEvent::TradePoolChange,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<LogTextEventData>(
+    tokio::spawn(stream_v3_events::<LogTextEventData>(
         LogTextEvent::ID,
         false,
         IndexerEvent::LogText,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
     tokio::spawn(stream_events::<LogTextEventData>(
         LogTextEvent::ID,
@@ -154,13 +151,13 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<LogNep297EventData>(
+    tokio::spawn(stream_v3_events::<LogNep297EventData>(
         LogNep297Event::ID,
         false,
         IndexerEvent::LogNep297,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
     tokio::spawn(stream_events::<LogNep297EventData>(
         LogNep297Event::ID,
@@ -170,29 +167,29 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<SocialDBIndexEventData>(
+    tokio::spawn(stream_v3_events::<SocialDBIndexEventData>(
         SocialDBIndexEvent::ID,
         false,
         IndexerEvent::SocialDBIndex,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<LiquidityPoolEventData>(
+    tokio::spawn(stream_v3_events::<LiquidityPoolEventData>(
         LiquidityPoolEvent::ID,
         false,
         IndexerEvent::LiquidityPool,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
-    tokio::spawn(stream_experimental_events::<FtTransferEventData>(
+    tokio::spawn(stream_v3_events::<FtTransferEventData>(
         FtTransferEvent::ID,
         false,
         IndexerEvent::FtTransfer,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_experimental.clone(),
+        connection_v3.clone(),
     ));
 
     tokio::spawn(async move {
@@ -280,7 +277,7 @@ async fn stream_events<
 }
 
 #[cfg(feature = "redis-events")]
-async fn stream_experimental_events<
+async fn stream_v3_events<
     E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
 >(
     event_id: &'static str,
@@ -366,7 +363,7 @@ async fn stream_events<
 }
 
 #[cfg(feature = "websocket-events")]
-async fn stream_experimental_events<
+async fn stream_v3_events<
     E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
 >(
     event_id: &'static str,
@@ -380,7 +377,7 @@ async fn stream_experimental_events<
     let events = if testnet { "events-testnet" } else { "events" };
     'outer: loop {
         let (mut stream, _) = tokio_tungstenite::connect_async(format!(
-            "wss://ws-events-v3-experimental.intear.tech/{events}/{event_id}"
+            "wss://ws-events-v3.intear.tech/{events}/{event_id}"
         ))
         .await
         .expect("Failed to connect to event stream");
