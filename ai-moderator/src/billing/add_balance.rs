@@ -16,7 +16,7 @@ use tearbot_common::{
 
 use crate::{AiModeratorBotConfig, FREE_TRIAL_CREDITS};
 
-const CREDITS_IN_1_USD: u32 = 690;
+const CREDITS_IN_1_USD: u32 = 50;
 
 pub async fn handle_button(
     ctx: &mut TgCallbackContext<'_>,
@@ -29,36 +29,50 @@ pub async fn handle_button(
     let buttons = vec![
         vec![
             InlineKeyboardButton::callback(
+                "100",
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 100))
+                    .await,
+            ),
+            InlineKeyboardButton::callback(
                 "500",
                 ctx.bot()
                     .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 500))
                     .await,
             ),
+        ],
+        vec![
             InlineKeyboardButton::callback(
-                "1000",
+                "1500",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 1000))
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 1500))
+                    .await,
+            ),
+            InlineKeyboardButton::callback(
+                "7500",
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 7500))
                     .await,
             ),
         ],
         vec![
             InlineKeyboardButton::callback(
-                "5000",
+                "15000",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 5000))
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 15000))
                     .await,
             ),
             InlineKeyboardButton::callback(
-                "10000",
+                "50000",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 10000))
+                    .to_callback_data(&TgCommand::AiModeratorBuyCredits(target_chat_id, 50000))
                     .await,
             ),
         ],
         vec![InlineKeyboardButton::callback(
             "⬅️ Cancel",
             ctx.bot()
-                .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                .to_callback_data(&TgCommand::AiModeratorPlan(target_chat_id))
                 .await,
         )],
     ];

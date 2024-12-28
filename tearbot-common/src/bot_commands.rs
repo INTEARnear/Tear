@@ -1051,6 +1051,16 @@ pub enum TgCommand {
     TradingBotCreateAccountConfirm {
         account_id: AccountId,
     },
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorPlan(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSwitchToPayAsYouGo(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSwitchToBasic(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSwitchToPro(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSwitchToEnterprise(ChatId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -1369,6 +1379,8 @@ pub enum PaymentReference {
     AiModeratorBuyingCredits(ChatId, u32),
     #[cfg(feature = "image-gen-module")]
     ImageGenBuyingCredits(u32),
+    AiModeratorBasicPlan(ChatId),
+    AiModeratorProPlan(ChatId),
 }
 
 impl From<MessageCommand> for Bson {

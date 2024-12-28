@@ -6,6 +6,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+use chrono::DateTime;
 use dashmap::DashMap;
 use log::warn;
 use mongodb::bson::Bson;
@@ -490,7 +491,19 @@ impl BotData {
                                         #[allow(unreachable_patterns)]
                                         Ok(payload) => {
                                             module
-                                                .handle_payment(&bot, from_id, msg.chat.id, payload)
+                                                .handle_payment(
+                                                    &bot,
+                                                    from_id,
+                                                    msg.chat.id,
+                                                    payment.subscription_expiration_date.map(|t| {
+                                                        DateTime::from_timestamp_millis(t as i64)
+                                                            .unwrap()
+                                                    }),
+                                                    payment.telegram_payment_charge_id.clone(),
+                                                    payment.is_recurring,
+                                                    payment.is_first_recurring,
+                                                    payload,
+                                                )
                                                 .await
                                         }
                                         Err(err) => Err(err),

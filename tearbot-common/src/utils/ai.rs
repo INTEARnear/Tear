@@ -58,7 +58,7 @@ impl Model {
         }
     }
 
-    pub fn cost(&self) -> u32 {
+    pub fn ai_moderator_cost(&self) -> u32 {
         match self {
             Self::RecommendedBest => 3,
             Self::RecommendedFast => 1,

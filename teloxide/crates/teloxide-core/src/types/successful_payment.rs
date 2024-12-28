@@ -25,6 +25,17 @@ pub struct SuccessfulPayment {
     /// Bot specified invoice payload.
     pub invoice_payload: String,
 
+    /// Expiration date of the subscription, in Unix time; for recurring payments only
+    pub subscription_expiration_date: Option<u64>,
+
+    /// True, if the payment is a recurring payment for a subscription.
+    #[serde(default)]
+    pub is_recurring: bool,
+
+    /// True, if the payment is the first payment for a subscription.
+    #[serde(default)]
+    pub is_first_recurring: bool,
+
     /// Identifier of the shipping option chosen by the user.
     pub shipping_option_id: Option<String>,
 
@@ -36,5 +47,8 @@ pub struct SuccessfulPayment {
     pub telegram_payment_charge_id: String,
 
     /// Provider payment identifier.
-    pub provider_payment_charge_id: String,
+    // pub provider_payment_charge_id: String,
+
+    #[serde(flatten)]
+    pub other: serde_json::Value,
 }

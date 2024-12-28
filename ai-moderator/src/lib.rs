@@ -44,7 +44,7 @@ use tokio::sync::RwLock;
 
 use crate::utils::MessageRating;
 
-const FREE_TRIAL_CREDITS: u32 = 600;
+const FREE_TRIAL_CREDITS: u32 = 1000;
 
 pub struct AiModeratorModule {
     bot_configs: Arc<HashMap<UserId, AiModeratorBotConfig>>,
@@ -649,6 +649,27 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
+            TgCommand::AiModeratorPlan(target_chat_id) => {
+                billing::plans::handle_plan_button(&mut ctx, target_chat_id, &self.bot_configs)
+                    .await?;
+            }
+            TgCommand::AiModeratorSwitchToPayAsYouGo(target_chat_id) => {
+                billing::plans::handle_switch_to_pay_as_you_go(
+                    &mut ctx,
+                    target_chat_id,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSwitchToBasic(target_chat_id) => {
+                billing::plans::handle_basic_button(&mut ctx, target_chat_id).await?;
+            }
+            TgCommand::AiModeratorSwitchToPro(target_chat_id) => {
+                billing::plans::handle_pro_button(&mut ctx, target_chat_id).await?;
+            }
+            TgCommand::AiModeratorSwitchToEnterprise(target_chat_id) => {
+                billing::plans::handle_enterprise_button(&mut ctx, target_chat_id).await?;
+            }
             _ => {}
         }
         Ok(())
@@ -659,6 +680,10 @@ impl XeonBotModule for AiModeratorModule {
         bot: &BotData,
         user_id: UserId,
         chat_id: ChatId,
+        subscription_expiration_time: Option<DateTime<Utc>>,
+        telegram_payment_charge_id: String,
+        is_recurring: bool,
+        is_first_recurring: bool,
         payment: PaymentReference,
     ) -> Result<(), anyhow::Error> {
         #[allow(clippy::single_match)]
@@ -673,6 +698,42 @@ impl XeonBotModule for AiModeratorModule {
                     &self.bot_configs,
                 )
                 .await?;
+            }
+            PaymentReference::AiModeratorBasicPlan(target_chat_id) => {
+                if let Some(subscription_expiration_time) = subscription_expiration_time {
+                    billing::plans::handle_bought_basic_plan(
+                        bot,
+                        chat_id,
+                        user_id,
+                        target_chat_id,
+                        subscription_expiration_time,
+                        telegram_payment_charge_id,
+                        is_recurring,
+                        is_first_recurring,
+                        &self.bot_configs,
+                    )
+                    .await?;
+                } else {
+                    log::error!("Basic plan subscription expiration time is None");
+                }
+            }
+            PaymentReference::AiModeratorProPlan(target_chat_id) => {
+                if let Some(subscription_expiration_time) = subscription_expiration_time {
+                    billing::plans::handle_bought_pro_plan(
+                        bot,
+                        chat_id,
+                        user_id,
+                        target_chat_id,
+                        subscription_expiration_time,
+                        telegram_payment_charge_id,
+                        is_recurring,
+                        is_first_recurring,
+                        &self.bot_configs,
+                    )
+                    .await?;
+                } else {
+                    log::error!("Pro plan subscription expiration time is None");
+                }
             }
             #[allow(unreachable_patterns)]
             _ => {}
@@ -704,7 +765,27 @@ struct AiModeratorChatConfig {
     deletion_message_attachment: Attachment,
     #[serde(default)]
     model: Model,
+    #[serde(default)]
+    plan: Plan,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+enum Plan {
+    #[default]
+    PayAsYouGo,
+    Basic {
+        valid_until: DateTime<Utc>,
+    },
+    Pro {
+        valid_until: DateTime<Utc>,
+    },
+    Enterprise {
+        variant: EnterpriseVariant,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+enum EnterpriseVariant {}
 
 fn default_deletion_message() -> String {
     "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string()
@@ -728,6 +809,7 @@ impl Default for AiModeratorChatConfig {
             deletion_message: "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string(),
             deletion_message_attachment: Attachment::None,
             model: Model::RecommendedBest,
+            plan: Plan::PayAsYouGo,
         }
     }
 }
@@ -918,7 +1000,7 @@ impl AiModeratorModule {
                     }
 
                     if !bot_config
-                        .decrement_message_balance(chat_id, chat_config.model.cost())
+                        .decrement_message_balance(chat_id, chat_config.model.ai_moderator_cost())
                         .await
                     {
                         log::debug!(

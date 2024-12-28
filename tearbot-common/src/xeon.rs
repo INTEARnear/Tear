@@ -11,6 +11,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use dashmap::{
     mapref::{multiple::RefMulti, one::Ref},
     DashMap,
@@ -317,6 +318,10 @@ pub trait XeonBotModule: Send + Sync + 'static {
         bot: &BotData,
         user_id: UserId,
         chat_id: ChatId,
+        subscription_expiration_time: Option<DateTime<Utc>>,
+        telegram_payment_charge_id: String,
+        is_recurring: bool,
+        is_first_recurring: bool,
         payment: PaymentReference,
     ) -> Result<(), anyhow::Error> {
         Ok(())

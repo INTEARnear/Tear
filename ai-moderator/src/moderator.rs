@@ -19,10 +19,7 @@ use tearbot_common::{
 };
 
 use crate::utils::MessageRating;
-use crate::{
-    setup, utils::get_message_rating, AiModeratorBotConfig, AiModeratorChatConfig,
-    FREE_TRIAL_CREDITS,
-};
+use crate::{setup, utils::get_message_rating, AiModeratorBotConfig, AiModeratorChatConfig};
 
 pub async fn open_main(
     ctx: &mut TgCallbackContext<'_>,
@@ -47,14 +44,9 @@ pub async fn open_main(
         )
     };
 
-    let (credits, chat_config) = if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
+    let chat_config = if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
         if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-            let messages = bot_config
-                .credits_balance
-                .get(&target_chat_id)
-                .await
-                .unwrap_or(FREE_TRIAL_CREDITS);
-            (messages, chat_config)
+            chat_config
         } else {
             bot_config
                 .chat_configs
@@ -136,7 +128,6 @@ pub async fn open_main(
             | Attachment::DocumentFileId(_, _) => "\n\\+ file",
         };
     let deletion_message = expandable_blockquote(&deletion_message);
-    let credit_cost = chat_config.model.cost();
     let message =
         format!("Setting up AI Moderator {in_chat_name}
         
@@ -146,9 +137,7 @@ Prompt:
 Message that appears when a message is deleted:
 {deletion_message}
 
-ℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}
-
-Your balance: *{credits} credits*\\. Each message checked costs you {credit_cost} credits");
+ℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}");
     let mut buttons = vec![
         vec![InlineKeyboardButton::callback(
             "⌨ Enter New Prompt",
@@ -312,9 +301,9 @@ Your balance: *{credits} credits*\\. Each message checked costs you {credit_cost
                     .await,
             ),
             InlineKeyboardButton::callback(
-                "💳 Add Balance",
+                "💎 Plan",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorAddBalance(target_chat_id))
+                    .to_callback_data(&TgCommand::AiModeratorPlan(target_chat_id))
                     .await,
             ),
         ],
