@@ -8,7 +8,7 @@ use bigdecimal::BigDecimal;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
-    intear_events::events::log::log_nep297::LogNep297EventData,
+    intear_events::events::log::log_nep297::LogNep297Event,
     mongodb::Database,
     near_primitives::types::AccountId,
     teloxide::{
@@ -76,7 +76,7 @@ impl BurrowLiquidationsModule {
         })
     }
 
-    async fn on_log(&self, event: &LogNep297EventData) -> Result<(), anyhow::Error> {
+    async fn on_log(&self, event: &LogNep297Event) -> Result<(), anyhow::Error> {
         if event.account_id != BURROW_CONTRACT_ID {
             return Ok(());
         }

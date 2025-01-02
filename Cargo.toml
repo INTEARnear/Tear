@@ -29,7 +29,6 @@ tokio-stream = "0.1.15"
 near-primitives = "0.23.0"
 inindexer = { git = "https://github.com/INTEARnear/inindexer" }
 redis = "0.25.3"
-inevents-redis = { git = "https://github.com/INTEARnear/inevents" }
 intear-events = { git = "https://github.com/INTEARnear/inevents", default-features = false }
 futures-util = "0.3.30"
 semver = "1.0.23"

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
-    intear_events::events::log::log_text::LogTextEventData,
+    intear_events::events::log::log_text::LogTextEvent,
     mongodb::Database,
     near_primitives::types::AccountId,
     teloxide::{
@@ -61,7 +61,7 @@ impl ContractLogsTextModule {
 
     async fn on_new_log_text(
         &self,
-        event: &LogTextEventData,
+        event: &LogTextEvent,
         is_testnet: bool,
     ) -> Result<(), anyhow::Error> {
         for (bot_id, config) in self.bot_configs.iter() {
@@ -1663,7 +1663,7 @@ pub struct TextLogFilter {
 }
 
 impl TextLogFilter {
-    fn matches(&self, event: &LogTextEventData, is_testnet: bool) -> bool {
+    fn matches(&self, event: &LogTextEvent, is_testnet: bool) -> bool {
         if self.account_id != event.account_id {
             return false;
         }

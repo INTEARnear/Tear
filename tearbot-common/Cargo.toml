@@ -34,8 +34,8 @@ redis = { workspace = true, features = [
     "tokio-rustls-comp",
     "connection-manager",
 ], optional = true }
-inevents-redis = { workspace = true, optional = true }
-inevents-redis-v3 = { git = "https://github.com/INTEARnear/inevents", branch = "v3", package = "inevents-redis", optional = true }
+inevents-redis-old = { git = "https://github.com/INTEARnear/inevents", rev = "81226476284317b4945f3470265b05a58b033633", package = "inevents-redis", optional = true }
+inevents-redis = { git = "https://github.com/INTEARnear/inevents", optional = true }
 intear-events = { workspace = true }
 futures-util = { workspace = true }
 semver = { workspace = true, optional = true }
@@ -48,6 +48,7 @@ bigdecimal = { workspace = true }
 near-api = { workspace = true }
 near-token = { workspace = true }
 near-gas = { workspace = true }
+solana-sdk = { version = "2", optional = true }
 
 [features]
 contract-logs-module = ["semver"]
@@ -64,7 +65,7 @@ ai-moderator-module = []
 image-gen-module = []
 burrow-liquidations-module = []
 price-commands-module = []
-trading-bot-module = []
+trading-bot-module = ["solana-sdk"]
 
-redis-events = ["redis", "inevents-redis", "inevents-redis-v3"]
+redis-events = ["redis", "inevents-redis", "inevents-redis-old"]
 websocket-events = ["tokio-tungstenite"]

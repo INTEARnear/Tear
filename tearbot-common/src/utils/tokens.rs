@@ -15,6 +15,10 @@ pub const WRAP_NEAR: &str = "wrap.near";
 pub const USDT_TOKEN: &str = "usdt.tether-token.near";
 pub const USDT_DECIMALS: u32 = 6;
 
+pub const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
+pub const SOL_DECIMALS: u32 = 9;
+pub const SOL_CONTRACT_ON_NEAR: &str = "22.contract.portalbridge.near";
+
 pub async fn format_near_amount(amount: Balance, price_source: impl AsRef<XeonState>) -> String {
     if amount == 0 {
         "0 NEAR".to_string()
@@ -42,6 +46,36 @@ pub fn format_near_amount_without_price(amount: Balance) -> String {
         format!("{amount} yoctoNEAR")
     } else {
         format_token_amount(amount, NEAR_DECIMALS, "NEAR")
+    }
+}
+
+pub async fn format_sol_amount(amount: u64, price_source: impl AsRef<XeonState>) -> String {
+    if amount == 0 {
+        "0 SOL".to_string()
+    } else if amount < 10u64.pow(3) {
+        format!("{amount} lamports")
+    } else {
+        format!(
+            "{} ({})",
+            format_token_amount(amount as u128, SOL_DECIMALS, "SOL"),
+            format_usd_amount(
+                (amount as f64 / 10u64.pow(SOL_DECIMALS) as f64)
+                    * price_source
+                        .as_ref()
+                        .get_price(&SOL_CONTRACT_ON_NEAR.parse().unwrap())
+                        .await,
+            )
+        )
+    }
+}
+
+pub fn format_sol_amount_without_price(amount: u64) -> String {
+    if amount == 0 {
+        "0 SOL".to_string()
+    } else if amount < 10u64.pow(3) {
+        format!("{amount} lamports")
+    } else {
+        format_token_amount(amount as u128, SOL_DECIMALS, "SOL")
     }
 }
 
@@ -180,7 +214,10 @@ fn format_number(num: f64, precision: usize) -> String {
 }
 
 pub fn format_usd_amount(amount: f64) -> String {
-    format_number(amount, (3 - amount.log10() as isize).max(0) as usize)
+    format_number(
+        amount,
+        (3 - amount.log10().clamp(-20.0, 3.0) as isize) as usize,
+    )
 }
 
 pub async fn format_account_id(account_id: &AccountId) -> String {
@@ -229,7 +266,7 @@ pub fn format_price_change(price_change: f64) -> String {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[allow(dead_code)]
 pub struct MemeCookingInfo {
     pub id: u64,
@@ -246,9 +283,26 @@ pub struct MemeCookingInfo {
     pub reference_hash: String,
     pub deposit_token_id: AccountId,
     #[serde(with = "dec_format")]
+    pub soft_cap: Balance,
+    #[serde(with = "dec_format")]
+    pub hard_cap: Option<Balance>,
+    pub team_allocation: Option<TeamAllocation>,
+    #[serde(with = "dec_format")]
+    pub pool_amount: Balance,
+    #[serde(with = "dec_format")]
+    pub amount_to_be_distributed: Balance,
+    #[serde(with = "dec_format")]
     pub total_staked: Balance,
     #[serde(with = "dec_format")]
     pub total_withdrawal_fees: Balance,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct TeamAllocation {
+    #[serde(with = "dec_format")]
+    pub amount: Balance,
+    pub vesting_duration_ms: u64,
+    pub cliff_duration_ms: u64,
 }
 
 #[derive(Serialize, Debug)]

@@ -125,7 +125,7 @@ impl XeonBotModule for UtilitiesModule {
                     )
                     .await?;
                 }
-                let search_results = search_token(search, 5).await?;
+                let search_results = search_token(search, 5, false).await?;
                 if search_results.is_empty() {
                     let message =
                         "No tokens found\\. Try entering the token contract address".to_string();

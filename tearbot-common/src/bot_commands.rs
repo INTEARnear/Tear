@@ -1,5 +1,11 @@
 #![allow(unused_imports)]
-use std::{collections::HashMap, fmt::Display, time::Duration};
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    ops::Deref,
+    time::Duration,
+};
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -12,6 +18,9 @@ use near_primitives::{
 use near_token::NearToken;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
+#[cfg(feature = "trading-bot-module")]
+use solana_sdk::signature::Keypair as SolanaKeypair;
 use teloxide::{prelude::UserId, types::ChatId};
 
 use crate::{
@@ -587,6 +596,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuy {
         selected_account_id: Option<AccountId>,
+        selected_solana_account: Option<SerializableKeypair>,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuyToken {
@@ -602,6 +612,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositions {
         selected_account_id: Option<AccountId>,
+        selected_solana_account: Option<SerializableKeypair>,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPosition {
@@ -1006,27 +1017,27 @@ pub enum TgCommand {
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridge {
-        selected_account_id: AccountId,
+        destination: Option<BridgeDestination>,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgeNetwork {
         network_id: String,
         chain_id: String,
-        selected_account_id: AccountId,
+        destination: BridgeDestination,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgeCheck {
         network_id: String,
         chain_id: String,
-        selected_account_id: AccountId,
+        destination: BridgeDestination,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeSwapToNear {
+    TradingBotBridgeSwap {
         defuse_asset_identifier: String,
         near_poa_asset_id: AccountId,
         #[serde(with = "dec_format")]
         amount: Balance,
-        selected_account_id: AccountId,
+        destination: BridgeDestination,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgePublishIntent {
@@ -1035,7 +1046,7 @@ pub enum TgCommand {
         near_poa_asset_id: AccountId,
         #[serde(with = "dec_format")]
         amount: Balance,
-        selected_account_id: AccountId,
+        destination: BridgeDestination,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotAccounts {
@@ -1061,6 +1072,120 @@ pub enum TgCommand {
     AiModeratorSwitchToPro(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSwitchToEnterprise(ChatId),
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDepositPrelaunchMemeCooking {
+        meme_id: u64,
+        selected_account_id: Option<AccountId>,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDepositPrelaunchMemeCookingConfirm {
+        meme_id: u64,
+        selected_account_id: AccountId,
+        amount: NearToken,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawPrelaunchMemeCooking {
+        meme_id: u64,
+        selected_account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawPrelaunchMemeCookingConfirm {
+        meme_id: u64,
+        selected_account_id: AccountId,
+        amount: NearToken,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBuyTokenAmountSolana {
+        token_address: String,
+        #[serde(with = "dec_format")]
+        amount_sol: u64,
+        selected_solana_account: Option<SerializableKeypair>,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSolanaPosition {
+        token_id: String,
+        selected_solana_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBuyTokenSolana {
+        token_address: String,
+        selected_solana_account: Option<SerializableKeypair>,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPositionReduceSolana {
+        token_address: String,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+        selected_solana_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPositionReducePromptSolana {
+        token_address: String,
+        selected_solana_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeFromNear {
+        destination: BridgeDestination,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeFromNearAccount {
+        destination: BridgeDestination,
+        from_account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeFromNearAccountAmount {
+        destination: BridgeDestination,
+        from_account_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeFromSolanaAccount {
+        destination: BridgeDestination,
+        relay_account: Pubkey,
+        from_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeFromSolanaAccountAmount {
+        destination: BridgeDestination,
+        relay_account: Pubkey,
+        from_account: SerializableKeypair,
+        #[serde(with = "dec_format")]
+        amount: u64,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotAccountsSolana {
+        page: usize,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotSelectAccountSolana {
+        account_id: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateAccountSolana,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawSolana {
+        selected_solana_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawSolanaAmount {
+        #[serde(with = "dec_format")]
+        amount: u64,
+        selected_solana_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawSolanaAmountAccount {
+        #[serde(with = "dec_format")]
+        amount: u64,
+        withdraw_to: Pubkey,
+        selected_solana_account: SerializableKeypair,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum BridgeDestination {
+    Near(AccountId),
+    Solana(SerializableKeypair),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -1197,6 +1322,7 @@ pub enum MessageCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuyAskForToken {
         selected_account_id: Option<AccountId>,
+        selected_solana_account: Option<SerializableKeypair>,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuyAskForAmount {
@@ -1371,6 +1497,47 @@ pub enum MessageCommand {
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateAccount,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDepositPrelaunchMemeCooking {
+        meme_id: u64,
+        selected_account_id: Option<AccountId>,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawPrelaunchMemeCooking {
+        meme_id: u64,
+        selected_account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBuySolanaAskForAmount {
+        token_address: String,
+        selected_solana_account: Option<SerializableKeypair>,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeFromNearAccount {
+        destination: BridgeDestination,
+        from_account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotBridgeFromSolanaAccount {
+        destination: BridgeDestination,
+        relay_account: Pubkey,
+        from_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotPositionReducePromptSolana {
+        token_address: String,
+        selected_solana_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawAskForAmountSolana {
+        selected_solana_account: SerializableKeypair,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawAskForAccountSolana {
+        #[serde(with = "dec_format")]
+        amount: u64,
+        selected_solana_account: SerializableKeypair,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1879,5 +2046,64 @@ impl BuyButtonAmount {
             BuyButtonAmount::Percentage(1.0) => balance,
             BuyButtonAmount::Percentage(percentage) => (balance as f64 * percentage) as u128,
         }
+    }
+}
+
+#[cfg(feature = "trading-bot-module")]
+#[derive(Debug)]
+pub struct SerializableKeypair(pub SolanaKeypair);
+
+impl Deref for SerializableKeypair {
+    type Target = SolanaKeypair;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Serialize for SerializableKeypair {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.to_base58_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SerializableKeypair {
+    fn deserialize<D>(deserializer: D) -> Result<SerializableKeypair, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let keypair = std::panic::catch_unwind(|| SolanaKeypair::from_base58_string(&s))
+            .map_err(|_| serde::de::Error::custom("Invalid Solana keypair"))?;
+        Ok(SerializableKeypair(keypair))
+    }
+}
+
+impl Clone for SerializableKeypair {
+    fn clone(&self) -> Self {
+        SerializableKeypair(SolanaKeypair::from_bytes(&self.0.to_bytes()).unwrap())
+    }
+}
+
+impl Eq for SerializableKeypair {}
+
+impl PartialEq for SerializableKeypair {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_bytes() == other.0.to_bytes()
+    }
+}
+
+impl Hash for SerializableKeypair {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.to_bytes().hash(state);
+    }
+}
+
+impl From<SolanaKeypair> for SerializableKeypair {
+    fn from(keypair: SolanaKeypair) -> Self {
+        SerializableKeypair(keypair)
     }
 }

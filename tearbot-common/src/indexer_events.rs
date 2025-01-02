@@ -1,33 +1,19 @@
 #![allow(unused_imports)]
 use async_trait::async_trait;
 
-use intear_events::events::ft::ft_transfer::FtTransferEventData;
+use intear_events::events::ft::ft_transfer::FtTransferEvent;
 use intear_events::events::trade::liquidity_pool::LiquidityPoolEvent;
-use intear_events::events::trade::liquidity_pool::LiquidityPoolEventData;
 use intear_events::events::{
-    log::{
-        log_nep297::{LogNep297Event, LogNep297EventData},
-        log_text::{LogTextEvent, LogTextEventData},
-    },
-    newcontract::nep141::{NewContractNep141Event, NewContractNep141EventData},
-    nft::{
-        nft_burn::{NftBurnEvent, NftBurnEventData},
-        nft_mint::{NftMintEvent, NftMintEventData},
-        nft_transfer::{NftTransferEvent, NftTransferEventData},
-    },
+    log::{log_nep297::LogNep297Event, log_text::LogTextEvent},
+    newcontract::nep141::NewContractNep141Event,
+    nft::{nft_burn::NftBurnEvent, nft_mint::NftMintEvent, nft_transfer::NftTransferEvent},
     potlock::{
-        potlock_donation::{PotlockDonationEvent, PotlockDonationEventData},
-        potlock_pot_donation::{PotlockPotDonationEvent, PotlockPotDonationEventData},
-        potlock_pot_project_donation::{
-            PotlockPotProjectDonationEvent, PotlockPotProjectDonationEventData,
-        },
+        potlock_donation::PotlockDonationEvent, potlock_pot_donation::PotlockPotDonationEvent,
+        potlock_pot_project_donation::PotlockPotProjectDonationEvent,
     },
-    price::price_token::{PriceTokenEvent, PriceTokenEventData},
-    socialdb::index::{SocialDBIndexEvent, SocialDBIndexEventData},
-    trade::{
-        trade_pool_change::{TradePoolChangeEvent, TradePoolChangeEventData},
-        trade_swap::{TradeSwapEvent, TradeSwapEventData},
-    },
+    price::price_token::PriceTokenEvent,
+    socialdb::index::SocialDBIndexEvent,
+    trade::{trade_pool_change::TradePoolChangeEvent, trade_swap::TradeSwapEvent},
 };
 
 #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
@@ -55,7 +41,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         .await
         .expect("Failed to create v3 redis connection");
 
-    tokio::spawn(stream_v3_events::<NftMintEventData>(
+    tokio::spawn(stream_v3_events::<NftMintEvent>(
         NftMintEvent::ID,
         false,
         IndexerEvent::NftMint,
@@ -63,7 +49,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<NftTransferEventData>(
+    tokio::spawn(stream_v3_events::<NftTransferEvent>(
         NftTransferEvent::ID,
         false,
         IndexerEvent::NftTransfer,
@@ -71,7 +57,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<NftBurnEventData>(
+    tokio::spawn(stream_v3_events::<NftBurnEvent>(
         NftBurnEvent::ID,
         false,
         IndexerEvent::NftBurn,
@@ -79,7 +65,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<PotlockDonationEventData>(
+    tokio::spawn(stream_v3_events::<PotlockDonationEvent>(
         PotlockDonationEvent::ID,
         false,
         IndexerEvent::PotlockDonation,
@@ -87,7 +73,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<PotlockPotProjectDonationEventData>(
+    tokio::spawn(stream_v3_events::<PotlockPotProjectDonationEvent>(
         PotlockPotProjectDonationEvent::ID,
         false,
         IndexerEvent::PotlockPotProjectDonation,
@@ -95,7 +81,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<PotlockPotDonationEventData>(
+    tokio::spawn(stream_v3_events::<PotlockPotDonationEvent>(
         PotlockPotDonationEvent::ID,
         false,
         IndexerEvent::PotlockPotDonation,
@@ -103,7 +89,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<TradeSwapEventData>(
+    tokio::spawn(stream_v3_events::<TradeSwapEvent>(
         TradeSwapEvent::ID,
         false,
         IndexerEvent::TradeSwap,
@@ -111,7 +97,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<PriceTokenEventData>(
+    tokio::spawn(stream_v3_events::<PriceTokenEvent>(
         PriceTokenEvent::ID,
         false,
         IndexerEvent::PriceToken,
@@ -119,7 +105,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<NewContractNep141EventData>(
+    tokio::spawn(stream_v3_events::<NewContractNep141Event>(
         NewContractNep141Event::ID,
         false,
         IndexerEvent::NewContractNep141,
@@ -127,7 +113,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<TradePoolChangeEventData>(
+    tokio::spawn(stream_v3_events::<TradePoolChangeEvent>(
         TradePoolChangeEvent::ID,
         false,
         IndexerEvent::TradePoolChange,
@@ -135,7 +121,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<LogTextEventData>(
+    tokio::spawn(stream_v3_events::<LogTextEvent>(
         LogTextEvent::ID,
         false,
         IndexerEvent::LogText,
@@ -143,7 +129,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_events::<LogTextEventData>(
+    tokio::spawn(stream_events::<LogTextEvent>(
         LogTextEvent::ID,
         true,
         IndexerEvent::TestnetLogText,
@@ -151,7 +137,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection.clone(),
     ));
-    tokio::spawn(stream_v3_events::<LogNep297EventData>(
+    tokio::spawn(stream_v3_events::<LogNep297Event>(
         LogNep297Event::ID,
         false,
         IndexerEvent::LogNep297,
@@ -159,7 +145,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_events::<LogNep297EventData>(
+    tokio::spawn(stream_events::<LogNep297Event>(
         LogNep297Event::ID,
         true,
         IndexerEvent::TestnetLogNep297,
@@ -167,7 +153,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection.clone(),
     ));
-    tokio::spawn(stream_v3_events::<SocialDBIndexEventData>(
+    tokio::spawn(stream_v3_events::<SocialDBIndexEvent>(
         SocialDBIndexEvent::ID,
         false,
         IndexerEvent::SocialDBIndex,
@@ -175,7 +161,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<LiquidityPoolEventData>(
+    tokio::spawn(stream_v3_events::<LiquidityPoolEvent>(
         LiquidityPoolEvent::ID,
         false,
         IndexerEvent::LiquidityPool,
@@ -183,7 +169,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
     ));
-    tokio::spawn(stream_v3_events::<FtTransferEventData>(
+    tokio::spawn(stream_v3_events::<FtTransferEvent>(
         FtTransferEvent::ID,
         false,
         IndexerEvent::FtTransfer,
@@ -260,7 +246,7 @@ async fn stream_events<
     } else {
         event_id.to_string()
     };
-    inevents_redis::RedisEventStream::new(connection, id)
+    inevents_redis_old::RedisEventStream::new(connection, id)
         .start_reading_events(
             "xeon",
             move |event: E| {
@@ -293,7 +279,7 @@ async fn stream_v3_events<
     } else {
         event_id.to_string()
     };
-    inevents_redis_v3::RedisEventStream::new(connection, id)
+    inevents_redis::RedisEventStream::new(connection, id)
         .start_reading_events(
             "xeon",
             move |event: E| {
@@ -419,23 +405,23 @@ async fn stream_v3_events<
 
 #[derive(Debug)]
 pub enum IndexerEvent {
-    NftMint(NftMintEventData),
-    NftTransfer(NftTransferEventData),
-    NftBurn(NftBurnEventData),
-    PotlockDonation(PotlockDonationEventData),
-    PotlockPotProjectDonation(PotlockPotProjectDonationEventData),
-    PotlockPotDonation(PotlockPotDonationEventData),
-    TradeSwap(TradeSwapEventData),
-    PriceToken(PriceTokenEventData),
-    NewContractNep141(NewContractNep141EventData),
-    TradePoolChange(TradePoolChangeEventData),
-    LogText(LogTextEventData),
-    TestnetLogText(LogTextEventData),
-    LogNep297(LogNep297EventData),
-    TestnetLogNep297(LogNep297EventData),
-    SocialDBIndex(SocialDBIndexEventData),
-    LiquidityPool(LiquidityPoolEventData),
-    FtTransfer(FtTransferEventData),
+    NftMint(NftMintEvent),
+    NftTransfer(NftTransferEvent),
+    NftBurn(NftBurnEvent),
+    PotlockDonation(PotlockDonationEvent),
+    PotlockPotProjectDonation(PotlockPotProjectDonationEvent),
+    PotlockPotDonation(PotlockPotDonationEvent),
+    TradeSwap(TradeSwapEvent),
+    PriceToken(PriceTokenEvent),
+    NewContractNep141(NewContractNep141Event),
+    TradePoolChange(TradePoolChangeEvent),
+    LogText(LogTextEvent),
+    TestnetLogText(LogTextEvent),
+    LogNep297(LogNep297Event),
+    TestnetLogNep297(LogNep297Event),
+    SocialDBIndex(SocialDBIndexEvent),
+    LiquidityPool(LiquidityPoolEvent),
+    FtTransfer(FtTransferEvent),
 }
 
 impl IndexerEvent {

@@ -269,6 +269,10 @@ impl XeonState {
         self.prices.read().await.get(account_id).cloned()
     }
 
+    pub async fn get_token_list(&self) -> Vec<TokenInfo> {
+        self.prices.read().await.values().cloned().collect()
+    }
+
     pub async fn get_spamlist(&self) -> RwLockReadGuard<Vec<AccountId>> {
         self.spamlist.read().await
     }

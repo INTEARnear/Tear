@@ -66,6 +66,7 @@ pub struct PartialTokenInfo {
     pub total_supply: Balance,
     pub circulating_supply: Balance,
     pub circulating_supply_excluding_team: Balance,
+    pub launched: bool,
 }
 
 impl From<TokenInfo> for PartialTokenInfo {
@@ -76,6 +77,7 @@ impl From<TokenInfo> for PartialTokenInfo {
             total_supply: token.total_supply,
             circulating_supply: token.circulating_supply,
             circulating_supply_excluding_team: token.circulating_supply,
+            launched: true,
         }
     }
 }
@@ -84,8 +86,12 @@ impl From<TokenInfo> for PartialTokenInfo {
 pub async fn search_token(
     query: &str,
     results: usize,
+    include_prelaunch: bool,
 ) -> Result<Vec<PartialTokenInfo>, anyhow::Error> {
-    if let Some((token_id, meme)) = parse_meme_cooking_link(query).await {
+    if let Some((token_id, launched, meme)) = parse_meme_cooking_link(query).await {
+        if !include_prelaunch && !launched {
+            return Ok(vec![]);
+        }
         return Ok(vec![PartialTokenInfo {
             account_id: token_id,
             metadata: TokenPartialMetadata {
@@ -96,6 +102,7 @@ pub async fn search_token(
             total_supply: meme.total_supply,
             circulating_supply: meme.total_supply,
             circulating_supply_excluding_team: meme.total_supply,
+            launched,
         }]);
     }
     get_cached_1h(&format!(
@@ -110,7 +117,7 @@ pub async fn search_token(
     })
 }
 
-pub async fn parse_meme_cooking_link(url: &str) -> Option<(AccountId, MemeCookingInfo)> {
+pub async fn parse_meme_cooking_link(url: &str) -> Option<(AccountId, bool, MemeCookingInfo)> {
     let meme_id = url
         .trim_start_matches("https://")
         .trim_start_matches("http://")
@@ -118,10 +125,10 @@ pub async fn parse_meme_cooking_link(url: &str) -> Option<(AccountId, MemeCookin
         .strip_prefix("meme.cooking/meme/")?;
     let meme_id = meme_id.split(&['?', '#']).next()?;
     let meme_id = meme_id.parse::<u64>().ok()?;
-    let data = if let Ok(Some(data)) = get_memecooking_finalized_info(meme_id).await {
-        data
+    let (launched, data) = if let Ok(Some(data)) = get_memecooking_finalized_info(meme_id).await {
+        (true, data)
     } else if let Ok(Some(data)) = get_memecooking_prelaunch_info(meme_id).await {
-        data
+        (false, data)
     } else {
         return None;
     };
@@ -133,7 +140,7 @@ pub async fn parse_meme_cooking_link(url: &str) -> Option<(AccountId, MemeCookin
     )
     .parse()
     {
-        Some((token_id, data))
+        Some((token_id, launched, data))
     } else {
         None
     }

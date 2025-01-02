@@ -10,8 +10,8 @@ use async_trait::async_trait;
 use itertools::Itertools;
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
-use tearbot_common::utils::SLIME_USER_ID;
 use tearbot_common::utils::{apis::parse_meme_cooking_link, rpc::account_exists};
+use tearbot_common::utils::{tokens::MEME_COOKING_CONTRACT_ID, SLIME_USER_ID};
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     mongodb::bson::DateTime,
@@ -400,6 +400,7 @@ impl XeonBotModule for HubModule {
                                     None,
                                     &bot.to_callback_data(&TgCommand::TradingBotPositions {
                                         selected_account_id: None,
+                                        selected_solana_account: None,
                                     })
                                     .await,
                                 ),
@@ -426,6 +427,7 @@ impl XeonBotModule for HubModule {
                                         None,
                                         &bot.to_callback_data(&TgCommand::TradingBotBuy {
                                             selected_account_id: None,
+                                            selected_solana_account: None,
                                         })
                                         .await,
                                     ),
@@ -437,106 +439,6 @@ impl XeonBotModule for HubModule {
                             }
                         }
                     });
-                }
-                #[cfg(feature = "trading-bot-module")]
-                if let Some(args) = text.strip_prefix("/buy ") {
-                    match &args.trim().split_once(' ') {
-                        Some((token, amount)) => {
-                            let account_id = if let Ok(account_id) = token.parse::<AccountId>() {
-                                Some(account_id)
-                            } else if let Some((account_id, _)) =
-                                parse_meme_cooking_link(token).await
-                            {
-                                Some(account_id)
-                            } else {
-                                None
-                            };
-                            if let Some(account_id) = account_id {
-                                if get_ft_metadata(&account_id).await.is_ok() {
-                                    for module in bot.xeon().bot_modules().await.iter() {
-                                        module
-                                            .handle_message(
-                                                bot,
-                                                Some(user_id),
-                                                chat_id,
-                                                MessageCommand::TradingBotBuyAskForAmount {
-                                                    token_id: account_id.clone(),
-                                                    selected_account_id: None,
-                                                },
-                                                amount,
-                                                user_message,
-                                            )
-                                            .await?;
-                                    }
-                                }
-                            }
-                        }
-                        None => {
-                            let mut is_token_id = false;
-                            let token = args.to_string();
-                            let account_id = if let Ok(account_id) = token.parse::<AccountId>() {
-                                Some(account_id)
-                            } else if let Some((account_id, _)) =
-                                parse_meme_cooking_link(&token).await
-                            {
-                                Some(account_id)
-                            } else {
-                                None
-                            };
-                            if let Some(account_id) = account_id {
-                                if get_ft_metadata(&account_id).await.is_ok() {
-                                    is_token_id = true;
-                                    for module in bot.xeon().bot_modules().await.iter() {
-                                        module
-                                            .handle_callback(
-                                                TgCallbackContext::new(
-                                                    bot,
-                                                    user_id,
-                                                    chat_id,
-                                                    None,
-                                                    &bot.to_callback_data(
-                                                        &TgCommand::TradingBotBuyToken {
-                                                            token_id: account_id.clone(),
-                                                            selected_account_id: None,
-                                                        },
-                                                    )
-                                                    .await,
-                                                ),
-                                                &mut None,
-                                            )
-                                            .await?;
-                                    }
-                                }
-                            }
-                            if !is_token_id {
-                                // Uses set_dm_message_command, but TradingBotModule goes after HubModule,
-                                // so avoid handling this message as input to /buy
-                                let xeon = Arc::clone(bot.xeon());
-                                let bot_id = bot.id();
-                                let message = user_message.clone();
-                                tokio::spawn(async move {
-                                    let bot = xeon.bot(&bot_id).unwrap();
-                                    for module in bot.xeon().bot_modules().await.iter() {
-                                        if let Err(err) = module
-                                            .handle_message(
-                                                &bot,
-                                                Some(user_id),
-                                                chat_id,
-                                                MessageCommand::TradingBotBuyAskForToken {
-                                                    selected_account_id: None,
-                                                },
-                                                &token,
-                                                &message,
-                                            )
-                                            .await
-                                        {
-                                            log::warn!("Failed to handle /buy token: {err:?}");
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    }
                 }
                 #[cfg(feature = "utilities-module")]
                 if text == "/token" || text == "/ft" {
@@ -1525,6 +1427,30 @@ impl XeonBotModule for HubModule {
                                             &bot.to_callback_data(
                                                 &TgCommand::TradingBotSnipeAddByTokenId {
                                                     token_id: token_id.clone(),
+                                                    selected_account_id: None,
+                                                },
+                                            )
+                                            .await,
+                                        ),
+                                        &mut None,
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
+                    if let Some(meme_id) = data.strip_prefix("meme-cooking-deposit-") {
+                        if let Ok(meme_id) = meme_id.parse::<u64>() {
+                            for module in bot.xeon().bot_modules().await.iter() {
+                                module
+                                    .handle_callback(
+                                        TgCallbackContext::new(
+                                            bot,
+                                            user_id,
+                                            chat_id,
+                                            None,
+                                            &bot.to_callback_data(
+                                                &TgCommand::TradingBotDepositPrelaunchMemeCooking {
+                                                    meme_id,
                                                     selected_account_id: None,
                                                 },
                                             )

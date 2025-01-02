@@ -6,7 +6,7 @@ use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
     bot_commands::WrappedVersionReq,
-    intear_events::events::log::log_nep297::LogNep297EventData,
+    intear_events::events::log::log_nep297::LogNep297Event,
     mongodb::Database,
     near_primitives::types::AccountId,
     teloxide::{
@@ -67,7 +67,7 @@ impl ContractLogsNep297Module {
 
     async fn on_new_log_nep297(
         &self,
-        event: &LogNep297EventData,
+        event: &LogNep297Event,
         is_testnet: bool,
     ) -> Result<(), anyhow::Error> {
         let log_serialized = serde_json::to_string_pretty(&event.event_data)?;
@@ -1467,7 +1467,7 @@ pub struct Nep297LogFilter {
 }
 
 impl Nep297LogFilter {
-    fn matches(&self, event: &LogNep297EventData, is_testnet: bool) -> bool {
+    fn matches(&self, event: &LogNep297Event, is_testnet: bool) -> bool {
         if self.account_id.is_none()
             && self.predecessor_id.is_none()
             && self.standard.is_none()
