@@ -662,13 +662,39 @@ impl XeonBotModule for AiModeratorModule {
                 .await?;
             }
             TgCommand::AiModeratorSwitchToBasic(target_chat_id) => {
-                billing::plans::handle_basic_button(&mut ctx, target_chat_id).await?;
+                let message = "Plan is not available yet\\. Stay tuned!";
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    ctx.bot()
+                        .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
             }
             TgCommand::AiModeratorSwitchToPro(target_chat_id) => {
-                billing::plans::handle_pro_button(&mut ctx, target_chat_id).await?;
+                let message = "Plan is not available yet\\. Stay tuned!";
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    ctx.bot()
+                        .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+                // billing::plans::handle_pro_button(&mut ctx, target_chat_id).await?;
             }
             TgCommand::AiModeratorSwitchToEnterprise(target_chat_id) => {
-                billing::plans::handle_enterprise_button(&mut ctx, target_chat_id).await?;
+                let message = "Plan is not available yet\\. Stay tuned!";
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    ctx.bot()
+                        .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                ctx.edit_or_send(message, reply_markup).await?;
+                // billing::plans::handle_enterprise_button(&mut ctx, target_chat_id).await?;
             }
             _ => {}
         }

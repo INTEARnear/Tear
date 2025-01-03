@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use std::time::Duration;
 use tearbot_common::near_primitives::types::Balance;
 use tearbot_common::teloxide::payloads::CreateInvoiceLinkSetters;
 use tearbot_common::teloxide::utils::markdown;

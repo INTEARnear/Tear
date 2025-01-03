@@ -25,7 +25,8 @@ pub struct SuccessfulPayment {
     /// Bot specified invoice payload.
     pub invoice_payload: String,
 
-    /// Expiration date of the subscription, in Unix time; for recurring payments only
+    /// Expiration date of the subscription, in Unix time; for recurring
+    /// payments only
     pub subscription_expiration_date: Option<u64>,
 
     /// True, if the payment is a recurring payment for a subscription.
