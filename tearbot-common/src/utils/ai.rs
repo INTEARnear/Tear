@@ -26,7 +26,7 @@ impl Model {
             Self::RecommendedFast => "Recommended (fast)",
             Self::Gpt4o => "GPT-4o",
             Self::Gpt4oMini => "GPT-4o-mini",
-            Self::Llama70B => "Llama 70B",
+            Self::Llama70B => "Llama 3.3 70B",
         }
     }
 
@@ -54,7 +54,7 @@ impl Model {
             }
             Self::Gpt4o => "gpt-4o-2024-08-06",
             Self::Gpt4oMini => "gpt-4o-mini",
-            Self::Llama70B => "llama3.1-70b",
+            Self::Llama70B => "llama3.3-70b",
         }
     }
 
