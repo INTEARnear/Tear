@@ -3,6 +3,7 @@ use async_trait::async_trait;
 
 use intear_events::events::ft::ft_transfer::FtTransferEvent;
 use intear_events::events::trade::liquidity_pool::LiquidityPoolEvent;
+use intear_events::events::transactions::tx_transaction::TxTransactionEvent;
 use intear_events::events::{
     log::{log_nep297::LogNep297Event, log_text::LogTextEvent},
     newcontract::nep141::NewContractNep141Event,
@@ -173,6 +174,14 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         FtTransferEvent::ID,
         false,
         IndexerEvent::FtTransfer,
+        tx.clone(),
+        #[cfg(feature = "redis-events")]
+        connection_v3.clone(),
+    ));
+    tokio::spawn(stream_v3_events::<TxTransactionEvent>(
+        TxTransactionEvent::ID,
+        false,
+        IndexerEvent::TxTransaction,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
@@ -422,6 +431,7 @@ pub enum IndexerEvent {
     SocialDBIndex(SocialDBIndexEvent),
     LiquidityPool(LiquidityPoolEvent),
     FtTransfer(FtTransferEvent),
+    TxTransaction(TxTransactionEvent),
 }
 
 impl IndexerEvent {
@@ -445,6 +455,7 @@ impl IndexerEvent {
             IndexerEvent::SocialDBIndex(event) => event.block_timestamp_nanosec,
             IndexerEvent::LiquidityPool(event) => event.block_timestamp_nanosec,
             IndexerEvent::FtTransfer(event) => event.block_timestamp_nanosec,
+            IndexerEvent::TxTransaction(event) => event.block_timestamp_nanosec,
         };
         chrono::DateTime::from_timestamp_nanos(nanosec as i64)
     }

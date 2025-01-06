@@ -51,6 +51,8 @@ use tearbot_common::xeon::Xeon;
 use trading_bot::TradingBotModule;
 #[cfg(feature = "utilities-module")]
 use utilities::UtilitiesModule;
+#[cfg(feature = "wallet-tracking")]
+use wallet_tracking::WalletTrackingModule;
 
 fn main() -> Result<(), anyhow::Error> {
     dotenvy::dotenv().ok();
@@ -315,6 +317,19 @@ fn main() -> Result<(), anyhow::Error> {
                     xeon.state()
                         .add_indexer_event_handler::<TradingBotModule>(Arc::clone(
                             &trading_bot_module,
+                        ))
+                        .await;
+                }
+                #[cfg(feature = "wallet-tracking")]
+                {
+                    let wallet_tracking_module =
+                        Arc::new(WalletTrackingModule::new(xeon.arc_clone_state()).await?);
+                    xeon.state()
+                        .add_bot_module::<WalletTrackingModule>(Arc::clone(&wallet_tracking_module))
+                        .await;
+                    xeon.state()
+                        .add_indexer_event_handler::<WalletTrackingModule>(Arc::clone(
+                            &wallet_tracking_module,
                         ))
                         .await;
                 }

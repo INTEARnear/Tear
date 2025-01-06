@@ -66,6 +66,7 @@ image-gen-module = []
 burrow-liquidations-module = []
 price-commands-module = []
 trading-bot-module = ["solana-sdk"]
+wallet-tracking-module = []
 
 redis-events = ["redis", "inevents-redis", "inevents-redis-old"]
 websocket-events = ["tokio-tungstenite"]

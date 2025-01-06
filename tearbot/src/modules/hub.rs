@@ -2894,8 +2894,14 @@ async fn create_notificatons_buttons(
     ));
     #[cfg(feature = "burrow-liquidations-module")]
     buttons.push(InlineKeyboardButton::callback(
-        "🏦 Burrow Liquidations",
+        "🏦 Burrow Liq",
         bot.to_callback_data(&TgCommand::BurrowLiquidationsSettings(target_chat_id))
+            .await,
+    ));
+    #[cfg(feature = "wallet-tracking")]
+    buttons.push(InlineKeyboardButton::callback(
+        "💼 Track Wallet",
+        bot.to_callback_data(&TgCommand::WalletTrackingSettings(target_chat_id))
             .await,
     ));
     let mut buttons = buttons

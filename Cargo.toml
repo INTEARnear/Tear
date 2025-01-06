@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["tearbot"]
+members = ["tearbot", "wallet-tracking"]
 exclude = ["near-tgi/near-cli-rs", "near-tgi/keyring", "teloxide"]
 
 [workspace.package]

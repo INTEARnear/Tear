@@ -21,6 +21,7 @@ image-gen = { path = "../xeon-private-modules/image-gen", optional = true }
 burrow-liquidations = { path = "../burrow-liquidations", optional = true }
 price-commands = { path = "../price-commands", optional = true }
 trading-bot = { path = "../xeon-private-modules/trading-bot", optional = true }
+wallet-tracking = { path = "../wallet-tracking", optional = true }
 
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
@@ -49,6 +50,7 @@ tear = [
     "websocket-events",
     "burrow-liquidations-module",
     "price-commands-module",
+    "wallet-tracking-module",
 ]
 xeon = [
     "contract-logs-module",
@@ -68,6 +70,7 @@ xeon = [
     "burrow-liquidations-module",
     "price-commands-module",
     "trading-bot-module",
+    "wallet-tracking-module",
 ]
 int = [
     "ai-moderator-module",
@@ -102,3 +105,7 @@ burrow-liquidations-module = [
 ]
 price-commands-module = ["tearbot-common/price-commands-module", "price-commands"]
 trading-bot-module = ["tearbot-common/trading-bot-module", "trading-bot", "utilities/trading-bot"]
+wallet-tracking-module = [
+    "tearbot-common/wallet-tracking-module",
+    "wallet-tracking",
+]

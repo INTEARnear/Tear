@@ -1180,6 +1180,24 @@ pub enum TgCommand {
         withdraw_to: Pubkey,
         selected_solana_account: SerializableKeypair,
     },
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingSettings(NotificationDestination),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAdd(NotificationDestination),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAddAccount(NotificationDestination, AccountId),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccount(NotificationDestination, AccountId),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountToggleFt(NotificationDestination, AccountId, bool),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountToggleNft(NotificationDestination, AccountId, bool),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountToggleSwaps(NotificationDestination, AccountId, bool),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountToggleTransaction(NotificationDestination, AccountId, bool),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountRemove(NotificationDestination, AccountId),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -1538,6 +1556,8 @@ pub enum MessageCommand {
         amount: u64,
         selected_solana_account: SerializableKeypair,
     },
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAddAccount(NotificationDestination),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
