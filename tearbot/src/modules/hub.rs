@@ -1503,6 +1503,28 @@ impl XeonBotModule for HubModule {
                                     .await?;
                             }
                         }
+                    } else if let Some(account_id) = data.strip_prefix("holders-") {
+                        if let Ok(account_id) = account_id.replace('=', ".").parse::<AccountId>() {
+                            for module in bot.xeon().bot_modules().await.iter() {
+                                module
+                                    .handle_callback(
+                                        TgCallbackContext::new(
+                                            bot,
+                                            user_id,
+                                            chat_id,
+                                            None,
+                                            &bot.to_callback_data(
+                                                &TgCommand::UtilitiesFtInfoSelected(
+                                                    account_id.clone(),
+                                                ),
+                                            )
+                                            .await,
+                                        ),
+                                        &mut None,
+                                    )
+                                    .await?;
+                            }
+                        }
                     }
                 }
             }

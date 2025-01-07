@@ -18,7 +18,7 @@ use near_primitives::types::{AccountId, Balance};
 use near_token::NearToken;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use teloxide::payloads::SendAudioSetters;
+use teloxide::payloads::{AnswerInlineQuerySetters, SendAudioSetters};
 use teloxide::payloads::SendMessageSetters;
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::payloads::{EditMessageTextSetters, SendDocumentSetters};
@@ -30,8 +30,8 @@ use teloxide::prelude::Requester;
 use teloxide::prelude::Update;
 use teloxide::prelude::UserId;
 use teloxide::types::{
-    InlineKeyboardMarkup, InputFile, LinkPreviewOptions, MessageId, ParseMode, ReplyMarkup,
-    ThreadId,
+    InlineKeyboardMarkup, InlineQuery, InputFile, LinkPreviewOptions, MessageId, ParseMode,
+    ReplyMarkup, ThreadId,
 };
 use teloxide::utils::markdown;
 use teloxide::{adaptors::throttle::Throttle, prelude::ChatId};
@@ -396,6 +396,7 @@ impl BotData {
         let bot = self.bot.clone();
         let (msg_sender, mut msg_receiver) = tokio::sync::mpsc::channel(1000);
         let (callback_query_sender, mut callback_query_receiver) = tokio::sync::mpsc::channel(1000);
+        let (inline_query_sender, mut inline_query_receiver) = tokio::sync::mpsc::channel(1000);
 
         let bot_clone = self.bot.clone();
         tokio::spawn(async move {
@@ -426,6 +427,20 @@ impl BotData {
                             );
                             bot.answer_pre_checkout_query(pre_checkout_query.id, true)
                                 .await?;
+                            Ok(())
+                        }
+                    },
+                ))
+                .branch(Update::filter_inline_query().endpoint(
+                    move |inline_query: InlineQuery| {
+                        let inline_query_sender = inline_query_sender.clone();
+                        async move {
+                            log::info!("Inline query user={:?} query_id={}: {}",
+                                inline_query.from.id,
+                                inline_query.id,
+                                inline_query.query
+                            );
+                            inline_query_sender.send(inline_query).await.unwrap();
                             Ok(())
                         }
                     },
@@ -566,6 +581,7 @@ impl BotData {
                 });
             }
         });
+
         let xeon = Arc::clone(&self.xeon);
         tokio::spawn(async move {
             while let Some(callback_query) = callback_query_receiver.recv().await {
@@ -603,6 +619,33 @@ impl BotData {
                         }
                     }
                 });
+            }
+        });
+
+        let xeon = Arc::clone(&self.xeon);
+        tokio::spawn(async move {
+            while let Some(inline_query) = inline_query_receiver.recv().await {
+                let bot = xeon.bot(&me).unwrap();
+                let mut results = Vec::new();
+                for module in xeon.bot_modules().await.iter() {
+                    let bot = xeon.bot(&me).unwrap();
+                    let module_results = module.handle_inline_query(&bot, &inline_query).await;
+                    results.extend(module_results);
+                }
+                if let Err(err) = bot
+                    .bot()
+                    .answer_inline_query(inline_query.id.clone(), results.clone())
+                    .is_personal(true)
+                    .cache_time(30)
+                    .await
+                {
+                    log::error!(
+                        "Error answering inline query {:?}: {:?}\n\nTried to answer: {:?}",
+                        inline_query,
+                        err,
+                        results
+                    );
+                }
             }
         });
         Ok(())

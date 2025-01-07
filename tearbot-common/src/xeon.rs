@@ -22,6 +22,7 @@ use near_primitives::types::{AccountId, Balance};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use teloxide::prelude::{ChatId, Message, UserId};
+use teloxide::types::{InlineQuery, InlineQueryResult};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 pub struct Xeon {
@@ -368,5 +369,13 @@ pub trait XeonBotModule: Send + Sync + 'static {
         _chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
         unimplemented!("supports_pause is true, but resume is not implemented")
+    }
+
+    async fn handle_inline_query(
+        &self,
+        _bot: &BotData,
+        _inline_query: &InlineQuery,
+    ) -> Vec<InlineQueryResult> {
+        Vec::new()
     }
 }

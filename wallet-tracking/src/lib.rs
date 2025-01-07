@@ -100,7 +100,7 @@ impl WalletTrackingModule {
                         }
                         let message = format!(
                             "
-*`{old_account_id}` \\-\\> `{new_account_id}`*: {amount}
+*`{old_account_id}` ➡️ `{new_account_id}`*: {amount}
 
 [Tx](https://nearblocks.io/txns/{tx_hash})
                                 ",
@@ -190,7 +190,7 @@ impl WalletTrackingModule {
                             let message = format!(
                                 "
 *NFT {action_word}*
-*`{old_account_id}` \\-\\> `{new_account_id}`*: `{token_id}`{price_text}
+*`{old_account_id}` ➡️ `{new_account_id}`*: `{token_id}`{price_text}
 
 [Tx](https://nearblocks.io/txns/{tx_hash}) \\| [Token](https://nearblocks.io/nft-token/{contract_id}/{token_id})
                                 ",

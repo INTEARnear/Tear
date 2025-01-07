@@ -226,8 +226,8 @@ pub async fn handle_basic_button(
         .bot()
         .bot()
         .create_invoice_link(
-            format!("Basic Plan"),
-            format!("Monthly subscription for Basic plan"),
+            "Basic Plan".to_string(),
+            "Monthly subscription for Basic plan".to_string(),
             ctx.bot()
                 .to_payment_payload(&PaymentReference::AiModeratorBasicPlan(target_chat_id))
                 .await,
@@ -330,7 +330,7 @@ pub async fn handle_bought_basic_plan(
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     bot.send_text_message(
         chat_id.into(),
-        format!("You have purchased Basic plan\\!"),
+        "You have purchased Basic plan\\!".to_string(),
         reply_markup,
     )
     .await?;

@@ -23,6 +23,7 @@ use image_gen::ImageGenModule;
 use log::info;
 #[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
 use modules::hub::HubModule;
+use modules::inline_query::InlineQueryModule;
 #[cfg(feature = "near-tgi-module")]
 use near_tgi::NearTgiModule;
 #[cfg(feature = "new-liquidity-pools-module")]
@@ -145,6 +146,9 @@ fn main() -> Result<(), anyhow::Error> {
                 #[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
                 xeon.state()
                     .add_bot_module(HubModule::new(xeon.arc_clone_state()).await)
+                    .await;
+                xeon.state()
+                    .add_bot_module(InlineQueryModule)
                     .await;
                 // #[cfg(feature = "airdrops")]
                 // xeon.state()
