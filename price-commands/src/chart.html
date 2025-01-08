@@ -70,7 +70,7 @@
                         `Getting bars for ${symbolInfo.name} ${resolution} ${periodParams.countBack
                         } ${periodParams.to * 1000}`
                     );
-                    const url = `https://events.intear.tech/api/ohlc?token=${symbolInfo.full_name
+                    const url = `https://events-v3.intear.tech/api/ohlc?token=${symbolInfo.full_name
                         }&resolution=${resolution}&count_back=${periodParams.countBack}&to=${periodParams.to * 1000
                         }`;
                     const response = await fetch(url).then((data) => data.json());
@@ -82,6 +82,7 @@
                         bar.close = parseFloat(bar.close) * 10 ** (decimals - USDT_DECIMALS);
                         bar.high = parseFloat(bar.high) * 10 ** (decimals - USDT_DECIMALS);
                         bar.low = parseFloat(bar.low) * 10 ** (decimals - USDT_DECIMALS);
+                        bar.time = bar.timestamp_millis;
                         return bar;
                     });
                     onHistoryCallback(bars, { noData });
