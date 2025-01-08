@@ -70,7 +70,7 @@
                         `Getting bars for ${symbolInfo.name} ${resolution} ${periodParams.countBack
                         } ${periodParams.to * 1000}`
                     );
-                    const url = `https://events-v3.intear.tech/api/ohlc?token=${symbolInfo.full_name
+                    const url = `https://events-v3.intear.tech/v3/price_token/ohlc?token=${symbolInfo.full_name
                         }&resolution=${resolution}&count_back=${periodParams.countBack}&to=${periodParams.to * 1000
                         }`;
                     const response = await fetch(url).then((data) => data.json());
