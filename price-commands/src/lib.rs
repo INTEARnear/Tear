@@ -1043,33 +1043,25 @@ fn default_enable() -> bool {
 async fn get_price_at(token_id: &AccountId, time: DateTime<Utc>) -> Result<f64, anyhow::Error> {
     #[derive(Debug, Deserialize)]
     struct Response {
-        event: PriceEvent,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct PriceEvent {
         price_usd: BigDecimal,
     }
 
     let timestamp_nanosec = time.timestamp_nanos_opt().unwrap();
-    let url = format!("https://events.intear.tech/query/price_token?token={token_id}&pagination_by=AfterTimestamp&timestamp_nanosec={timestamp_nanosec}&limit=1");
+    let url = format!("https://events-v3.intear.tech/v3/price_token/price_at_time?token={token_id}&timestamp_nanosec={timestamp_nanosec}");
     let response = get_reqwest_client()
         .get(url)
         .send()
         .await?
-        .json::<Vec<Response>>()
+        .json::<Response>()
         .await?;
-    let first_event = response
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("No price found"))?;
     let meta = get_ft_metadata(token_id).await?;
     let token_decimals = meta.decimals;
-    let price_raw = first_event.event.price_usd.clone() * 10u128.pow(token_decimals as u32)
+    let price_raw = response.price_usd.clone() * 10u128.pow(token_decimals as u32)
         / 10u128.pow(USDT_DECIMALS);
     let price = ToPrimitive::to_f64(&price_raw).ok_or_else(|| {
         anyhow::anyhow!(
             "Failed to convert price to f64: {:?}",
-            first_event.event.price_usd
+            response.price_usd
         )
     })?;
     Ok(price)
