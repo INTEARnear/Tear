@@ -149,14 +149,14 @@ impl InlineQueryModule {
                             if **amount1 > 0 && **amount2 < 0 {
                                 format!(
                                     "{} ➡️ {}",
+                                    format_tokens(amount2.unsigned_abs(), token2, None).await,
                                     format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                    format_tokens(amount2.unsigned_abs(), token2, None).await
                                 )
                             } else if **amount1 < 0 && **amount2 > 0 {
                                 format!(
                                     "{} ➡️ {}",
+                                    format_tokens(amount1.unsigned_abs(), token1, None).await,
                                     format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                    format_tokens(amount1.unsigned_abs(), token1, None).await
                                 )
                             } else {
                                 let mut result = Vec::new();
@@ -258,14 +258,14 @@ impl InlineQueryModule {
                             if **amount1 > 0 && **amount2 < 0 {
                                 format!(
                                     "{} ➡️ {}",
+                                    format_tokens(amount2.unsigned_abs(), token2, None).await,
                                     format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                    format_tokens(amount2.unsigned_abs(), token2, None).await
                                 )
                             } else if **amount1 < 0 && **amount2 > 0 {
                                 format!(
                                     "{} ➡️ {}",
+                                    format_tokens(amount1.unsigned_abs(), token1, None).await,
                                     format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                    format_tokens(amount1.unsigned_abs(), token1, None).await
                                 )
                             } else {
                                 let mut result = Vec::new();
