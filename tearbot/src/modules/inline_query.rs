@@ -117,6 +117,8 @@ impl XeonBotModule for InlineQueryModule {
             results.extend(self.try_get_account(bot, account_id).await);
         }
 
+        results.extend(self.get_accounts(bot, &query.query).await);
+
         results
     }
 }
@@ -614,6 +616,109 @@ Tokens:
         } else {
             vec![]
         }
+    }
+
+    async fn get_accounts(&self, bot: &BotData, query: &str) -> Vec<InlineQueryResult> {
+        let mut results = Vec::new();
+        #[derive(Debug, Deserialize)]
+        struct Entry {
+            account_id: AccountId,
+        }
+        if let Ok(accounts) = get_cached_30s::<Vec<Entry>>(&format!(
+            "https://events-v3.intear.tech/v3/tx_receipt/accounts_by_prefix?prefix={query}"
+        ))
+        .await
+        {
+            for Entry { account_id } in accounts.into_iter().take(3) {
+                if account_id == query {
+                    // already included in try_get_account
+                    continue;
+                }
+                if let Ok(account_info) = view_account_cached_30s(account_id.clone()).await {
+                    let near_balance = account_info.amount;
+                    let spamlist = bot.xeon().get_spamlist().await;
+                    let tokens = get_all_fts_owned(&account_id).await;
+                    let tokens = {
+                        let mut tokens_with_price = Vec::new();
+                        for (token_id, balance) in tokens {
+                            if spamlist.contains(&token_id) {
+                                continue;
+                            }
+                            if let Ok(meta) = get_ft_metadata(&token_id).await {
+                                let price = bot.xeon().get_price(&token_id).await;
+                                let balance_human_readable =
+                                    balance as f64 / 10f64.powi(meta.decimals as i32);
+                                tokens_with_price.push((
+                                    token_id,
+                                    balance,
+                                    balance_human_readable * price,
+                                ));
+                            }
+                        }
+                        tokens_with_price
+                    };
+                    let tokens = tokens
+                        .into_iter()
+                        .filter(|(_, balance, _)| *balance > 0)
+                        .sorted_by(|(_, _, balance_1), (_, _, balance_2)| {
+                            balance_2.partial_cmp(balance_1).unwrap()
+                        })
+                        .collect::<Vec<_>>();
+                    let mut tokens_balance = String::new();
+                    for (token_id, balance, _) in tokens.into_iter() {
+                        tokens_balance.push_str(&format!(
+                            "\\- {}\n",
+                            markdown::escape(
+                                &format_tokens(balance, &token_id, Some(bot.xeon())).await
+                            ),
+                        ));
+                    }
+                    drop(spamlist);
+
+                    results.push(InlineQueryResult::Article(
+                        InlineQueryResultArticle::new(
+                            random_id(),
+                            format!("Account {account_id}"),
+                            InputMessageContent::Text(
+                                InputMessageContentText::new(format!(
+                                    "
+        Account info: {}
+
+        NEAR balance: {}
+
+        Tokens:
+        {tokens_balance}
+
+        [Nearblocks](https://nearblocks.io/account/{account_id}) \\| [Pikespeak](https://pikespeak.ai/wallet-explorer/{account_id})
+                                    ",
+                                    format_account_id(&account_id).await,
+                                    markdown::escape(&format_near_amount(near_balance, bot.xeon()).await),
+                                ))
+                                .parse_mode(ParseMode::MarkdownV2)
+                                .link_preview_options(LinkPreviewOptions {
+                                    is_disabled: true,
+                                    url: None,
+                                    prefer_small_media: false,
+                                    prefer_large_media: false,
+                                    show_above_text: false,
+                                }),
+                            ),
+                        )
+                        .reply_markup(InlineKeyboardMarkup::new(vec![vec![
+                            InlineKeyboardButton::switch_inline_query_current_chat(
+                                "Recent Trades",
+                                format!("{account_id} trades"),
+                            ),
+                            InlineKeyboardButton::switch_inline_query_current_chat(
+                                "Transactions",
+                                format!("{account_id} tx"),
+                            ),
+                        ]])),
+                    ));
+                }
+            }
+        }
+        results
     }
 }
 

@@ -1056,13 +1056,10 @@ async fn get_price_at(token_id: &AccountId, time: DateTime<Utc>) -> Result<f64, 
         .await?;
     let meta = get_ft_metadata(token_id).await?;
     let token_decimals = meta.decimals;
-    let price_raw = response.price_usd.clone() * 10u128.pow(token_decimals as u32)
-        / 10u128.pow(USDT_DECIMALS);
+    let price_raw =
+        response.price_usd.clone() * 10u128.pow(token_decimals as u32) / 10u128.pow(USDT_DECIMALS);
     let price = ToPrimitive::to_f64(&price_raw).ok_or_else(|| {
-        anyhow::anyhow!(
-            "Failed to convert price to f64: {:?}",
-            response.price_usd
-        )
+        anyhow::anyhow!("Failed to convert price to f64: {:?}", response.price_usd)
     })?;
     Ok(price)
 }

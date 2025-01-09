@@ -18,9 +18,9 @@ use near_primitives::types::{AccountId, Balance};
 use near_token::NearToken;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use teloxide::payloads::{AnswerInlineQuerySetters, SendAudioSetters};
 use teloxide::payloads::SendMessageSetters;
 use teloxide::payloads::SendPhotoSetters;
+use teloxide::payloads::{AnswerInlineQuerySetters, SendAudioSetters};
 use teloxide::payloads::{EditMessageTextSetters, SendDocumentSetters};
 use teloxide::prelude::dptree;
 use teloxide::prelude::CallbackQuery;
@@ -636,7 +636,7 @@ impl BotData {
                     .bot()
                     .answer_inline_query(inline_query.id.clone(), results.clone())
                     .is_personal(true)
-                    .cache_time(30)
+                    .cache_time(0)
                     .await
                 {
                     log::error!(

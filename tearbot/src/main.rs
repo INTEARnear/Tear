@@ -147,9 +147,7 @@ fn main() -> Result<(), anyhow::Error> {
                 xeon.state()
                     .add_bot_module(HubModule::new(xeon.arc_clone_state()).await)
                     .await;
-                xeon.state()
-                    .add_bot_module(InlineQueryModule)
-                    .await;
+                xeon.state().add_bot_module(InlineQueryModule).await;
                 // #[cfg(feature = "airdrops")]
                 // xeon.state()
                 //     .add_bot_module(AirdropsModule::new(db.clone()).await?)
