@@ -89,9 +89,15 @@ impl XeonBotModule for InlineQueryModule {
             return vec![];
         }
 
+        if let Some(account_id) = query.query.strip_suffix(" swaps") {
+            if let Ok(account_id) = AccountId::from_str(account_id) {
+                return self.get_recent_account_trades(bot, account_id).await;
+            }
+        }
+
         if let Some(account_id) = query.query.strip_suffix(" trades") {
             if let Ok(account_id) = AccountId::from_str(account_id) {
-                return self.get_recent_trades(bot, account_id).await;
+                return self.get_recent_token_trades(bot, account_id).await;
             }
         }
 
@@ -124,7 +130,7 @@ impl XeonBotModule for InlineQueryModule {
 }
 
 impl InlineQueryModule {
-    async fn get_recent_trades(
+    async fn get_recent_account_trades(
         &self,
         _bot: &BotData,
         account_id: AccountId,
@@ -208,7 +214,116 @@ impl InlineQueryModule {
                                 format!("\n{}", result.join(", "))
                             }
                         }),
-                        trader = format_account_id(&account_id).await,
+                        trader = format_account_id(&trade.trader).await,
+                        tx_hash = trade.transaction_id,
+                    ))
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .link_preview_options(LinkPreviewOptions {
+                        is_disabled: true,
+                        url: None,
+                        prefer_small_media: false,
+                        prefer_large_media: false,
+                        show_above_text: false,
+                    }),
+                ))
+                .reply_markup(InlineKeyboardMarkup::new(vec![vec![
+                    InlineKeyboardButton::switch_inline_query_current_chat(
+                        "Trader Info",
+                        account_id.as_str(),
+                    ),
+                ]]))))
+            }
+            results
+        } else {
+            vec![]
+        }
+    }
+
+    async fn get_recent_token_trades(
+        &self,
+        _bot: &BotData,
+        account_id: AccountId,
+    ) -> Vec<InlineQueryResult> {
+        if let Ok(response) = get_cached_30s::<Vec<TradeSwapEvent>>(&format!(
+            "https://events-v3.intear.tech/v3/trade_swap/by_token_newest?account={account_id}"
+        ))
+        .await
+        {
+            let mut results = Vec::new();
+            for trade in response {
+                results.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
+                    random_id(),
+                    format!("{}: {}", trade.trader, match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                        [(token1, amount1), (token2, amount2)] => {
+                            if **amount1 > 0 && **amount2 < 0 {
+                                format!(
+                                    "{} ➡️ {}",
+                                    format_tokens(amount1.unsigned_abs(), token1, None).await,
+                                    format_tokens(amount2.unsigned_abs(), token2, None).await
+                                )
+                            } else if **amount1 < 0 && **amount2 > 0 {
+                                format!(
+                                    "{} ➡️ {}",
+                                    format_tokens(amount2.unsigned_abs(), token2, None).await,
+                                    format_tokens(amount1.unsigned_abs(), token1, None).await
+                                )
+                            } else {
+                                let mut result = Vec::new();
+                                for (token, amount) in [(token1, amount1), (token2, amount2)] {
+                                    let sign = if **amount < 0 { "-" } else { "" };
+                                    let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
+                                    result.push(format!("{sign}{formatted}"));
+                                }
+                                result.join(", ")
+                            }
+                        }
+                        _ => {
+                            let mut result = Vec::new();
+                            for (token, amount) in trade.balance_changes
+                                    .iter()
+                                    .sorted_by_key(|(_token, amount)| **amount) {
+                                let sign = if *amount < 0 { "-" } else { "" };
+                                let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
+                                result.push(format!("{sign}{formatted}"));
+                            }
+                            result.join(", ")
+                        }
+                    }),
+                    InputMessageContent::Text(InputMessageContentText::new(format!(
+                        "
+*Trade*:{balance_changes}
+
+*Trader*: {trader}
+
+[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
+                        ",
+                        balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                            [(token1, amount1), (token2, amount2)] => {
+                                if **amount1 > 0 && **amount2 < 0 {
+                                    format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
+                                } else if **amount1 < 0 && **amount2 > 0 {
+                                    format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
+                                } else {
+                                    let mut result = Vec::new();
+                                    for (token, amount) in trade.balance_changes.iter() {
+                                        let sign = if *amount < 0 { "-" } else { "" };
+                                        let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
+                                        result.push(format!("{sign}{formatted}"));
+                                    }
+                                    format!("\n{}", result.join(", "))
+                                }
+                            }
+                            _ => {
+                                let mut result = Vec::new();
+                                for (token, amount) in trade.balance_changes.iter() {
+                                    let sign = if *amount < 0 { "-" } else { "" };
+                                    let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
+                                    result.push(format!("{sign}{formatted}"));
+                                }
+                                format!("\n{}", result.join(", "))
+                            }
+                        }),
+                        trader = format_account_id(&trade.trader).await,
                         tx_hash = trade.transaction_id,
                     ))
                     .parse_mode(ParseMode::MarkdownV2)
@@ -311,15 +426,21 @@ CA: `{ca}`
                         ),
                     )
                     .reply_markup(InlineKeyboardMarkup::new(vec![
-                        vec![InlineKeyboardButton::url(
-                            "Holders",
-                            format!(
-                                "tg://resolve?domain={bot_username}&start=holders-{}",
-                                token.account_id.as_str().replace('.', "=")
-                            )
-                            .parse()
-                            .unwrap(),
-                        )],
+                        vec![
+                            InlineKeyboardButton::url(
+                                "Holders",
+                                format!(
+                                    "tg://resolve?domain={bot_username}&start=holders-{}",
+                                    token.account_id.as_str().replace('.', "=")
+                                )
+                                .parse()
+                                .unwrap(),
+                            ),
+                            InlineKeyboardButton::switch_inline_query_current_chat(
+                                "Trades",
+                                format!("{} trades", token.account_id),
+                            ),
+                        ],
                         vec![InlineKeyboardButton::url(
                             "Buy Now",
                             format!(
@@ -605,7 +726,7 @@ Tokens:
                 .reply_markup(InlineKeyboardMarkup::new(vec![vec![
                     InlineKeyboardButton::switch_inline_query_current_chat(
                         "Recent Trades",
-                        format!("{account_id} trades"),
+                        format!("{account_id} swaps"),
                     ),
                     InlineKeyboardButton::switch_inline_query_current_chat(
                         "Transactions",
@@ -707,7 +828,7 @@ Tokens:
                         .reply_markup(InlineKeyboardMarkup::new(vec![vec![
                             InlineKeyboardButton::switch_inline_query_current_chat(
                                 "Recent Trades",
-                                format!("{account_id} trades"),
+                                format!("{account_id} swaps"),
                             ),
                             InlineKeyboardButton::switch_inline_query_current_chat(
                                 "Transactions",
