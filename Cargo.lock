@@ -10468,6 +10468,7 @@ dependencies = [
  "contract-logs",
  "dotenvy",
  "ft-buybot",
+ "futures-util",
  "image-gen",
  "itertools 0.13.0",
  "log",

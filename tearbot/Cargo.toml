@@ -43,6 +43,7 @@ serde_json = { workspace = true }
 near-jsonrpc-primitives = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
+futures-util = { workspace = true }
 
 [features]
 tear = [

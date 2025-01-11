@@ -3,6 +3,7 @@ use std::str::FromStr;
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Utc;
+use futures_util::future::join_all;
 use itertools::Itertools;
 use near_jsonrpc_primitives::types::{
     receipts::RpcReceiptResponse, transactions::RpcTransactionResponse,
@@ -142,65 +143,76 @@ impl InlineQueryModule {
         ))
         .await
         {
-            let mut results = Vec::new();
-            for trade in response {
-                results.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
-                    random_id(),
-                    format!("{}{}", match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
-                        [(token1, amount1), (token2, amount2)] => {
-                            if **amount1 > 0 && **amount2 < 0 {
-                                format!(
-                                    "{} ➡️ {}",
-                                    format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                    format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                )
-                            } else if **amount1 < 0 && **amount2 > 0 {
-                                format!(
-                                    "{} ➡️ {}",
-                                    format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                    format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                )
-                            } else {
+            let futures = response.into_iter().map(|trade| {
+                let account_id = account_id.clone();
+                async move {
+                    InlineQueryResult::Article(InlineQueryResultArticle::new(
+                        random_id(),
+                        format!("{}{}", match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                            [(token1, amount1), (token2, amount2)] => {
+                                if **amount1 > 0 && **amount2 < 0 {
+                                    format!(
+                                        "{} ➡️ {}",
+                                        format_tokens(amount2.unsigned_abs(), token2, None).await,
+                                        format_tokens(amount1.unsigned_abs(), token1, None).await,
+                                    )
+                                } else if **amount1 < 0 && **amount2 > 0 {
+                                    format!(
+                                        "{} ➡️ {}",
+                                        format_tokens(amount1.unsigned_abs(), token1, None).await,
+                                        format_tokens(amount2.unsigned_abs(), token2, None).await,
+                                    )
+                                } else {
+                                    let mut result = Vec::new();
+                                    for (token, amount) in [(token1, amount1), (token2, amount2)] {
+                                        let sign = if **amount < 0 { "-" } else { "" };
+                                        let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
+                                        result.push(format!("{sign}{formatted}"));
+                                    }
+                                    result.join(", ")
+                                }
+                            }
+                            _ => {
                                 let mut result = Vec::new();
-                                for (token, amount) in [(token1, amount1), (token2, amount2)] {
-                                    let sign = if **amount < 0 { "-" } else { "" };
+                                for (token, amount) in trade.balance_changes
+                                        .iter()
+                                        .sorted_by_key(|(_token, amount)| **amount) {
+                                    let sign = if *amount < 0 { "-" } else { "" };
                                     let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
                                     result.push(format!("{sign}{formatted}"));
                                 }
                                 result.join(", ")
                             }
-                        }
-                        _ => {
-                            let mut result = Vec::new();
-                            for (token, amount) in trade.balance_changes
-                                    .iter()
-                                    .sorted_by_key(|(_token, amount)| **amount) {
-                                let sign = if *amount < 0 { "-" } else { "" };
-                                let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                result.push(format!("{sign}{formatted}"));
-                            }
-                            result.join(", ")
-                        }
-                    }, if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
-                        format!(", {} ago", markdown::escape(&format_duration((Utc::now() - timestamp).to_std().unwrap())))
-                    } else {
-                        "".to_string()
-                    }),
-                    InputMessageContent::Text(InputMessageContentText::new(format!(
-                        "
+                        }, if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
+                            format!(", {} ago", markdown::escape(&format_duration((Utc::now() - timestamp).to_std().unwrap())))
+                        } else {
+                            "".to_string()
+                        }),
+                        InputMessageContent::Text(InputMessageContentText::new(format!(
+                            "
 *Trade*:{balance_changes}
 
 *Trader*: {trader}
 *Block*: {block}
 [Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
-                        ",
-                        balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
-                            [(token1, amount1), (token2, amount2)] => {
-                                if **amount1 > 0 && **amount2 < 0 {
-                                    format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
-                                } else if **amount1 < 0 && **amount2 > 0 {
-                                    format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
-                                } else {
+                            ",
+                            balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                                [(token1, amount1), (token2, amount2)] => {
+                                    if **amount1 > 0 && **amount2 < 0 {
+                                        format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
+                                    } else if **amount1 < 0 && **amount2 > 0 {
+                                        format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
+                                    } else {
+                                        let mut result = Vec::new();
+                                        for (token, amount) in trade.balance_changes.iter() {
+                                            let sign = if *amount < 0 { "-" } else { "" };
+                                            let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
+                                            result.push(format!("{sign}{formatted}"));
+                                        }
+                                        format!("\n{}", result.join(", "))
+                                    }
+                                }
+                                _ => {
                                     let mut result = Vec::new();
                                     for (token, amount) in trade.balance_changes.iter() {
                                         let sign = if *amount < 0 { "-" } else { "" };
@@ -209,42 +221,34 @@ impl InlineQueryModule {
                                     }
                                     format!("\n{}", result.join(", "))
                                 }
-                            }
-                            _ => {
-                                let mut result = Vec::new();
-                                for (token, amount) in trade.balance_changes.iter() {
-                                    let sign = if *amount < 0 { "-" } else { "" };
-                                    let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                    result.push(format!("{sign}{formatted}"));
-                                }
-                                format!("\n{}", result.join(", "))
-                            }
+                            }),
+                            trader = format_account_id(&trade.trader).await,
+                            tx_hash = trade.transaction_id,
+                            block = if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
+                                format!("`{}` \\({}\\)", trade.block_height, markdown::escape(&timestamp.to_string()))
+                            } else {
+                                format!("`{}`", trade.block_height)
+                            },
+                        ))
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .link_preview_options(LinkPreviewOptions {
+                            is_disabled: true,
+                            url: None,
+                            prefer_small_media: false,
+                            prefer_large_media: false,
+                            show_above_text: false,
                         }),
-                        trader = format_account_id(&trade.trader).await,
-                        tx_hash = trade.transaction_id,
-                        block = if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
-                            format!("`{}` \\({}\\)", trade.block_height, markdown::escape(&timestamp.to_string()))
-                        } else {
-                            format!("`{}`", trade.block_height)
-                        },
                     ))
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .link_preview_options(LinkPreviewOptions {
-                        is_disabled: true,
-                        url: None,
-                        prefer_small_media: false,
-                        prefer_large_media: false,
-                        show_above_text: false,
-                    }),
-                ))
-                .reply_markup(InlineKeyboardMarkup::new(vec![vec![
-                    InlineKeyboardButton::switch_inline_query_current_chat(
-                        "Trader Info",
-                        account_id.as_str(),
-                    ),
-                ]]))))
-            }
-            results
+                    .reply_markup(InlineKeyboardMarkup::new(vec![vec![
+                        InlineKeyboardButton::switch_inline_query_current_chat(
+                            "Trader Info",
+                            account_id.as_str(),
+                        ),
+                    ]])))
+                }
+            });
+
+            join_all(futures).await
         } else {
             vec![]
         }
@@ -260,66 +264,77 @@ impl InlineQueryModule {
         ))
         .await
         {
-            let mut results = Vec::new();
-            for trade in response {
-                results.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
-                    random_id(),
-                    format!("{}: {}{}", trade.trader, match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
-                        [(token1, amount1), (token2, amount2)] => {
-                            if **amount1 > 0 && **amount2 < 0 {
-                                format!(
-                                    "{} ➡️ {}",
-                                    format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                    format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                )
-                            } else if **amount1 < 0 && **amount2 > 0 {
-                                format!(
-                                    "{} ➡️ {}",
-                                    format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                    format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                )
-                            } else {
+            let futures = response.into_iter().map(|trade| {
+                let account_id = account_id.clone();
+                async move {
+                    InlineQueryResult::Article(InlineQueryResultArticle::new(
+                        random_id(),
+                        format!("{}: {}{}", trade.trader, match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                            [(token1, amount1), (token2, amount2)] => {
+                                if **amount1 > 0 && **amount2 < 0 {
+                                    format!(
+                                        "{} ➡️ {}",
+                                        format_tokens(amount2.unsigned_abs(), token2, None).await,
+                                        format_tokens(amount1.unsigned_abs(), token1, None).await,
+                                    )
+                                } else if **amount1 < 0 && **amount2 > 0 {
+                                    format!(
+                                        "{} ➡️ {}",
+                                        format_tokens(amount1.unsigned_abs(), token1, None).await,
+                                        format_tokens(amount2.unsigned_abs(), token2, None).await,
+                                    )
+                                } else {
+                                    let mut result = Vec::new();
+                                    for (token, amount) in [(token1, amount1), (token2, amount2)] {
+                                        let sign = if **amount < 0 { "-" } else { "" };
+                                        let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
+                                        result.push(format!("{sign}{formatted}"));
+                                    }
+                                    result.join(", ")
+                                }
+                            }
+                            _ => {
                                 let mut result = Vec::new();
-                                for (token, amount) in [(token1, amount1), (token2, amount2)] {
-                                    let sign = if **amount < 0 { "-" } else { "" };
+                                for (token, amount) in trade.balance_changes
+                                        .iter()
+                                        .sorted_by_key(|(_token, amount)| **amount) {
+                                    let sign = if *amount < 0 { "-" } else { "" };
                                     let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
                                     result.push(format!("{sign}{formatted}"));
                                 }
                                 result.join(", ")
                             }
-                        }
-                        _ => {
-                            let mut result = Vec::new();
-                            for (token, amount) in trade.balance_changes
-                                    .iter()
-                                    .sorted_by_key(|(_token, amount)| **amount) {
-                                let sign = if *amount < 0 { "-" } else { "" };
-                                let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                result.push(format!("{sign}{formatted}"));
-                            }
-                            result.join(", ")
-                        }
-                    }, if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
-                        format!(", {} ago", markdown::escape(&format_duration((Utc::now() - timestamp).to_std().unwrap())))
-                    } else {
-                        "".to_string()
-                    }),
-                    InputMessageContent::Text(InputMessageContentText::new(format!(
-                        "
+                        }, if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
+                            format!(", {} ago", markdown::escape(&format_duration((Utc::now() - timestamp).to_std().unwrap())))
+                        } else {
+                            "".to_string()
+                        }),
+                        InputMessageContent::Text(InputMessageContentText::new(format!(
+                            "
 *Trade*:{balance_changes}
 
 *Trader*: {trader}
 *Block*: {block}
 
 [Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
-                        ",
-                        balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
-                            [(token1, amount1), (token2, amount2)] => {
-                                if **amount1 > 0 && **amount2 < 0 {
-                                    format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
-                                } else if **amount1 < 0 && **amount2 > 0 {
-                                    format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
-                                } else {
+                            ",
+                            balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                                [(token1, amount1), (token2, amount2)] => {
+                                    if **amount1 > 0 && **amount2 < 0 {
+                                        format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
+                                    } else if **amount1 < 0 && **amount2 > 0 {
+                                        format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
+                                    } else {
+                                        let mut result = Vec::new();
+                                        for (token, amount) in trade.balance_changes.iter() {
+                                            let sign = if *amount < 0 { "-" } else { "" };
+                                            let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
+                                            result.push(format!("{sign}{formatted}"));
+                                        }
+                                        format!("\n{}", result.join(", "))
+                                    }
+                                }
+                                _ => {
                                     let mut result = Vec::new();
                                     for (token, amount) in trade.balance_changes.iter() {
                                         let sign = if *amount < 0 { "-" } else { "" };
@@ -328,42 +343,34 @@ impl InlineQueryModule {
                                     }
                                     format!("\n{}", result.join(", "))
                                 }
-                            }
-                            _ => {
-                                let mut result = Vec::new();
-                                for (token, amount) in trade.balance_changes.iter() {
-                                    let sign = if *amount < 0 { "-" } else { "" };
-                                    let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                    result.push(format!("{sign}{formatted}"));
-                                }
-                                format!("\n{}", result.join(", "))
-                            }
+                            }),
+                            trader = format_account_id(&trade.trader).await,
+                            tx_hash = trade.transaction_id,
+                            block = if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
+                                format!("`{}` \\({}\\)", trade.block_height, markdown::escape(&timestamp.to_string()))
+                            } else {
+                                format!("`{}`", trade.block_height)
+                            },
+                        ))
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .link_preview_options(LinkPreviewOptions {
+                            is_disabled: true,
+                            url: None,
+                            prefer_small_media: false,
+                            prefer_large_media: false,
+                            show_above_text: false,
                         }),
-                        trader = format_account_id(&trade.trader).await,
-                        tx_hash = trade.transaction_id,
-                        block = if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
-                            format!("`{}` \\({}\\)", trade.block_height, markdown::escape(&timestamp.to_string()))
-                        } else {
-                            format!("`{}`", trade.block_height)
-                        },
                     ))
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .link_preview_options(LinkPreviewOptions {
-                        is_disabled: true,
-                        url: None,
-                        prefer_small_media: false,
-                        prefer_large_media: false,
-                        show_above_text: false,
-                    }),
-                ))
-                .reply_markup(InlineKeyboardMarkup::new(vec![vec![
-                    InlineKeyboardButton::switch_inline_query_current_chat(
-                        "Trader Info",
-                        account_id.as_str(),
-                    ),
-                ]]))))
-            }
-            results
+                    .reply_markup(InlineKeyboardMarkup::new(vec![vec![
+                        InlineKeyboardButton::switch_inline_query_current_chat(
+                            "Trader Info",
+                            account_id.as_str(),
+                        ),
+                    ]])))
+                }
+            });
+
+            join_all(futures).await
         } else {
             vec![]
         }
@@ -379,11 +386,12 @@ impl InlineQueryModule {
         ))
         .await
         {
-            let mut results = Vec::new();
-            for tx in response {
-                results.extend(self.try_get_tx(bot, tx.transaction_id).await);
-            }
-            results
+            let futures = response
+                .into_iter()
+                .map(|tx| self.try_get_tx(bot, tx.transaction_id));
+
+            let results = join_all(futures).await;
+            results.into_iter().flatten().collect()
         } else {
             vec![]
         }
@@ -784,94 +792,17 @@ Tokens:
         ))
         .await
         {
+            let mut futures = Vec::new();
             for Entry { account_id } in accounts.into_iter().take(3) {
                 if account_id == query {
                     // already included in try_get_account
                     continue;
                 }
-                if let Ok(account_info) = view_account_cached_30s(account_id.clone()).await {
-                    let near_balance = account_info.amount;
-                    let spamlist = bot.xeon().get_spamlist().await;
-                    let tokens = get_all_fts_owned(&account_id).await;
-                    let tokens = {
-                        let mut tokens_with_price = Vec::new();
-                        for (token_id, balance) in tokens {
-                            if spamlist.contains(&token_id) {
-                                continue;
-                            }
-                            if let Ok(meta) = get_ft_metadata(&token_id).await {
-                                let price = bot.xeon().get_price(&token_id).await;
-                                let balance_human_readable =
-                                    balance as f64 / 10f64.powi(meta.decimals as i32);
-                                tokens_with_price.push((
-                                    token_id,
-                                    balance,
-                                    balance_human_readable * price,
-                                ));
-                            }
-                        }
-                        tokens_with_price
-                    };
-                    let tokens = tokens
-                        .into_iter()
-                        .filter(|(_, balance, _)| *balance > 0)
-                        .sorted_by(|(_, _, balance_1), (_, _, balance_2)| {
-                            balance_2.partial_cmp(balance_1).unwrap()
-                        })
-                        .collect::<Vec<_>>();
-                    let mut tokens_balance = String::new();
-                    for (token_id, balance, _) in tokens.into_iter() {
-                        tokens_balance.push_str(&format!(
-                            "\\- {}\n",
-                            markdown::escape(
-                                &format_tokens(balance, &token_id, Some(bot.xeon())).await
-                            ),
-                        ));
-                    }
-                    drop(spamlist);
-
-                    results.push(InlineQueryResult::Article(
-                        InlineQueryResultArticle::new(
-                            random_id(),
-                            format!("Account {account_id}"),
-                            InputMessageContent::Text(
-                                InputMessageContentText::new(format!(
-                                    "
-Account info: {}
-
-NEAR balance: {}
-
-Tokens:
-{tokens_balance}
-
-[Nearblocks](https://nearblocks.io/account/{account_id}) \\| [Pikespeak](https://pikespeak.ai/wallet-explorer/{account_id})
-                                    ",
-                                    format_account_id(&account_id).await,
-                                    markdown::escape(&format_near_amount(near_balance, bot.xeon()).await),
-                                ))
-                                .parse_mode(ParseMode::MarkdownV2)
-                                .link_preview_options(LinkPreviewOptions {
-                                    is_disabled: true,
-                                    url: None,
-                                    prefer_small_media: false,
-                                    prefer_large_media: false,
-                                    show_above_text: false,
-                                }),
-                            ),
-                        )
-                        .reply_markup(InlineKeyboardMarkup::new(vec![vec![
-                            InlineKeyboardButton::switch_inline_query_current_chat(
-                                "Recent Trades",
-                                format!("{account_id} swaps"),
-                            ),
-                            InlineKeyboardButton::switch_inline_query_current_chat(
-                                "Transactions",
-                                format!("{account_id} tx"),
-                            ),
-                        ]])),
-                    ));
-                }
+                futures.push(self.try_get_account(bot, account_id));
             }
+
+            let account_results = join_all(futures).await;
+            results.extend(account_results.into_iter().flatten());
         }
         results
     }
