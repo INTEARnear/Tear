@@ -40,8 +40,9 @@ rand = { workspace = true }
 rustls = "0.23.12"
 openssl = { version = "0.10", features = ["vendored"] }
 serde_json = { workspace = true }
-near-jsonrpc-primitives = "0.23.0"
+near-jsonrpc-primitives = { workspace = true }
 serde = { workspace = true }
+chrono = { workspace = true }
 
 [features]
 tear = [

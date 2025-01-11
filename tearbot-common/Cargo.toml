@@ -49,6 +49,7 @@ near-api = { workspace = true }
 near-token = { workspace = true }
 near-gas = { workspace = true }
 solana-sdk = { version = "2", optional = true }
+near-jsonrpc-primitives = { workspace = true }
 
 [features]
 contract-logs-module = ["semver"]

@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use chrono::Utc;
 use itertools::Itertools;
 use near_jsonrpc_primitives::types::{
     receipts::RpcReceiptResponse, transactions::RpcTransactionResponse,
@@ -16,7 +17,7 @@ use tearbot_common::{
     near_primitives::{
         action::Action,
         hash::CryptoHash,
-        types::{AccountId, BlockHeight},
+        types::{AccountId, BlockHeight, BlockId},
         views::{
             AccessKeyPermissionView, ActionView, FinalExecutionStatus, ReceiptEnumView,
             TxExecutionStatus,
@@ -34,8 +35,9 @@ use tearbot_common::{
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
     utils::{
         apis::search_token,
+        format_duration,
         requests::get_cached_30s,
-        rpc::{rpc, view_account_cached_30s},
+        rpc::{get_block_timestamp, rpc, view_account_cached_30s},
         tokens::{
             format_account_id, format_near_amount, format_tokens, format_usd_amount,
             get_ft_metadata,
@@ -144,7 +146,7 @@ impl InlineQueryModule {
             for trade in response {
                 results.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
                     random_id(),
-                    match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                    format!("{}{}", match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
                         [(token1, amount1), (token2, amount2)] => {
                             if **amount1 > 0 && **amount2 < 0 {
                                 format!(
@@ -179,13 +181,17 @@ impl InlineQueryModule {
                             }
                             result.join(", ")
                         }
-                    },
+                    }, if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
+                        format!(", {} ago", markdown::escape(&format_duration((Utc::now() - timestamp).to_std().unwrap())))
+                    } else {
+                        "".to_string()
+                    }),
                     InputMessageContent::Text(InputMessageContentText::new(format!(
                         "
 *Trade*:{balance_changes}
 
 *Trader*: {trader}
-
+*Block*: {block}
 [Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
                         ",
                         balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
@@ -216,6 +222,11 @@ impl InlineQueryModule {
                         }),
                         trader = format_account_id(&trade.trader).await,
                         tx_hash = trade.transaction_id,
+                        block = if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
+                            format!("`{}` \\({}\\)", trade.block_height, markdown::escape(&timestamp.to_string()))
+                        } else {
+                            format!("`{}`", trade.block_height)
+                        },
                     ))
                     .parse_mode(ParseMode::MarkdownV2)
                     .link_preview_options(LinkPreviewOptions {
@@ -253,7 +264,7 @@ impl InlineQueryModule {
             for trade in response {
                 results.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
                     random_id(),
-                    format!("{}: {}", trade.trader, match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                    format!("{}: {}{}", trade.trader, match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
                         [(token1, amount1), (token2, amount2)] => {
                             if **amount1 > 0 && **amount2 < 0 {
                                 format!(
@@ -288,12 +299,17 @@ impl InlineQueryModule {
                             }
                             result.join(", ")
                         }
+                    }, if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
+                        format!(", {} ago", markdown::escape(&format_duration((Utc::now() - timestamp).to_std().unwrap())))
+                    } else {
+                        "".to_string()
                     }),
                     InputMessageContent::Text(InputMessageContentText::new(format!(
                         "
 *Trade*:{balance_changes}
 
 *Trader*: {trader}
+*Block*: {block}
 
 [Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
                         ",
@@ -325,6 +341,11 @@ impl InlineQueryModule {
                         }),
                         trader = format_account_id(&trade.trader).await,
                         tx_hash = trade.transaction_id,
+                        block = if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
+                            format!("`{}` \\({}\\)", trade.block_height, markdown::escape(&timestamp.to_string()))
+                        } else {
+                            format!("`{}`", trade.block_height)
+                        },
                     ))
                     .parse_mode(ParseMode::MarkdownV2)
                     .link_preview_options(LinkPreviewOptions {
@@ -495,14 +516,23 @@ CA: `{ca}`
                 };
                 vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
                     random_id(),
-                    format!("Transaction {tx_hash}"),
+                    format!(
+                        "Transaction {}...{}{}",
+                        &tx_hash.to_string()[..4],
+                        &tx_hash.to_string()[tx_hash.to_string().len() - 4..],
+                        if let Ok(timestamp) = get_block_timestamp(BlockId::Hash(outcome.transaction_outcome.block_hash)).await {
+                            format!(", {} ago", format_duration((Utc::now() - timestamp).to_std().unwrap()))
+                        } else {
+                            String::new()
+                        },
+                    ),
                     InputMessageContent::Text(InputMessageContentText::new(format!(
                         "
 *Transaction*: `{tx_hash}`
 *Status*: {status}
 *Signer*: `{signer}`
 *Receiver*: `{receiver}`
-*In Block*: `{in_block}`
+*In Block*: {in_block}
 *Gas Fees Burnt*: {fees_burnt}
 *Actions*:
 {actions}
@@ -511,7 +541,11 @@ CA: `{ca}`
                         ",
                         signer = outcome.transaction.signer_id,
                         receiver = outcome.transaction.receiver_id,
-                        in_block = outcome.transaction_outcome.block_hash,
+                        in_block = if let Ok(timestamp) = get_block_timestamp(BlockId::Hash(outcome.transaction_outcome.block_hash)).await {
+                            format!("`{}` \\({}\\)", outcome.transaction_outcome.block_hash, markdown::escape(&timestamp.to_string()))
+                        } else {
+                            format!("`{}`", outcome.transaction_outcome.block_hash)
+                        },
                         fees_burnt = markdown::escape(&format_near_amount(
                             outcome.tokens_burnt(),
                             bot.xeon(),
@@ -803,14 +837,14 @@ Tokens:
                             InputMessageContent::Text(
                                 InputMessageContentText::new(format!(
                                     "
-        Account info: {}
+Account info: {}
 
-        NEAR balance: {}
+NEAR balance: {}
 
-        Tokens:
-        {tokens_balance}
+Tokens:
+{tokens_balance}
 
-        [Nearblocks](https://nearblocks.io/account/{account_id}) \\| [Pikespeak](https://pikespeak.ai/wallet-explorer/{account_id})
+[Nearblocks](https://nearblocks.io/account/{account_id}) \\| [Pikespeak](https://pikespeak.ai/wallet-explorer/{account_id})
                                     ",
                                     format_account_id(&account_id).await,
                                     markdown::escape(&format_near_amount(near_balance, bot.xeon()).await),
@@ -898,7 +932,7 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
                     receiver_id,
                     method_names,
                 } => format!(
-                    "function calls to {receiver_id}{}",
+                    "function calls to `{receiver_id}`{}",
                     if method_names.is_empty() {
                         String::new()
                     } else {

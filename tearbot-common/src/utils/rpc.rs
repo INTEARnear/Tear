@@ -1,6 +1,9 @@
 use base64::{prelude::BASE64_STANDARD, Engine};
 use cached::proc_macro::cached;
+use chrono::{DateTime, Utc};
 use inindexer::near_utils::dec_format;
+use near_jsonrpc_primitives::types::blocks::RpcBlockResponse;
+use near_primitives::types::BlockId;
 use near_primitives::utils::account_is_implicit;
 use near_primitives::{
     hash::CryptoHash,
@@ -383,4 +386,38 @@ pub async fn account_exists(account_id: &AccountId) -> bool {
     }
     let info = view_account_not_cached(account_id).await;
     info.is_ok()
+}
+
+pub async fn get_block_timestamp(block: BlockId) -> Result<DateTime<Utc>, anyhow::Error> {
+    _internal_get_block_timestamp(match block {
+        BlockId::Height(height) => PrivateBlockId::Height(height),
+        BlockId::Hash(hash) => PrivateBlockId::Hash(hash),
+    })
+    .await
+}
+
+#[cached(time = 99999999999, result = true, size = 1000)]
+async fn _internal_get_block_timestamp(
+    block: PrivateBlockId,
+) -> Result<DateTime<Utc>, anyhow::Error> {
+    let block: RpcResponse<RpcBlockResponse> = rpc(serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": "dontcare",
+        "method": "block",
+        "params": {
+            "block_id": block
+        }
+    }))
+    .await?;
+    Ok(DateTime::from_timestamp_nanos(
+        block.result.block_view.header.timestamp_nanosec as i64,
+    ))
+}
+
+/// The original `BlockId` type does not implement `Hash`, so can't be used in cached functions.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[serde(untagged)]
+enum PrivateBlockId {
+    Height(BlockHeight),
+    Hash(CryptoHash),
 }
