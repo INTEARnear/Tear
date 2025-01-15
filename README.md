@@ -82,31 +82,7 @@ No additional setup is required.
 
 #### Chart Command
 
-The chart command is using TradingView charting library, which is not open-source, and available only by request. There is an origin that allows localhost and coding playground (codepen, jsfiddle, etc.) usage, but it doesn't work with `file://` and `data:` URIs, so we need to proxy requests to the library. Here's a Nginx configuration that does the job:
-
-```nginx
-server {
-    listen 5556;
-    server_name localhost;
-    location ~ /.* {
-        if ($request_method = OPTIONS) {
-            return 204;
-        }
-        add_header 'Access-Control-Allow-Origin' '*' always;
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, DELETE, PUT, OPTIONS' always;
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
-        proxy_pass 'https://charting-library.tradingview-widget.com';
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_cache_bypass $cookie_nocache $arg_nocache;
-        proxy_pass_request_body on;
-        proxy_pass_request_headers on;
-        proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
-        proxy_ssl_server_name on;
-    }
-}
-```
+No additional setup is required.
 
 Also, you need to have `geckodriver` installed and in your PATH.
 

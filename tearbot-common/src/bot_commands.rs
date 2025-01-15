@@ -4,6 +4,7 @@ use std::{
     fmt::Display,
     hash::{Hash, Hasher},
     ops::Deref,
+    str::FromStr,
     time::Duration,
 };
 
@@ -1642,29 +1643,33 @@ pub enum ReorderMode {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PoolId {
     Ref(u64),
+    Aidols(AccountId),
 }
 
 impl PoolId {
     pub fn get_link(&self) -> String {
         match self {
             PoolId::Ref(id) => format!("https://app.ref.finance/pool/{id}"),
+            PoolId::Aidols(account_id) => format!("https://aidols.bot/agents/{account_id}"),
         }
     }
 
     pub fn get_name(&self) -> String {
         match self {
             PoolId::Ref(id) => format!("Ref#{id}"),
+            PoolId::Aidols(account_id) => format!("AIdols: {account_id}"),
         }
     }
 
     pub fn get_exchange(&self) -> Exchange {
         match self {
             PoolId::Ref(_) => Exchange::RefFinance,
+            PoolId::Aidols(_) => Exchange::Aidols,
         }
     }
 }
 
-impl std::str::FromStr for PoolId {
+impl FromStr for PoolId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -1679,6 +1684,15 @@ impl std::str::FromStr for PoolId {
                     return Err(anyhow::anyhow!("Invalid Ref pool id: {exchange_pool_id}"));
                 }
             }
+            "AIDOLS" => {
+                if let Ok(account_id) = AccountId::from_str(&exchange_pool_id) {
+                    PoolId::Aidols(account_id)
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Invalid AIdols pool id: {exchange_pool_id}"
+                    ));
+                }
+            }
             _ => {
                 return Err(anyhow::anyhow!("Unknown exchange: {exchange_id}"));
             }
@@ -1687,10 +1701,11 @@ impl std::str::FromStr for PoolId {
     }
 }
 
-impl std::fmt::Display for PoolId {
+impl Display for PoolId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PoolId::Ref(id) => write!(f, "REF-{id}"),
+            PoolId::Aidols(account_id) => write!(f, "AIDOLS-{account_id}"),
         }
     }
 }
@@ -1698,12 +1713,14 @@ impl std::fmt::Display for PoolId {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Exchange {
     RefFinance,
+    Aidols,
 }
 
 impl Exchange {
     pub fn get_name(&self) -> &'static str {
         match self {
             Exchange::RefFinance => "Ref Finance",
+            Exchange::Aidols => "AIdols",
         }
     }
 }

@@ -5,7 +5,7 @@
     <title>TradingView with Intear's prices</title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0">
     <script type="text/javascript"
-        src="https://charting-library.tradingview-widget.com/charting_library/charting_library.standalone.js"></script>
+        src="https://dynamic-moxie-09a484.netlify.app/charting_library.standalone.js"></script>
     <script>
         function initOnReady() {
             const isDark = true;
@@ -53,7 +53,7 @@
                         daily_multipliers: ["1"],
                         has_empty_bars: true,
                         has_weekly_and_monthly: false,
-                        visible_plots_set: "ohlc",
+                        visible_plots_set: "ohlcv",
                         volume_precision: 2,
                         data_status: "streaming",
                         logo_urls: metadata.icon ? [metadata.icon] : []
@@ -82,6 +82,7 @@
                         bar.close = parseFloat(bar.close) * 10 ** (decimals - USDT_DECIMALS);
                         bar.high = parseFloat(bar.high) * 10 ** (decimals - USDT_DECIMALS);
                         bar.low = parseFloat(bar.low) * 10 ** (decimals - USDT_DECIMALS);
+                        bar.volume = parseFloat(bar.volume);
                         bar.time = bar.timestamp_millis;
                         return bar;
                     });
@@ -104,7 +105,7 @@
                 }
             };
             var widget = (window.tvWidget = new TradingView.widget({
-                library_path: "http://localhost:5556/charting_library/",
+                library_path: "https://dynamic-moxie-09a484.netlify.app/",
                 fullscreen: true,
                 symbol: symbol,
                 interval: "15",

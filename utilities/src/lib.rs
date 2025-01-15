@@ -335,6 +335,9 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             PoolId::Ref(pool_id) => format!(
                                 "[DexScreener](https://dexscreener.com/near/refv1-{pool_id}) \\| [DexTools](https://www.dextools.io/app/en/near/pair-explorer/{pool_id})",
                             ),
+                            PoolId::Aidols(account_id) => format!(
+                                "[AIdols](https://aidols.bot/agents/{account_id})",
+                            ),
                         }
                     } else {
                         "No chart available".to_string()
