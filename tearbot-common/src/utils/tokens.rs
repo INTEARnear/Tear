@@ -8,7 +8,7 @@ use crate::{
     xeon::XeonState,
 };
 
-use super::rpc::{view_cached_1h, view_cached_30s};
+use super::rpc::{view_cached_30s, view_cached_7d};
 
 pub const NEAR_DECIMALS: u32 = 24;
 pub const WRAP_NEAR: &str = "wrap.near";
@@ -128,7 +128,7 @@ pub async fn get_ft_metadata(token: &AccountId) -> Result<FungibleTokenMetadata,
             decimals: NEAR_DECIMALS,
         })
     } else {
-        view_cached_1h::<_, FungibleTokenMetadata>(token, "ft_metadata", serde_json::json!({}))
+        view_cached_7d::<_, FungibleTokenMetadata>(token, "ft_metadata", serde_json::json!({}))
             .await
     }
 }

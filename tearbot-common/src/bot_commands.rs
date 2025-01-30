@@ -1685,7 +1685,7 @@ impl FromStr for PoolId {
                 }
             }
             "AIDOLS" => {
-                if let Ok(account_id) = AccountId::from_str(&exchange_pool_id) {
+                if let Ok(account_id) = AccountId::from_str(exchange_pool_id) {
                     PoolId::Aidols(account_id)
                 } else {
                     return Err(anyhow::anyhow!(

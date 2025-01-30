@@ -38,7 +38,7 @@ use tearbot_common::{
         apis::search_token,
         format_duration,
         requests::get_cached_30s,
-        rpc::{get_block_timestamp, rpc, view_account_cached_30s},
+        rpc::{archive_rpc, get_block_timestamp, rpc, view_account_cached_30s},
         tokens::{
             format_account_id, format_near_amount, format_tokens, format_usd_amount,
             get_ft_metadata,
@@ -386,11 +386,14 @@ impl InlineQueryModule {
         ))
         .await
         {
+            log::info!("Start");
             let futures = response
                 .into_iter()
+                .take(10)
                 .map(|tx| self.try_get_tx(bot, tx.transaction_id));
 
             let results = join_all(futures).await;
+            log::info!("End");
             results.into_iter().flatten().collect()
         } else {
             vec![]
@@ -487,18 +490,20 @@ CA: `{ca}`
     }
 
     async fn try_get_tx(&self, bot: &BotData, tx_hash: CryptoHash) -> Vec<InlineQueryResult> {
-        if let Ok(tx) = rpc::<_, RpcTransactionResponse>(serde_json::json!({
+        log::info!("[{tx_hash}] 1");
+        if let Ok(tx) = archive_rpc::<_, RpcTransactionResponse>(serde_json::json!({
             "id": "dontcare",
             "jsonrpc": "2.0",
             "method": "tx",
             "params": {
                 "sender_account_id": "near",
                 "tx_hash": tx_hash.to_string(),
-                "wait_until": "FINAL",
+                "wait_until": "NONE",
             },
         }))
         .await
         {
+            log::info!("[{tx_hash}] 2");
             if let Some(outcome) = tx.result.final_execution_outcome {
                 let outcome = outcome.into_outcome();
                 let status = match &outcome.status {
@@ -703,7 +708,7 @@ CA: `{ca}`
     ) -> Vec<InlineQueryResult> {
         if let Ok(account_info) = view_account_cached_30s(account_id.clone()).await {
             let near_balance = account_info.amount;
-            let spamlist = bot.xeon().get_spamlist().await;
+            let spamlist = bot.xeon().get_spamlist().await.clone();
             let tokens = get_all_fts_owned(&account_id).await;
             let tokens = {
                 let mut tokens_with_price = Vec::new();
@@ -734,7 +739,7 @@ CA: `{ca}`
                     markdown::escape(&format_tokens(balance, &token_id, Some(bot.xeon())).await),
                 ));
             }
-            drop(spamlist);
+            log::info!("[{account_id}] 8");
 
             vec![InlineQueryResult::Article(
                 InlineQueryResultArticle::new(
@@ -787,11 +792,13 @@ Tokens:
         struct Entry {
             account_id: AccountId,
         }
+        log::info!("1");
         if let Ok(accounts) = get_cached_30s::<Vec<Entry>>(&format!(
             "https://events-v3.intear.tech/v3/tx_receipt/accounts_by_prefix?prefix={query}"
         ))
         .await
         {
+            log::info!("2");
             let mut futures = Vec::new();
             for Entry { account_id } in accounts.into_iter().take(3) {
                 if account_id == query {

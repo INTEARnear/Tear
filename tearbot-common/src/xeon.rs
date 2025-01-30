@@ -164,7 +164,7 @@ impl XeonState {
                 } else {
                     log::warn!("Failed to get prices")
                 }
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             }
         });
         tokio::spawn(async move {

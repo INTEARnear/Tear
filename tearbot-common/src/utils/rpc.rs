@@ -160,6 +160,15 @@ async fn _internal_view_cached_1h(
     _internal_view(&contract_id, &method_name, &args).await
 }
 
+#[cached(time = 604800, result = true, size = 100000)]
+async fn _internal_view_cached_7d(
+    contract_id: String,
+    method_name: String,
+    args: String,
+) -> Result<serde_json::Value, anyhow::Error> {
+    _internal_view(&contract_id, &method_name, &args).await
+}
+
 pub async fn view_cached_30s<I: Serialize, O: DeserializeOwned>(
     contract_id: impl AsRef<str>,
     method_name: impl AsRef<str>,
@@ -193,6 +202,18 @@ pub async fn view_cached_1h<I: Serialize, O: DeserializeOwned>(
     let method_name = method_name.as_ref().to_string();
     let args = serde_json::to_string(&args)?;
     let res = _internal_view_cached_1h(contract_id, method_name, args).await;
+    Ok(serde_json::from_value(res?)?)
+}
+
+pub async fn view_cached_7d<I: Serialize, O: DeserializeOwned>(
+    contract_id: impl AsRef<str>,
+    method_name: impl AsRef<str>,
+    args: I,
+) -> Result<O, anyhow::Error> {
+    let contract_id = contract_id.as_ref().to_string();
+    let method_name = method_name.as_ref().to_string();
+    let args = serde_json::to_string(&args)?;
+    let res = _internal_view_cached_7d(contract_id, method_name, args).await;
     Ok(serde_json::from_value(res?)?)
 }
 
