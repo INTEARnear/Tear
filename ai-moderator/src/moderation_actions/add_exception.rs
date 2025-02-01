@@ -94,6 +94,7 @@ The AI Moderator can't flag for review, update its model, or do anything other t
                 include_str!("../../schema/prompt_edition.schema.json"),
                 &edition_request,
                 image_webp.clone(),
+                true,
             )
             .await
         {

@@ -59,7 +59,7 @@ impl XeonBotModule for UtilitiesModule {
         chat_id: ChatId,
         command: MessageCommand,
         text: &str,
-        _message: &Message,
+        message: &Message,
     ) -> Result<(), anyhow::Error> {
         let user_id = if let Some(user_id) = user_id {
             user_id
@@ -125,7 +125,8 @@ impl XeonBotModule for UtilitiesModule {
                     )
                     .await?;
                 }
-                let search_results = search_token(search, 5, false).await?;
+                let search_results =
+                    search_token(search, 5, false, message.photo(), bot, false).await?;
                 if search_results.is_empty() {
                     let message =
                         "No tokens found\\. Try entering the token contract address".to_string();

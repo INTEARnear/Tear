@@ -74,12 +74,13 @@ impl Model {
         schema: &str,
         message: &str,
         image_jpeg: Option<Vec<u8>>,
+        high_quality_image: bool,
     ) -> Result<T, anyhow::Error> {
         if image_jpeg.is_some() && !self.supports_image() {
             return Err(anyhow::anyhow!("Model {self:?} does not support images"));
         }
         let response = self
-            .get_completion_response(prompt, schema, message, image_jpeg)
+            .get_completion_response(prompt, schema, message, image_jpeg, high_quality_image)
             .await?;
         let Some(choice) = response.choices.first() else {
             log::error!("{self:?} response has no choices");
@@ -87,7 +88,7 @@ impl Model {
                 "{self:?} response has no choices, this should never happen"
             ));
         };
-        let text = choice.message.content.as_deref().unwrap_or("");
+        let text: &str = choice.message.content.as_deref().unwrap_or("");
         if schema == SCHEMA_STRING {
             Ok(*(Box::new(text.to_string()) as Box<dyn Any>)
                 .downcast::<T>()
@@ -99,7 +100,7 @@ impl Model {
                     Ok(result)
                 }
                 Err(err) => {
-                    log::warn!("Failed to parse {self:?} response: {err:?}");
+                    log::warn!("Failed to parse {self:?} response: {err:?}\n\nResponse: {text}");
                     Err(anyhow::anyhow!(
                         "Failed to parse {self:?} response: {err:?}"
                     ))
@@ -114,12 +115,19 @@ impl Model {
         schema: &str,
         message: &str,
         image_jpeg: Option<Vec<u8>>,
+        high_quality_image: bool,
     ) -> Result<CreateChatCompletionResponse, anyhow::Error> {
         match self {
             Model::RecommendedBest => {
                 Box::pin(async move {
                     Self::Gpt4o
-                        .get_completion_response(prompt, schema, message, image_jpeg)
+                        .get_completion_response(
+                            prompt,
+                            schema,
+                            message,
+                            image_jpeg,
+                            high_quality_image,
+                        )
                         .await
                 })
                 .await
@@ -128,11 +136,23 @@ impl Model {
                 Box::pin(async move {
                     if image_jpeg.is_some() {
                         Self::Gpt4oMini
-                            .get_completion_response(prompt, schema, message, image_jpeg)
+                            .get_completion_response(
+                                prompt,
+                                schema,
+                                message,
+                                image_jpeg,
+                                high_quality_image,
+                            )
                             .await
                     } else {
                         Self::Llama70B
-                            .get_completion_response(prompt, schema, message, image_jpeg)
+                            .get_completion_response(
+                                prompt,
+                                schema,
+                                message,
+                                image_jpeg,
+                                high_quality_image,
+                            )
                             .await
                     }
                 })
@@ -148,6 +168,7 @@ impl Model {
                     self.supports_schema(),
                     message,
                     image_jpeg,
+                    high_quality_image,
                 )
                 .await
             }
@@ -160,7 +181,8 @@ impl Model {
                     schema,
                     self.supports_schema(),
                     message,
-                    image_jpeg,
+                    None,
+                    high_quality_image,
                 )
                 .await
             }
@@ -174,6 +196,7 @@ impl Model {
                     self.supports_schema(),
                     message,
                     None,
+                    high_quality_image,
                 )
                 .await
             }
@@ -192,12 +215,12 @@ pub async fn get_ai_response(
     schema_supported: bool,
     message: &str,
     image_jpeg: Option<Vec<u8>>,
+    high_quality_image: bool,
 ) -> Result<CreateChatCompletionResponse, anyhow::Error> {
-    let using_native_schema = schema_supported && image_jpeg.is_none();
-    let prompt = if using_native_schema || schema == SCHEMA_STRING {
+    let prompt = if schema_supported || schema == SCHEMA_STRING {
         prompt.to_string()
     } else {
-        format!("{prompt}\n\nReply in json format with the following schema, without formatting, ready to parse:\n{schema}")
+        format!("{prompt}\n\nRespond with a json object that matches the following schema, without formatting, ready to parse:\n{schema}")
     };
     let content = if let Some(image_jpeg) = image_jpeg {
         serde_json::json!([
@@ -209,6 +232,7 @@ pub async fn get_ai_response(
                 "type": "image_url",
                 "image_url": {
                     "url": format!("data:image/jpeg;base64,{}", BASE64_STANDARD.encode(image_jpeg)),
+                    "detail": if high_quality_image { "high" } else { "low" },
                 }
             }
         ])
@@ -217,7 +241,7 @@ pub async fn get_ai_response(
     };
     let messages = serde_json::json!([
         {
-            "role": "system",
+            "role": "developer",
             "content": prompt
         },
         {
@@ -228,7 +252,7 @@ pub async fn get_ai_response(
     let max_tokens = 1000u32;
     let response_format = if schema == SCHEMA_STRING {
         serde_json::json!({ "type": "text" })
-    } else if using_native_schema {
+    } else if schema_supported {
         serde_json::json!({
             "type": "json_schema",
             "json_schema": {

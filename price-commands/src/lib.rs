@@ -161,7 +161,7 @@ impl XeonBotModule for PriceCommandsModule {
         chat_id: ChatId,
         command: MessageCommand,
         text: &str,
-        _message: &Message,
+        message: &Message,
     ) -> Result<(), anyhow::Error> {
         if bot.bot_type() != BotType::Main {
             return Ok(());
@@ -338,7 +338,8 @@ impl XeonBotModule for PriceCommandsModule {
                 if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
                     return Ok(());
                 }
-                let search_results = search_token(text, 3, true).await?;
+                let search_results =
+                    search_token(text, 3, true, message.photo(), bot, false).await?;
                 if search_results.is_empty() {
                     let message =
                         "No tokens found\\. Try entering the token contract address".to_string();
@@ -389,7 +390,8 @@ impl XeonBotModule for PriceCommandsModule {
                 if !chat_id.is_user() {
                     return Ok(());
                 }
-                let search_results = search_token(text, 3, true).await?;
+                let search_results =
+                    search_token(text, 3, true, message.photo(), bot, false).await?;
                 if search_results.is_empty() {
                     let message =
                         "No tokens found\\. Try entering the token contract address".to_string();
@@ -437,7 +439,8 @@ impl XeonBotModule for PriceCommandsModule {
                 if !chat_id.is_user() {
                     return Ok(());
                 }
-                let search_results = search_token(text, 3, true).await?;
+                let search_results =
+                    search_token(text, 3, true, message.photo(), bot, false).await?;
                 if search_results.is_empty() {
                     let message =
                         "No tokens found\\. Try entering the token contract address".to_string();

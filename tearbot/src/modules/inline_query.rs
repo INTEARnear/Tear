@@ -386,14 +386,12 @@ impl InlineQueryModule {
         ))
         .await
         {
-            log::info!("Start");
             let futures = response
                 .into_iter()
                 .take(10)
                 .map(|tx| self.try_get_tx(bot, tx.transaction_id));
 
             let results = join_all(futures).await;
-            log::info!("End");
             results.into_iter().flatten().collect()
         } else {
             vec![]
@@ -402,7 +400,7 @@ impl InlineQueryModule {
 
     async fn get_tokens(&self, bot: &BotData, query: &str) -> Vec<InlineQueryResult> {
         let mut results = Vec::new();
-        if let Ok(tokens) = search_token(query, 3, true).await {
+        if let Ok(tokens) = search_token(query, 3, true, None, bot, true).await {
             let bot_username = if let Ok(me) = bot.bot().get_me().await {
                 if let Some(username) = &me.username {
                     username.clone()

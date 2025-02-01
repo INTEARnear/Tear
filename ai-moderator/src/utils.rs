@@ -190,6 +190,7 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
             include_str!("../schema/moderate.schema.json"),
             &message_text,
             image_jpeg.clone(),
+            false,
         )
         .await
     {
@@ -208,6 +209,7 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
                 include_str!("../schema/moderate.schema.json"),
                 &message_text,
                 image_jpeg.clone(),
+                false,
             )
             .await
         {

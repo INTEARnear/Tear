@@ -211,6 +211,7 @@ pub async fn handle_edit_prompt_input(
                         chat_config.prompt
                     ),
                     None,
+                    false,
                 )
                 .await
             {
