@@ -309,6 +309,12 @@ impl XeonBotModule for PriceCommandsModule {
                         ))
                     };
                 }
+                if token.as_str().ends_with(".aidols.near") {
+                    exchanges.push(format!("[AIdols](https://aidols.bot/agents/{token})"));
+                }
+                if token.as_str().ends_with(".gra-fun.near") {
+                    exchanges.push(format!("[GraFun](https://gra.fun/near-mainnet/{token})"));
+                }
                 let exchanges = exchanges.join(", ");
                 let message = format!("Click to copy CA: `{token}`\n\nBuy on: {exchanges}");
                 let buttons = vec![vec![InlineKeyboardButton::url(

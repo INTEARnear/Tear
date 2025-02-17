@@ -1,6 +1,5 @@
 #![allow(clippy::too_many_arguments)]
 
-mod billing;
 mod edit;
 mod moderation_actions;
 mod moderator;
@@ -10,21 +9,14 @@ mod utils;
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tearbot_common::utils::chat::get_chat_title_cached_5m;
 use tearbot_common::utils::SLIME_USER_ID;
-use tearbot_common::{
-    bot_commands::PaymentReference,
-    teloxide::payloads::BanChatMemberSetters,
-    tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
-    utils::chat::{get_chat_cached_5m, mention_sender},
-};
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
     mongodb::Database,
@@ -39,17 +31,19 @@ use tearbot_common::{
     utils::{chat::expandable_blockquote, store::PersistentCachedStore},
     xeon::{XeonBotModule, XeonState},
 };
+use tearbot_common::{
+    teloxide::payloads::BanChatMemberSetters,
+    tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
+    utils::chat::{get_chat_cached_5m, mention_sender},
+};
 use tearbot_common::{tgbot::NotificationDestination, utils::ai::Model};
 use tokio::sync::RwLock;
 
 use crate::utils::MessageRating;
 
-const FREE_TRIAL_CREDITS: u32 = 1000;
-
 pub struct AiModeratorModule {
     bot_configs: Arc<HashMap<UserId, AiModeratorBotConfig>>,
     xeon: Arc<XeonState>,
-    last_balance_warning_message: DashMap<ChatId, Instant>,
 }
 
 #[async_trait]
@@ -61,9 +55,8 @@ impl XeonBotModule for AiModeratorModule {
     fn tos(&self) -> Option<&'static str> {
         Some(
             r#"
-1. You are aware that artificial intelligence is not perfect and may make mistakes, which doesn't grant you rights to request a refund, unless Clause 2 applies.
-2. You are eligible for a full refund for unused credits if you have not used more than 5% of the credits you bought, and only within 14 days after purchase.
-3. By using AI Moderator, you agree to abide by this license: https://github.com/INTEARnear/Tear/blob/main/LICENSE
+1. You are aware that artificial intelligence is not perfect and may make mistakes.
+2. By using AI Moderator, you agree to abide by this license: https://github.com/INTEARnear/Tear/blob/main/LICENSE
         "#,
         )
     }
@@ -385,10 +378,6 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
-            MessageCommand::AiModeratorBuyCredits(target_chat_id) => {
-                billing::add_balance::handle_input(bot, user_id, chat_id, target_chat_id, text)
-                    .await?;
-            }
             _ => {}
         }
         Ok(())
@@ -628,19 +617,6 @@ impl XeonBotModule for AiModeratorModule {
             TgCommand::AiModeratorTest(target_chat_id) => {
                 moderator::handle_test_message_button(&mut ctx, target_chat_id).await?;
             }
-            TgCommand::AiModeratorAddBalance(target_chat_id) => {
-                billing::add_balance::handle_button(&mut ctx, target_chat_id).await?;
-            }
-            TgCommand::AiModeratorBuyCredits(target_chat_id, credits) => {
-                billing::add_balance::handle_buy_credits(
-                    ctx.bot(),
-                    ctx.user_id(),
-                    *ctx.chat_id(),
-                    target_chat_id,
-                    credits,
-                )
-                .await?;
-            }
             TgCommand::AiModeratorRotateModel(target_chat_id) => {
                 edit::model::handle_rotate_model_button(
                     &mut ctx,
@@ -649,119 +625,6 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
-            TgCommand::AiModeratorPlan(target_chat_id) => {
-                billing::plans::handle_plan_button(&mut ctx, target_chat_id, &self.bot_configs)
-                    .await?;
-            }
-            TgCommand::AiModeratorSwitchToPayAsYouGo(target_chat_id) => {
-                billing::plans::handle_switch_to_pay_as_you_go(
-                    &mut ctx,
-                    target_chat_id,
-                    &self.bot_configs,
-                )
-                .await?;
-            }
-            TgCommand::AiModeratorSwitchToBasic(target_chat_id) => {
-                let message = "Plan is not available yet\\. Stay tuned!";
-                let buttons = vec![vec![InlineKeyboardButton::callback(
-                    "⬅️ Back",
-                    ctx.bot()
-                        .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                        .await,
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                ctx.edit_or_send(message, reply_markup).await?;
-            }
-            TgCommand::AiModeratorSwitchToPro(target_chat_id) => {
-                let message = "Plan is not available yet\\. Stay tuned!";
-                let buttons = vec![vec![InlineKeyboardButton::callback(
-                    "⬅️ Back",
-                    ctx.bot()
-                        .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                        .await,
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                ctx.edit_or_send(message, reply_markup).await?;
-                // billing::plans::handle_pro_button(&mut ctx, target_chat_id).await?;
-            }
-            TgCommand::AiModeratorSwitchToEnterprise(target_chat_id) => {
-                let message = "Plan is not available yet\\. Stay tuned!";
-                let buttons = vec![vec![InlineKeyboardButton::callback(
-                    "⬅️ Back",
-                    ctx.bot()
-                        .to_callback_data(&TgCommand::AiModerator(target_chat_id))
-                        .await,
-                )]];
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                ctx.edit_or_send(message, reply_markup).await?;
-                // billing::plans::handle_enterprise_button(&mut ctx, target_chat_id).await?;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    async fn handle_payment(
-        &self,
-        bot: &BotData,
-        user_id: UserId,
-        chat_id: ChatId,
-        subscription_expiration_time: Option<DateTime<Utc>>,
-        telegram_payment_charge_id: String,
-        is_recurring: bool,
-        is_first_recurring: bool,
-        payment: PaymentReference,
-    ) -> Result<(), anyhow::Error> {
-        #[allow(clippy::single_match)]
-        match payment {
-            PaymentReference::AiModeratorBuyingCredits(target_chat_id, number) => {
-                billing::add_balance::handle_bought_credits(
-                    bot,
-                    chat_id,
-                    user_id,
-                    target_chat_id,
-                    number,
-                    &self.bot_configs,
-                )
-                .await?;
-            }
-            PaymentReference::AiModeratorBasicPlan(target_chat_id) => {
-                if let Some(subscription_expiration_time) = subscription_expiration_time {
-                    billing::plans::handle_bought_basic_plan(
-                        bot,
-                        chat_id,
-                        user_id,
-                        target_chat_id,
-                        subscription_expiration_time,
-                        telegram_payment_charge_id,
-                        is_recurring,
-                        is_first_recurring,
-                        &self.bot_configs,
-                    )
-                    .await?;
-                } else {
-                    log::error!("Basic plan subscription expiration time is None");
-                }
-            }
-            PaymentReference::AiModeratorProPlan(target_chat_id) => {
-                if let Some(subscription_expiration_time) = subscription_expiration_time {
-                    billing::plans::handle_bought_pro_plan(
-                        bot,
-                        chat_id,
-                        user_id,
-                        target_chat_id,
-                        subscription_expiration_time,
-                        telegram_payment_charge_id,
-                        is_recurring,
-                        is_first_recurring,
-                        &self.bot_configs,
-                    )
-                    .await?;
-                } else {
-                    log::error!("Pro plan subscription expiration time is None");
-                }
-            }
-            #[allow(unreachable_patterns)]
             _ => {}
         }
         Ok(())
@@ -773,7 +636,6 @@ struct AiModeratorBotConfig {
     message_autodeletion_scheduled: PersistentCachedStore<MessageToDelete, DateTime<Utc>>,
     message_autodeletion_queue: RwLock<VecDeque<MessageToDelete>>,
     messages_sent: PersistentCachedStore<ChatUser, usize>,
-    pub credits_balance: PersistentCachedStore<ChatId, u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -871,17 +733,11 @@ impl AiModeratorBotConfig {
             &format!("bot{bot_id}_ai_moderator_messages_sent"),
         )
         .await?;
-        let credits_balance = PersistentCachedStore::new(
-            db.clone(),
-            &format!("bot{bot_id}_ai_moderator_messages_balance"),
-        )
-        .await?;
         Ok(Self {
             chat_configs,
             message_autodeletion_scheduled,
             message_autodeletion_queue: RwLock::new(message_autodeletion_queue),
             messages_sent,
-            credits_balance,
         })
     }
 
@@ -948,25 +804,6 @@ impl AiModeratorBotConfig {
         }
         messages_sent
     }
-
-    async fn decrement_message_balance(&self, chat_id: ChatId, cost: u32) -> bool {
-        let balance = self
-            .credits_balance
-            .get(&chat_id)
-            .await
-            .unwrap_or(FREE_TRIAL_CREDITS);
-        if (balance as i64 - cost as i64) < 0 {
-            return false;
-        }
-        if let Err(err) = self
-            .credits_balance
-            .insert_or_update(chat_id, balance - cost)
-            .await
-        {
-            log::error!("Failed to decrement message balance: {err}");
-        }
-        true
-    }
 }
 
 impl AiModeratorModule {
@@ -982,7 +819,6 @@ impl AiModeratorModule {
         Ok(Self {
             bot_configs: Arc::new(bot_configs),
             xeon,
-            last_balance_warning_message: DashMap::new(),
         })
     }
 
@@ -1025,39 +861,6 @@ impl AiModeratorModule {
                         return Ok(());
                     }
 
-                    if !bot_config
-                        .decrement_message_balance(chat_id, chat_config.model.ai_moderator_cost())
-                        .await
-                    {
-                        log::debug!(
-                            "Skipping moderation for message {} due to insufficient balance",
-                            message.id
-                        );
-
-                        const WARNING_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
-
-                        if self
-                            .last_balance_warning_message
-                            .get(&chat_id)
-                            .map_or(true, |last| last.elapsed() > WARNING_INTERVAL)
-                        {
-                            self.last_balance_warning_message
-                                .insert(chat_id, Instant::now());
-                            let message = format!(
-                                "{chat_name} has run out of credits\\. Please make sure your balance is greater than 0",
-                                chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id.into()).await?.unwrap_or_default()),
-                            );
-                            let buttons: Vec<Vec<InlineKeyboardButton>> = Vec::<Vec<_>>::new();
-                            let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            bot.send_text_message(
-                                chat_config.moderator_chat.unwrap_or(chat_id).into(),
-                                message,
-                                reply_markup,
-                            )
-                            .await?;
-                        }
-                        return Ok(());
-                    }
                     chat_config
                 } else {
                     log::debug!(

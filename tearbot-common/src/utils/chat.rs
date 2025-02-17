@@ -99,13 +99,13 @@ pub async fn check_admin_permission_in_chat(
         ChatPermissionLevel::Owner => member.is_owner(),
         ChatPermissionLevel::Whitelist(_) => unreachable!(),
         ChatPermissionLevel::CanPromoteMembers => {
-            member.is_owner() || administrator.map_or(false, |a| a.can_promote_members)
+            member.is_owner() || administrator.is_some_and(|a| a.can_promote_members)
         }
         ChatPermissionLevel::CanChangeInfo => {
-            member.is_owner() || administrator.map_or(false, |a| a.can_change_info)
+            member.is_owner() || administrator.is_some_and(|a| a.can_change_info)
         }
         ChatPermissionLevel::CanRestrictMembers => {
-            member.is_owner() || administrator.map_or(false, |a| a.can_restrict_members)
+            member.is_owner() || administrator.is_some_and(|a| a.can_restrict_members)
         }
         ChatPermissionLevel::Admin => member.is_owner() || administrator.is_some(),
     };

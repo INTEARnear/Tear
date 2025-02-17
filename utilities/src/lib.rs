@@ -339,6 +339,9 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             PoolId::Aidols(account_id) => format!(
                                 "[AIdols](https://aidols.bot/agents/{account_id})",
                             ),
+                            PoolId::GraFun(account_id) => format!(
+                                "[GraFun](https://gra.fun/near-mainnet/{account_id})"
+                            ),
                         }
                     } else {
                         "No chart available".to_string()

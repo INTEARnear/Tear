@@ -626,6 +626,8 @@ pub enum TgCommand {
         #[serde(with = "dec_format")]
         amount: Balance,
         selected_account_id: AccountId,
+        #[serde(default)]
+        with_100_slippage: bool,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawNear {
@@ -1201,6 +1203,7 @@ pub enum TgCommand {
     WalletTrackingAccountRemove(NotificationDestination, AccountId),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum BridgeDestination {
     Near(AccountId),
@@ -1644,6 +1647,7 @@ pub enum ReorderMode {
 pub enum PoolId {
     Ref(u64),
     Aidols(AccountId),
+    GraFun(AccountId),
 }
 
 impl PoolId {
@@ -1651,6 +1655,7 @@ impl PoolId {
         match self {
             PoolId::Ref(id) => format!("https://app.ref.finance/pool/{id}"),
             PoolId::Aidols(account_id) => format!("https://aidols.bot/agents/{account_id}"),
+            PoolId::GraFun(account_id) => format!("https://gra.fun/near-mainnet/{account_id}"),
         }
     }
 
@@ -1658,6 +1663,7 @@ impl PoolId {
         match self {
             PoolId::Ref(id) => format!("Ref#{id}"),
             PoolId::Aidols(account_id) => format!("AIdols: {account_id}"),
+            PoolId::GraFun(account_id) => format!("GraFun: {account_id}"),
         }
     }
 
@@ -1665,6 +1671,7 @@ impl PoolId {
         match self {
             PoolId::Ref(_) => Exchange::RefFinance,
             PoolId::Aidols(_) => Exchange::Aidols,
+            PoolId::GraFun(_) => Exchange::Grafun,
         }
     }
 }
@@ -1693,6 +1700,15 @@ impl FromStr for PoolId {
                     ));
                 }
             }
+            "GRAFUN" => {
+                if let Ok(account_id) = AccountId::from_str(exchange_pool_id) {
+                    PoolId::GraFun(account_id)
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Invalid GraFun pool id: {exchange_pool_id}"
+                    ));
+                }
+            }
             _ => {
                 return Err(anyhow::anyhow!("Unknown exchange: {exchange_id}"));
             }
@@ -1706,6 +1722,7 @@ impl Display for PoolId {
         match self {
             PoolId::Ref(id) => write!(f, "REF-{id}"),
             PoolId::Aidols(account_id) => write!(f, "AIDOLS-{account_id}"),
+            PoolId::GraFun(account_id) => write!(f, "GRAFUN-{account_id}"),
         }
     }
 }
@@ -1714,6 +1731,7 @@ impl Display for PoolId {
 pub enum Exchange {
     RefFinance,
     Aidols,
+    Grafun,
 }
 
 impl Exchange {
@@ -1721,6 +1739,7 @@ impl Exchange {
         match self {
             Exchange::RefFinance => "Ref Finance",
             Exchange::Aidols => "AIdols",
+            Exchange::Grafun => "GraFun",
         }
     }
 }

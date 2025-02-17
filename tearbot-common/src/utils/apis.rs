@@ -115,7 +115,20 @@ pub async fn search_token(
         }]);
     }
     if let Some(token_id) = query.strip_prefix("https://aidols.bot/agents/") {
-        let token_id = if let Some((token_id, _)) = token_id.split_once(&['?', '#']) {
+        let token_id = if let Some((token_id, _)) = token_id.split_once(['?', '#']) {
+            token_id.parse::<AccountId>()?
+        } else {
+            return Err(anyhow::anyhow!("Invalid token id"));
+        };
+        return Ok(vec![bot
+            .xeon()
+            .get_token_info(&token_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Token not found"))?
+            .into()]);
+    }
+    if let Some(token_id) = query.strip_prefix("https://gra.fun/near-mainnet/") {
+        let token_id = if let Some((token_id, _)) = token_id.split_once(['?', '#']) {
             token_id.parse::<AccountId>()?
         } else {
             return Err(anyhow::anyhow!("Invalid token id"));
@@ -174,7 +187,7 @@ pub async fn search_token(
   },
   "additionalProperties": false
 }"#,
-                &query,
+                query,
                 image_jpeg,
                 true,
             )

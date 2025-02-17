@@ -317,7 +317,7 @@ pub trait XeonBotModule: Send + Sync + 'static {
         query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error>;
 
-    #[allow(unused_variables)]
+    #[allow(unused_variables, clippy::too_many_arguments)]
     async fn handle_payment(
         &self,
         bot: &BotData,
