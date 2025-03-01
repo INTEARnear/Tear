@@ -293,20 +293,12 @@ Message that appears when a message is deleted:
                 .to_callback_data(&TgCommand::AiModeratorRotateModel(target_chat_id))
                 .await,
         )],
-        vec![
-            InlineKeyboardButton::callback(
-                "🍥 Test",
-                ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorTest(target_chat_id))
-                    .await,
-            ),
-            InlineKeyboardButton::callback(
-                "💎 Plan",
-                ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorPlan(target_chat_id))
-                    .await,
-            ),
-        ],
+        vec![InlineKeyboardButton::callback(
+            "🍥 Test",
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorTest(target_chat_id))
+                .await,
+        )],
         vec![InlineKeyboardButton::callback(
             if chat_config.enabled {
                 "✅ Enabled"

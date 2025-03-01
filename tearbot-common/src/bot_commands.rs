@@ -5,6 +5,7 @@ use std::{
     hash::{Hash, Hasher},
     ops::Deref,
     str::FromStr,
+    sync::Arc,
     time::Duration,
 };
 
@@ -12,6 +13,8 @@ use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use inindexer::near_utils::{dec_format, dec_format_map};
 use mongodb::bson::Bson;
+use near_api::{signer::Signer, SignerTrait};
+use near_crypto::PublicKey;
 use near_primitives::{
     hash::CryptoHash,
     types::{AccountId, Balance},
@@ -119,10 +122,6 @@ pub enum TgCommand {
     UtilitiesFtInfo,
     #[cfg(feature = "utilities-module")]
     UtilitiesFtInfoSelected(AccountId),
-    // #[cfg(feature = "utilities-module")]
-    // UtilitiesPoolInfo,
-    // #[cfg(feature = "utilities-module")]
-    // UtilitiesPoolInfoPool(PoolId),
     #[cfg(feature = "utilities-module")]
     UtilitiesAccountInfo,
     #[cfg(feature = "utilities-module")]
@@ -492,10 +491,6 @@ pub enum TgCommand {
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorPromptConstructorAddOther(PromptBuilder),
     #[cfg(feature = "ai-moderator-module")]
-    AiModeratorAddBalance(ChatId),
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorBuyCredits(ChatId, u32),
-    #[cfg(feature = "ai-moderator-module")]
     AiModeratorUndeleteMessage(ChatId, ChatId, ChatId, String, Attachment),
     #[cfg(feature = "image-gen-module")]
     ImageGenGenerateAnother(String, Option<(reqwest::Url, f64)>, FluxModel),
@@ -863,6 +858,18 @@ pub enum TgCommand {
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirectionAmountIntervalOrdersRange {
+        token_id: AccountId,
+        is_buy: bool,
+        /// NEAR if is_buy is true, <token> if is_buy is false
+        #[serde(with = "dec_format")]
+        order_amount: Balance,
+        interval: Duration,
+        orders: u32,
+        price_range: Option<(f64, f64)>,
+        selected_account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
     TradingBotDcaView {
         token_id: AccountId,
         selected_account_id: AccountId,
@@ -1065,16 +1072,6 @@ pub enum TgCommand {
     TradingBotCreateAccountConfirm {
         account_id: AccountId,
     },
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorPlan(ChatId),
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorSwitchToPayAsYouGo(ChatId),
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorSwitchToBasic(ChatId),
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorSwitchToPro(ChatId),
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorSwitchToEnterprise(ChatId),
     #[cfg(feature = "trading-bot-module")]
     TradingBotDepositPrelaunchMemeCooking {
         meme_id: u64,
@@ -1201,6 +1198,59 @@ pub enum TgCommand {
     WalletTrackingAccountToggleTransaction(NotificationDestination, AccountId, bool),
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAccountRemove(NotificationDestination, AccountId),
+    #[cfg(feature = "agents-module")]
+    Agents,
+    #[cfg(feature = "agents-module")]
+    AgentsBitte {
+        page: usize,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsBitteCreateThread {
+        agent_id: String,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsNearAI {
+        page: usize,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsNearAICreateThread {
+        agent_id: String,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsChatSettings {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsChatSettingsRemoveAgent {
+        target_chat_id: ChatId,
+        command: String,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsAddToChatStep1 {
+        agent_type: AgentType,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsAddToChatStep2 {
+        agent_type: AgentType,
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsAddToChatStep3 {
+        agent_type: AgentType,
+        target_chat_id: ChatId,
+        command: String,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum AgentType {
+    Bitte {
+        agent_id: String,
+    },
+    NearAI {
+        namespace: AccountId,
+        agent_name: String,
+    },
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -1241,8 +1291,6 @@ pub enum MessageCommand {
     PotlockNotificationsSetProjectMinAmountUsd(NotificationDestination, AccountId),
     #[cfg(feature = "utilities-module")]
     UtilitiesFtInfo,
-    // #[cfg(feature = "utilities-module")]
-    // UtilitiesPoolInfo,
     #[cfg(feature = "utilities-module")]
     UtilitiesAccountInfo,
     #[cfg(feature = "ft-buybot-module")]
@@ -1322,8 +1370,6 @@ pub enum MessageCommand {
     AiModeratorTest(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorPromptConstructorAddOther(PromptBuilder),
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorBuyCredits(ChatId),
     #[cfg(feature = "image-gen-module")]
     ImageGenLoRAName,
     #[cfg(feature = "image-gen-module")]
@@ -1562,16 +1608,46 @@ pub enum MessageCommand {
     },
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAddAccount(NotificationDestination),
+    #[cfg(feature = "agents-module")]
+    AgentsBitteSearch,
+    #[cfg(feature = "agents-module")]
+    AgentsBitteUse {
+        agent_id: String,
+        thread_id: Option<String>,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotDcaAddTokenDirectionAmountIntervalOrders {
+        token_id: AccountId,
+        is_buy: bool,
+        /// NEAR if is_buy is true, <token> if is_buy is false
+        #[serde(with = "dec_format")]
+        order_amount: Balance,
+        interval: Duration,
+        orders: u32,
+        selected_account_id: AccountId,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsNearAISearch,
+    #[cfg(feature = "agents-module")]
+    AgentsNearAIUse {
+        agent_id: String,
+        thread_id: Option<String>,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsAddToChatAskForChat {
+        agent_type: AgentType,
+    },
+    #[cfg(feature = "agents-module")]
+    AgentsAddToChatAskForCommand {
+        agent_type: AgentType,
+        target_chat_id: ChatId,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PaymentReference {
-    #[cfg(feature = "ai-moderator-module")]
-    AiModeratorBuyingCredits(ChatId, u32),
     #[cfg(feature = "image-gen-module")]
     ImageGenBuyingCredits(u32),
-    AiModeratorBasicPlan(ChatId),
-    AiModeratorProPlan(ChatId),
 }
 
 impl From<MessageCommand> for Bson {
@@ -2162,4 +2238,10 @@ impl From<SolanaKeypair> for SerializableKeypair {
     fn from(keypair: SolanaKeypair) -> Self {
         SerializableKeypair(keypair)
     }
+}
+
+pub struct SelectedAccount {
+    pub account_id: AccountId,
+    pub signer: Box<dyn SignerTrait + Send + Sync>,
+    pub public_key: PublicKey,
 }

@@ -14,6 +14,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use super::requests::get_reqwest_client;
 
 pub const RPC_URLS: &[&str] = &[
+    "https://rpc.intear.tech",
     "https://rpc.shitzuapes.xyz",
     "https://free.rpc.fastnear.com",
     // "https://rpc.mainnet.near.org", // returns wrong data

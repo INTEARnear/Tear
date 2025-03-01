@@ -2436,18 +2436,6 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             "
         .trim()
         .to_string();
-        // let connection_button = if let Some(account) = bot.get_connected_account(&user_id).await {
-        //     InlineKeyboardButton::callback(
-        //         format!("🗑 Disconnect {account}", account = account.account_id),
-        //         bot.to_callback_data(&TgCommand::DisconnectAccount).await,
-        //     )
-        // } else {
-        //     InlineKeyboardButton::callback(
-        //         "🖇 Connect account",
-        //         bot.to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-        //             .await?,
-        //     )
-        // };
         let mut buttons = Vec::new();
         #[cfg(feature = "trading-bot-module")]
         buttons.push(vec![InlineKeyboardButton::callback(
@@ -2485,7 +2473,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         #[cfg(feature = "trading-bot-module")]
         buttons.push(vec![
             InlineKeyboardButton::callback(
-                "🔥 $INTEAR Airdrop",
+                "🔥 $TEAR Airdrop",
                 context
                     .bot()
                     .to_callback_data(&TgCommand::TradingBotPromo)
@@ -2507,20 +2495,16 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 .to_callback_data(&TgCommand::ReferralDashboard)
                 .await,
         )]);
-        #[cfg(any(feature = "tear", feature = "xeon"))]
+        #[cfg(feature = "agents-module")]
         buttons.extend(vec![
-            vec![
-                // InlineKeyboardButton::callback(
-                //     "🎁 Airdrops",
-                //     bot.to_callback_data(&TgCommand::OpenAirdropsMainMenu)
-                //         .await?,
-                // ),
-                InlineKeyboardButton::url(
-                    "🗯 Join our telegram group 🤖",
-                    "tg://resolve?domain=intearchat".parse().unwrap(),
-                ),
-            ],
-            // vec![connection_button],
+            vec![InlineKeyboardButton::callback(
+                "🤖 Agents",
+                context.bot().to_callback_data(&TgCommand::Agents).await,
+            )],
+            vec![InlineKeyboardButton::url(
+                "🗯 Join our telegram group 🤖",
+                "tg://resolve?domain=intearchat".parse().unwrap(),
+            )],
         ]);
         #[cfg(feature = "image-gen-module")]
         buttons.push(vec![InlineKeyboardButton::callback(
@@ -2793,7 +2777,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 {
                     if target_chat_id.thread_id().is_none() {
                         buttons.push(vec![InlineKeyboardButton::callback(
-                            "🤖 AI Moderator",
+                            "🚫 AI Moderator",
                             context
                                 .bot()
                                 .to_callback_data(&TgCommand::AiModerator(target_chat_id.chat_id()))
@@ -2822,6 +2806,31 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                                 .to_callback_data(&TgCommand::PriceCommandsChatSettings(
                                     target_chat_id,
                                 ))
+                                .await,
+                        )]);
+                    }
+                }
+            }
+        }
+        #[cfg(feature = "agents-module")]
+        {
+            let chat = context
+                .bot()
+                .bot()
+                .get_chat(target_chat_id.chat_id())
+                .await?;
+            if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
+                if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
+                | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
+                {
+                    if target_chat_id.thread_id().is_none() {
+                        buttons.push(vec![InlineKeyboardButton::callback(
+                            "🤖 AI Agents (beta)",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::AgentsChatSettings {
+                                    target_chat_id: target_chat_id.chat_id(),
+                                })
                                 .await,
                         )]);
                     }

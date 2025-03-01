@@ -1,3 +1,6 @@
+use std::any::{Any, TypeId};
+use std::future::Future;
+use std::pin::Pin;
 use std::{collections::HashMap, sync::Arc};
 
 use crate::bot_commands::PoolId;
@@ -16,6 +19,7 @@ use dashmap::{
     mapref::{multiple::RefMulti, one::Ref},
     DashMap,
 };
+use futures_util::FutureExt;
 use inindexer::near_utils::dec_format;
 use mongodb::Database;
 use near_primitives::types::{AccountId, Balance};
@@ -64,6 +68,20 @@ pub struct XeonState {
     prices: Arc<RwLock<HashMap<AccountId, TokenInfo>>>,
     spamlist: Arc<RwLock<Vec<AccountId>>>,
     airdrop_state: PersistentCachedStore<UserId, AirdropState>,
+    resource_providers: RwLock<
+        HashMap<
+            TypeId,
+            Box<
+                dyn Fn(
+                        UserId,
+                    ) -> Pin<
+                        Box<dyn Future<Output = Option<Box<dyn Any>>> + Send + Sync + 'static>,
+                    > + Send
+                    + Sync
+                    + 'static,
+            >,
+        >,
+    >,
 }
 
 pub const TRADING_POINTS_DAILY_CAP: f64 = 10.0;
@@ -193,6 +211,7 @@ impl XeonState {
             prices,
             spamlist,
             airdrop_state,
+            resource_providers: RwLock::new(HashMap::new()),
         }
     }
 
@@ -286,6 +305,31 @@ impl XeonState {
         if let Err(err) = self.airdrop_state.insert_or_update(user_id, state).await {
             log::warn!("Failed to update airdrop state: {err:?}");
         }
+    }
+
+    pub async fn provide_resource<R: Any + Send + Sync + 'static>(
+        &self,
+        provider: impl Fn(UserId) -> Pin<Box<dyn Future<Output = Option<Box<R>>> + Send + Sync + 'static>>
+            + Send
+            + Sync
+            + 'static + 'static,
+    ) {
+        self.resource_providers.write().await.insert(
+            TypeId::of::<R>(),
+            Box::new(move |user_id| {
+                Box::pin(provider(user_id).map(|s| s.map(|s| s as Box<dyn Any>)))
+            }),
+        );
+    }
+
+    pub async fn get_resource<R: Any>(&self, user_id: UserId) -> Option<R> {
+        let mut result = None;
+        if let Some(provider) = self.resource_providers.read().await.get(&TypeId::of::<R>()) {
+            if let Some(resource) = provider(user_id).await {
+                result = Some(*resource.downcast::<R>().unwrap());
+            }
+        }
+        result
     }
 }
 

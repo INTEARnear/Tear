@@ -10,8 +10,8 @@ use chrono::DateTime;
 use dashmap::DashMap;
 use log::warn;
 use mongodb::bson::Bson;
-use near_api::prelude::{Contract, Tokens};
 use near_api::signer::Signer;
+use near_api::{Contract, Tokens};
 use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
 use near_primitives::types::{AccountId, Balance};
@@ -324,7 +324,7 @@ impl BotData {
         }
         for (token_id, amount) in referral_balance {
             let tx = if token_id == WRAP_NEAR || token_id == "near" {
-                Tokens::of(
+                Tokens::account(
                     std::env::var("REFERRAL_ACCOUNT_ID")
                         .expect("REFERRAL_ACCOUNT_ID not set")
                         .parse()
@@ -333,7 +333,7 @@ impl BotData {
                 .send_to(account_id.clone())
                 .near(NearToken::from_yoctonear(amount.0))
                 .with_signer(
-                    Signer::new(Signer::secret_key(
+                    Signer::new(Signer::from_secret_key(
                         std::env::var("REFERRAL_PRIVATE_KEY")
                             .expect("REFERRAL_PRIVATE_KEY not set")
                             .parse()
@@ -361,7 +361,7 @@ impl BotData {
                             .expect("REFERRAL_ACCOUNT_ID not set")
                             .parse()
                             .expect("Invalid REFERRAL_ACCOUNT_ID"),
-                        Signer::new(Signer::secret_key(
+                        Signer::new(Signer::from_secret_key(
                             std::env::var("REFERRAL_PRIVATE_KEY")
                                 .expect("REFERRAL_PRIVATE_KEY not set")
                                 .parse()

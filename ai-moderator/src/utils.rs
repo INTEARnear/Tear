@@ -94,6 +94,9 @@ pub async fn get_message_rating(
         .unwrap_or_else(|| {
             "[No text. Pass this as 'Good' unless you see a suspicious image]".to_string()
         });
+    if let Some(quote) = message.quote() {
+        message_text = format!("Quote:\n{}\n\nMessage:\n{message_text}", quote.text);
+    }
     if message_text.starts_with('/') {
         log::debug!(
             "Skipping moderation becuse message is command: {}",

@@ -653,23 +653,6 @@ struct AiModeratorChatConfig {
     deletion_message_attachment: Attachment,
     #[serde(default)]
     model: Model,
-    #[serde(default)]
-    plan: Plan,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-enum Plan {
-    #[default]
-    PayAsYouGo,
-    Basic {
-        valid_until: DateTime<Utc>,
-    },
-    Pro {
-        valid_until: DateTime<Utc>,
-    },
-    Enterprise {
-        variant: EnterpriseVariant,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -697,7 +680,6 @@ impl Default for AiModeratorChatConfig {
             deletion_message: "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string(),
             deletion_message_attachment: Attachment::None,
             model: Model::RecommendedBest,
-            plan: Plan::PayAsYouGo,
         }
     }
 }
@@ -1016,7 +998,7 @@ impl AiModeratorModule {
                         ModerationAction::Mute => {
                             note += "\n\nℹ️ This message was sent by a group or a channel \\(anonymously\\), so the user was banned instead of being muted\\. Telegram doesn't allow partially restricting anonymous senders, either nothing or fully ban";
                             ModerationAction::Ban
-                        },
+                        }
                         ModerationAction::TempMute => {
                             note += "\n\nℹ️ This message was sent by a group or a channel \\(anonymously\\), so it was deleted instead of being temporarily muted\\. Telegram doesn't allow partially restricting anonymous senders, either nothing or fully ban";
                             ModerationAction::Delete
@@ -1025,6 +1007,10 @@ impl AiModeratorModule {
                     }
                 };
                 let chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id.into()).await?.unwrap_or_default());
+                let mut original_message_text = message.text().or(message.caption()).unwrap_or_default().to_string();
+                if let Some(quote) = message.quote() {
+                    original_message_text = format!("Quote:\n{}\n\nMessage:\n{original_message_text}", quote.text);
+                }
                 match action {
                     ModerationAction::Ban => {
                         if !chat_config.debug_mode {
@@ -1059,8 +1045,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "{sender_link} sent a message in {chat_name} and it was flagged, was banned:\n\n{text}{note}",
-                            text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
+                            "{sender_link} sent a message in {chat_name} and it was flagged, was banned:\n\n{original_message_text}{note}"
                         );
                         let buttons = vec![
                             vec![InlineKeyboardButton::callback(
@@ -1136,8 +1121,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "{sender_link} sent a message in {chat_name} and it was flagged, was muted:\n\n{text}{note}",
-                            text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
+                            "{sender_link} sent a message in {chat_name} and it was flagged, was muted:\n\n{original_message_text}{note}"
                         );
                         let buttons = vec![
                             vec![InlineKeyboardButton::callback(
@@ -1215,8 +1199,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "{sender_link} sent a message in {chat_name} and it was flagged, was muted for 15 minutes:\n\n{text}{note}",
-                            text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
+                            "{sender_link} sent a message in {chat_name} and it was flagged, was muted for 15 minutes:\n\n{original_message_text}{note}"
                         );
                         let buttons = vec![
                             vec![InlineKeyboardButton::callback(
@@ -1285,8 +1268,7 @@ impl AiModeratorModule {
                             }
                         }
                         let message_to_send = format!(
-                            "{sender_link} sent a message in {chat_name} and it was flagged, was deleted:\n\n{text}{note}",
-                            text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
+                            "{sender_link} sent a message in {chat_name} and it was flagged, was deleted:\n\n{original_message_text}{note}"
                         );
                         let buttons = vec![
                             vec![InlineKeyboardButton::callback(
@@ -1329,8 +1311,7 @@ impl AiModeratorModule {
                     }
                     ModerationAction::WarnMods => {
                         let message_to_send = format!(
-                            "{sender_link} sent a message in {chat_name} and it was flagged, but was not moderated \\(you configured it to just warn mods\\):\n\n{text}{note}",
-                            text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
+                            "{sender_link} sent a message in {chat_name} and it was flagged, but was not moderated \\(you configured it to just warn mods\\):\n\n{original_message_text}{note}"
                         );
                         let buttons = vec![
                             vec![InlineKeyboardButton::callback(
@@ -1370,8 +1351,7 @@ impl AiModeratorModule {
                     ModerationAction::Ok => {
                         if chat_config.debug_mode {
                             let message_to_send = format!(
-                                "{sender_link} sent a message in {chat_name} and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{text}{note}",
-                                text = expandable_blockquote(message.text().or(message.caption()).unwrap_or_default())
+                                "{sender_link} sent a message in {chat_name} and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{original_message_text}{note}"
                             );
                             let mut buttons = vec![
                                 vec![InlineKeyboardButton::callback(

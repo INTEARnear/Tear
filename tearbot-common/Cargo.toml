@@ -50,6 +50,7 @@ near-token = { workspace = true }
 near-gas = { workspace = true }
 solana-sdk = { version = "2", optional = true }
 near-jsonrpc-primitives = { workspace = true }
+near-crypto = { workspace = true }
 
 [features]
 contract-logs-module = ["semver"]
@@ -68,6 +69,7 @@ burrow-liquidations-module = []
 price-commands-module = []
 trading-bot-module = ["solana-sdk"]
 wallet-tracking-module = []
+agents-module = []
 
 redis-events = ["redis", "inevents-redis", "inevents-redis-old"]
 websocket-events = ["tokio-tungstenite"]
