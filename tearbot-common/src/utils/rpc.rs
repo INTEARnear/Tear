@@ -17,26 +17,36 @@ pub const RPC_URLS: &[&str] = &[
     "https://rpc.intear.tech",
     "https://rpc.shitzuapes.xyz",
     "https://free.rpc.fastnear.com",
-    // "https://rpc.mainnet.near.org", // returns wrong data
     "https://near.lava.build",
 ];
 pub const ARCHIVE_RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
 
 macro_rules! try_rpc {
     (|$rpc_url: ident| $body: block) => {{
+        let mut rpc_urls = RPC_URLS.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        if let Some(additional_rpc_urls) = ::std::env::var("RPC_URL").ok() {
+            rpc_urls = [
+                additional_rpc_urls
+                    .split(',')
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>(),
+                rpc_urls,
+            ]
+            .concat();
+        }
         let mut i = 0;
         loop {
-            let result: Result<_, _> = async {
-                let $rpc_url = RPC_URLS[i];
+            let result: ::std::result::Result<_, _> = async {
+                let $rpc_url = &rpc_urls[i];
                 let res = $body;
                 res
             }
             .await;
             match result {
-                Ok(res) => break Ok(res),
-                Err(err) => {
-                    if i >= RPC_URLS.len() - 1 {
-                        break Err(err);
+                ::std::result::Result::Ok(res) => break ::std::result::Result::Ok(res),
+                ::std::result::Result::Err(err) => {
+                    if i >= rpc_urls.len() - 1 {
+                        break ::std::result::Result::Err(err);
                     }
                     i += 1;
                 }
