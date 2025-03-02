@@ -72,9 +72,9 @@ Example 1: "/connect@Intear_Xeon_bot slimedrgn.tg", reasoning: "The message cont
 2. Allow all slash-@Intear_Xeon_bot commands
 3. Allow all slash commands
 
-Example 2: "Hey, I launched a token: [here](https://app.ref.finance/#intel.tkn.near|near)", reasoning: "The message contains a link to app.ref.finance, which is not allowed by chat rules"
-1. Allow app.ref.finance links
-2. Allow *.ref.finance links
+Example 2: "Hey, I launched a token: [here](https://dex.rheafinance.com/#intel.tkn.near|near)", reasoning: "The message contains a link to dex.rheafinance.com, which is not allowed by chat rules"
+1. Allow dex.rheafinance.com links
+2. Allow *.rheafinance.com links
 3. Allow all links
 4. Allow self-promotion of tokens and allow links
 

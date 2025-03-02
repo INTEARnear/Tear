@@ -296,7 +296,7 @@ impl XeonBotModule for PriceCommandsModule {
                     }
                 };
                 let mut exchanges = vec![
-                    format!("[Ref\\.finance](https://app.ref.finance/#near|{token})"),
+                    format!("[Rhea\\.finance](https://dex.rhea.finance/#near|{token})"),
                     format!(
                         "[Bettear Bot](tg://resolve?domain={}&start={bot_start_query})",
                         bot.bot().get_me().await?.username.as_ref().unwrap(),

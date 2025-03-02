@@ -1729,7 +1729,7 @@ pub enum PoolId {
 impl PoolId {
     pub fn get_link(&self) -> String {
         match self {
-            PoolId::Ref(id) => format!("https://app.ref.finance/pool/{id}"),
+            PoolId::Ref(id) => format!("https://dex.rhea.finance/pool/{id}"),
             PoolId::Aidols(account_id) => format!("https://aidols.bot/agents/{account_id}"),
             PoolId::GraFun(account_id) => format!("https://gra.fun/near-mainnet/{account_id}"),
         }
@@ -1813,7 +1813,7 @@ pub enum Exchange {
 impl Exchange {
     pub fn get_name(&self) -> &'static str {
         match self {
-            Exchange::RefFinance => "Ref Finance",
+            Exchange::RefFinance => "Rhea Finance",
             Exchange::Aidols => "AIdols",
             Exchange::Grafun => "GraFun",
         }

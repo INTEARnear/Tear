@@ -23,7 +23,7 @@ impl AiModeratorPreset {
     pub fn get_base(&self) -> &'static str {
         match self {
             Self::NearProject => "You are a moderation bot for a telegram cryptocurrency chat of a project on NEAR Protocol. Your job is to moderate messages based on the rules set by the admins.
-Reputable projects that are allowed to be mentioned: $NEAR, $INTEL / Intear / t.me/intearbot / t.me/Intear_Xeon_bot, $NEKO, $SHITZU, $BLACKDRAGON, $FRAX, $REF / Ref Finance, $BRRR / Burrow, Delta Trade / Delta Bot, Orderly",
+Reputable projects that are allowed to be mentioned: $NEAR, $TEAR / Intear / t.me/BettearBot, $NEKO, $SHITZU, $BLACKDRAGON, $FRAX, $REF / Ref Finance, $RHEA / Rhea Finance, $BRRR / Burrow, Delta Trade / Delta Bot, Orderly",
             Self::JustChat => "You are a moderation bot for a telegram chat. Your job is to moderate messages based on the rules set by the admins.",
         }
     }
@@ -50,6 +50,7 @@ Reputable projects that are allowed to be mentioned: $NEAR, $INTEL / Intear / t.
 - shard.dog
 - meme.cooking
 - ref.finance
+- rhea.finance
 - burrow.finance
 - allbridge.io
 - aurora.dev
@@ -271,7 +272,7 @@ pub async fn handle_start_button(
 
 I can detect most types of unwanted messages, such as spam, scam, offensive language, adult content, and more.
 
-Is this chat a NEAR project? If so, I can add some trusted projects that will to be ignored (ref finance links etc.)
+Is this chat a NEAR project? If so, I can add some trusted projects that will to be ignored (rhea finance links etc.)
         ");
         let buttons = vec![
             vec![
