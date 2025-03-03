@@ -37,9 +37,10 @@ use tearbot_common::{
 };
 
 use bitte::{
-    format_transaction, get_bitte_agents, score_agent_relevance as bitte_score_agent_relevance,
-    BitteHistoryMessage, BitteHistoryMessageContent, BitteMessage, BitteThreadHistory,
-    BitteToolCall, BitteToolInvocation, BitteToolInvocationState, BitteTransactions,
+    format_transaction, get_bitte_agents, handle_bitte_agent,
+    score_agent_relevance as bitte_score_agent_relevance, BitteHistoryMessage,
+    BitteHistoryMessageContent, BitteMessage, BitteThreadHistory, BitteToolCall,
+    BitteToolInvocation, BitteToolInvocationState, BitteTransactions,
 };
 use near_ai::{
     get_near_ai_agents, handle_near_ai_agent,
@@ -91,8 +92,17 @@ async fn invoke_agent(
     agent_type: &AgentType,
 ) -> Result<(), anyhow::Error> {
     match agent_type {
-        AgentType::Bitte { agent_id: _ } => {
-            unimplemented!("Bitte agent support is not implemented yet");
+        AgentType::Bitte { agent_id } => {
+            handle_bitte_agent(
+                bot,
+                user_id,
+                chat_id,
+                reply_to_message_id,
+                agent_id,
+                None,
+                &prompt,
+            )
+            .await?;
         }
         AgentType::NearAI {
             namespace,
@@ -301,312 +311,10 @@ impl XeonBotModule for AgentsModule {
                     // No images support for now
                     return Ok(());
                 }
-                let selected_account_id = bot
-                    .xeon()
-                    .get_resource::<SelectedAccount>(user_id)
-                    .await
-                    .map(|id| id.account_id);
-                let thread_id = if let Some(thread_id) = thread_id {
-                    thread_id
-                } else {
-                    #[derive(Debug, Deserialize, Clone)]
-                    #[serde(rename_all = "camelCase")]
-                    struct BitteSmartActionCreateResponse {
-                        id: String,
-                    }
-
-                    let response: BitteSmartActionCreateResponse = get_reqwest_client()
-                        .post("https://wallet.bitte.ai/api/smart-action/create")
-                        .bearer_auth(
-                            std::env::var("BITTE_API_KEY")
-                                .expect("No BITTE_API_KEY environment variable found"),
-                        )
-                        .json(&serde_json::json!({
-                            "agentId": agent_id,
-                            "creator": selected_account_id,
-                            "message": text,
-                        }))
-                        .send()
-                        .await?
-                        .json()
-                        .await?;
-                    bot.set_message_command(
-                        user_id,
-                        MessageCommand::AgentsBitteUse {
-                            agent_id: agent_id.clone(),
-                            thread_id: Some(response.id.clone()),
-                        },
-                    )
-                    .await?;
-                    response.id
-                };
-                let history: BitteThreadHistory = match get_reqwest_client()
-                    .get(format!(
-                        "https://wallet.bitte.ai/api/v1/history?id={thread_id}"
-                    ))
-                    .bearer_auth(
-                        std::env::var("BITTE_API_KEY")
-                            .expect("No BITTE_API_KEY environment variable found"),
-                    )
-                    .send()
-                    .await?
-                    .error_for_status()
-                {
-                    Ok(r) => dbg!(r.json().await)?,
-                    Err(_) => BitteThreadHistory {
-                        messages: Vec::new(),
-                        first_message: "".to_string(),
-                    },
-                };
-                let history = if history.messages.is_empty() && !history.first_message.is_empty() {
-                    BitteThreadHistory {
-                        messages: vec![BitteHistoryMessage {
-                            role: "user".to_string(),
-                            content: vec![BitteHistoryMessageContent::Text {
-                                text: history.first_message.clone(),
-                            }],
-                            annotations: None,
-                        }],
-                        first_message: history.first_message,
-                    }
-                } else {
-                    history
-                };
-                let mut messages = Vec::new();
-                for pairs in history.messages.windows(2) {
-                    if let [prev, next] = pairs {
-                        if prev.role == "assistant" {
-                            messages.push(BitteMessage {
-                                role: "assistant".to_string(),
-                                content: {
-                                    let new_content = prev.content.iter().filter_map(|c| {
-                                        match c {
-                                            BitteHistoryMessageContent::ToolCall { .. }
-                                            | BitteHistoryMessageContent::ToolResult { .. } => {
-                                                None
-                                            }
-                                            BitteHistoryMessageContent::Text { text } => {
-                                                Some(text.clone())
-                                            }
-                                        }
-                                    }).collect::<Vec<_>>();
-                                    if new_content.is_empty() {
-                                       String::new()
-                                    } else {
-                                        new_content.join("\n\n")
-                                    }
-                                },
-                                tool_invocations: prev
-                                    .content
-                                    .iter()
-                                    .filter_map(|c| {
-                                        if let BitteHistoryMessageContent::ToolCall {
-                                            tool_call_id,
-                                            tool_name,
-                                            args,
-                                        } = c
-                                        {
-                                            if let Some(result) =
-                                                next.content.iter().find_map(|c| {
-                                                    if let BitteHistoryMessageContent::ToolResult {
-                                                    tool_call_id: next_tool_call_id,
-                                                    tool_name: next_tool_name,
-                                                    result,
-                                                } = c
-                                                {
-                                                    if tool_call_id == next_tool_call_id
-                                                        && tool_name == next_tool_name
-                                                    {
-                                                        Some(result)
-                                                    } else {
-                                                        None
-                                                    }
-                                                } else {
-                                                    None
-                                                }
-                                                })
-                                            {
-                                                Some(BitteToolInvocation {
-                                                    state: BitteToolInvocationState::Result,
-                                                    tool_call_id: tool_call_id.clone(),
-                                                    tool_name: tool_name.clone(),
-                                                    args: args.clone(),
-                                                    result: result.clone(),
-                                                })
-                                            } else {
-                                                log::warn!(
-                                                    "Couldn't find tool result for tool call {tool_call_id} in thread {thread_id}"
-                                                );
-                                                None
-                                            }
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect(),
-                                annotations: None,
-                            });
-                        } else if prev.role == "tool" {
-                            // do nothing
-                        } else {
-                            messages.push(BitteMessage {
-                                role: prev.role.clone(),
-                                content: prev
-                                    .content
-                                    .iter()
-                                    .filter_map(|c| match c {
-                                        BitteHistoryMessageContent::ToolCall { .. }
-                                        | BitteHistoryMessageContent::ToolResult { .. } => None,
-                                        BitteHistoryMessageContent::Text { text } => {
-                                            Some(text.clone())
-                                        }
-                                    })
-                                    .collect::<Vec<_>>()
-                                    .join("\n\n"),
-                                tool_invocations: Vec::new(),
-                                annotations: None,
-                            });
-                        }
-                    } else {
-                        unreachable!()
-                    }
-                }
-                let response = get_reqwest_client()
-                    .post("https://wallet.bitte.ai/api/v1/chat")
-                    .bearer_auth(
-                        std::env::var("BITTE_API_KEY")
-                            .expect("No BITTE_API_KEY environment variable found"),
-                    )
-                    .json(&serde_json::json!({
-                        "config": {
-                            "agentId": agent_id,
-                        },
-                        "id": thread_id,
-                        "messages": vec![
-                            messages,
-                            vec![BitteMessage {
-                                role: "user".to_string(),
-                                content: text.to_string(),
-                                tool_invocations: Vec::new(),
-                                annotations: None,
-                            }],
-                        ].concat(),
-                        "accountId": selected_account_id,
-                    }))
-                    .send()
-                    .await?;
-                let mut stream = response.bytes_stream();
-                let buttons = Vec::<Vec<_>>::new();
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                let message_id = bot
-                    .send(
-                        chat_id,
-                        "_Thinking\\.\\.\\._".to_string(),
-                        reply_markup,
-                        Attachment::None,
-                    )
-                    .await?
-                    .id;
-                let mut response_text = String::new();
-                let mut last_edit = Instant::now();
-                while let Some(Ok(chunk)) = stream.next().await {
-                    if let Ok(chunk_str) = String::from_utf8(chunk.to_vec()) {
-                        for line in chunk_str.lines() {
-                            if let Some(line) = line.trim().strip_prefix("0:") {
-                                if let Ok(serde_json::Value::String(content)) =
-                                    serde_json::from_str(line)
-                                {
-                                    response_text += &content;
-                                    if last_edit.elapsed() > Duration::from_secs(1)
-                                        && !response_text.is_empty()
-                                    {
-                                        bot.bot()
-                                            .edit_message_text(
-                                                chat_id,
-                                                message_id,
-                                                markdown::escape(&response_text),
-                                            )
-                                            .parse_mode(ParseMode::MarkdownV2)
-                                            .await?;
-                                        last_edit = Instant::now();
-                                    }
-                                }
-                            } else if let Some(tool_call) = line.trim().strip_prefix("9:") {
-                                if let Ok(tool_call) =
-                                    serde_json::from_str::<BitteToolCall>(tool_call)
-                                {
-                                    match tool_call.tool_name.as_str() {
-                                        "generate-transaction" => {
-                                            if let Ok(transactions) =
-                                                serde_json::from_value::<BitteTransactions>(
-                                                    tool_call.args,
-                                                )
-                                            {
-                                                let mut messages = Vec::new();
-                                                for transaction in transactions.transactions {
-                                                    messages.push(
-                                                        format_transaction(&transaction).await,
-                                                    );
-                                                }
-                                                let buttons = vec![vec![
-                                                    InlineKeyboardButton::callback(
-                                                        "⬅️ Back",
-                                                        bot.to_callback_data(&TgCommand::Agents)
-                                                            .await,
-                                                    ),
-                                                    InlineKeyboardButton::callback(
-                                                        "✅ Confirm",
-                                                        // TODO
-                                                        // bot.to_callback_data(&TgCommand::AgentsBitteConfirmTransactions {
-                                                        //     transactions,
-                                                        // })
-                                                        // .await,
-                                                        bot.to_callback_data(&TgCommand::Agents)
-                                                            .await,
-                                                    ),
-                                                ]];
-                                                let reply_markup =
-                                                    InlineKeyboardMarkup::new(buttons);
-                                                bot.send(
-                                                    chat_id,
-                                                    messages.join("\n\n"),
-                                                    reply_markup,
-                                                    Attachment::None,
-                                                )
-                                                .await?;
-                                            }
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if !response_text.is_empty() {
-                    #[allow(deprecated)]
-                    if bot
-                        .bot()
-                        .edit_message_text(chat_id, message_id, &response_text)
-                        .parse_mode(ParseMode::Markdown)
-                        .await
-                        .is_err()
-                    {
-                        bot.bot()
-                            .edit_message_text(
-                                chat_id,
-                                message_id,
-                                markdown::escape(&response_text),
-                            )
-                            .parse_mode(ParseMode::MarkdownV2)
-                            .await?;
-                    }
-                } else {
-                    bot.bot()
-                        .edit_message_text(chat_id, message_id, "_The agent didn't respond_")
-                        .parse_mode(ParseMode::MarkdownV2)
-                        .await?;
-                }
+                handle_bitte_agent(
+                    bot, user_id, chat_id, message.id, &agent_id, thread_id, text,
+                )
+                .await?;
             }
             MessageCommand::AgentsNearAIUse {
                 agent_id,
