@@ -2,11 +2,12 @@ use std::time::{Duration, Instant};
 
 use cached::proc_macro::cached;
 use futures_util::StreamExt;
-use near_api::{near_primitives::types::Balance, AccountId};
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
-    bot_commands::{MessageCommand, SelectedAccount, TgCommand},
-    near_utils::dec_format,
+    bot_commands::{
+        BitteAction, BitteTransaction, BitteTransactions, MessageCommand, SelectedAccount,
+        TgCommand,
+    },
     teloxide::{
         payloads::{EditMessageTextSetters, SendMessageSetters},
         prelude::Requester,
@@ -49,47 +50,6 @@ pub struct BitteToolCall {
     // tool_call_id: String,
     pub tool_name: String,
     pub args: serde_json::Value,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BitteTransactions {
-    pub transactions: Vec<BitteTransaction>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BitteTransaction {
-    #[allow(dead_code)]
-    pub signer_id: AccountId,
-    pub receiver_id: AccountId,
-    pub actions: Vec<BitteAction>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(tag = "type", content = "params")]
-pub enum BitteAction {
-    Transfer(BitteTransferParams),
-    FunctionCall(BitteFunctionCallParams),
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BitteTransferParams {
-    #[serde(with = "dec_format")]
-    pub deposit: Balance,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BitteFunctionCallParams {
-    pub method_name: AccountId,
-    pub args: serde_json::Value,
-    #[allow(dead_code)] // TODO: remove
-    #[serde(with = "dec_format")]
-    pub gas: u64,
-    #[serde(with = "dec_format")]
-    pub deposit: Balance,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -331,6 +291,12 @@ pub fn score_agent_relevance(agent: &BitteAgentResult, search_text: &str) -> i32
     score
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum MessageRole {
+    User,
+    System,
+}
+
 pub async fn handle_bitte_agent(
     bot: &BotData,
     user_id: UserId,
@@ -338,6 +304,7 @@ pub async fn handle_bitte_agent(
     reply_to_message_id: MessageId,
     agent_id: &str,
     thread_id: Option<String>,
+    role: MessageRole,
     text: &str,
 ) -> Result<(), anyhow::Error> {
     let selected_account_id = bot
@@ -410,7 +377,10 @@ pub async fn handle_bitte_agent(
     let history = if history.messages.is_empty() && !history.first_message.is_empty() {
         BitteThreadHistory {
             messages: vec![BitteHistoryMessage {
-                role: "user".to_string(),
+                role: match role {
+                    MessageRole::User => "user".to_string(),
+                    MessageRole::System => "system".to_string(),
+                },
                 content: vec![BitteHistoryMessageContent::Text {
                     text: history.first_message.clone(),
                 }],
@@ -540,23 +510,30 @@ pub async fn handle_bitte_agent(
     let mut response_text = String::new();
     let mut last_edit = Instant::now();
 
+    let mut edits = 0usize;
     while let Some(Ok(chunk)) = stream.next().await {
         if let Ok(chunk_str) = String::from_utf8(chunk.to_vec()) {
             for line in chunk_str.lines() {
                 if let Some(line) = line.trim().strip_prefix("0:") {
                     if let Ok(serde_json::Value::String(content)) = serde_json::from_str(line) {
                         response_text += &content;
-                        if last_edit.elapsed() > Duration::from_secs(1) && !response_text.is_empty()
-                        {
+                        let edit_interval = match edits {
+                            0..3 => Duration::from_millis(250),
+                            3..6 => Duration::from_millis(500),
+                            6..15 => Duration::from_secs(1),
+                            15.. => Duration::from_secs(2),
+                        };
+                        if last_edit.elapsed() > edit_interval && !response_text.is_empty() {
                             bot.bot()
                                 .edit_message_text(
                                     chat_id,
                                     message_id,
-                                    markdown::escape(&response_text),
+                                    format!("{} _\\.\\.\\._", markdown::escape(&response_text)),
                                 )
                                 .parse_mode(ParseMode::MarkdownV2)
                                 .await?;
                             last_edit = Instant::now();
+                            edits += 1;
                         }
                     }
                 } else if let Some(tool_call) = line.trim().strip_prefix("9:") {
@@ -567,7 +544,7 @@ pub async fn handle_bitte_agent(
                                     serde_json::from_value::<BitteTransactions>(tool_call.args)
                                 {
                                     let mut messages = Vec::new();
-                                    for transaction in transactions.transactions {
+                                    for transaction in &transactions.transactions {
                                         messages.push(format_transaction(&transaction).await);
                                     }
                                     if chat_id.is_user() {
@@ -578,7 +555,14 @@ pub async fn handle_bitte_agent(
                                             ),
                                             InlineKeyboardButton::callback(
                                                 "✅ Confirm",
-                                                bot.to_callback_data(&TgCommand::Agents).await,
+                                                bot.to_callback_data(
+                                                    &TgCommand::AgentsBitteSendTransaction {
+                                                        transactions,
+                                                        agent_id: agent_id.to_string(),
+                                                        thread_id: thread_id.clone(),
+                                                    },
+                                                )
+                                                .await,
                                             ),
                                         ]];
                                         let reply_markup = InlineKeyboardMarkup::new(buttons);

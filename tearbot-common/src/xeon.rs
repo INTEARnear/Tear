@@ -73,7 +73,7 @@ pub struct XeonState {
             TypeId,
             Box<
                 dyn Fn(
-                        UserId,
+                        Box<dyn Any>,
                     ) -> Pin<
                         Box<dyn Future<Output = Option<Box<dyn Any>>> + Send + Sync + 'static>,
                     > + Send
@@ -307,30 +307,37 @@ impl XeonState {
         }
     }
 
-    pub async fn provide_resource<R: Any + Send + Sync + 'static>(
+    pub async fn provide_resource<R: Resource>(
         &self,
-        provider: impl Fn(UserId) -> Pin<Box<dyn Future<Output = Option<Box<R>>> + Send + Sync + 'static>>
+        provider: impl Fn(R::Key) -> Pin<Box<dyn Future<Output = Option<Box<R>>> + Send + Sync + 'static>>
             + Send
             + Sync
             + 'static + 'static,
     ) {
         self.resource_providers.write().await.insert(
             TypeId::of::<R>(),
-            Box::new(move |user_id| {
-                Box::pin(provider(user_id).map(|s| s.map(|s| s as Box<dyn Any>)))
+            Box::new(move |key| {
+                Box::pin(
+                    provider(*key.downcast::<R::Key>().unwrap())
+                        .map(|s| s.map(|s| s as Box<dyn Any>)),
+                )
             }),
         );
     }
 
-    pub async fn get_resource<R: Any>(&self, user_id: UserId) -> Option<R> {
+    pub async fn get_resource<R: Resource>(&self, key: R::Key) -> Option<R> {
         let mut result = None;
         if let Some(provider) = self.resource_providers.read().await.get(&TypeId::of::<R>()) {
-            if let Some(resource) = provider(user_id).await {
+            if let Some(resource) = provider(Box::new(key) as Box<dyn Any>).await {
                 result = Some(*resource.downcast::<R>().unwrap());
             }
         }
         result
     }
+}
+
+pub trait Resource: 'static {
+    type Key: Any;
 }
 
 #[async_trait]

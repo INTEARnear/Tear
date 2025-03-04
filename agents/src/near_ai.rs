@@ -6,7 +6,7 @@ use base64::{
 };
 use cached::proc_macro::cached;
 use itertools::Itertools;
-use near_api::{signer::NEP413Payload, AccountId};
+use near_api::{signer::NEP413Payload, AccountId, SignerTrait};
 use near_crypto::Signature;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};

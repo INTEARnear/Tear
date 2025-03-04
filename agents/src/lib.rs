@@ -3,21 +3,26 @@ mod near_ai;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use futures_util::StreamExt;
 use itertools::Itertools;
+use near_api::near_primitives::action::{Action, FunctionCallAction, TransferAction};
+use near_api::near_primitives::views::FinalExecutionStatus;
+use near_api::{Signer, Transaction};
 use serde::{Deserialize, Serialize};
-use tearbot_common::bot_commands::{AgentType, SelectedAccount};
+use tearbot_common::bot_commands::{
+    AgentType, BitteAction, NetworkConfigResource, SelectedAccount,
+};
 use tearbot_common::mongodb::Database;
-use tearbot_common::teloxide::payloads::EditMessageTextSetters;
-use tearbot_common::teloxide::prelude::Requester;
 use tearbot_common::teloxide::types::{
-    ButtonRequest, KeyboardButton, KeyboardButtonRequestChat, KeyboardMarkup, MessageId, ParseMode,
+    ButtonRequest, KeyboardButton, KeyboardButtonRequestChat, KeyboardMarkup, MessageId,
     ReplyMarkup, RequestId,
 };
 use tearbot_common::teloxide::utils::markdown;
+use tearbot_common::teloxide::{
+    prelude::{ChatId, Message, UserId},
+    types::{InlineKeyboardButton, InlineKeyboardMarkup},
+};
 use tearbot_common::tgbot::{Attachment, BotData, BotType};
 use tearbot_common::utils::chat::get_chat_title_cached_5m;
 use tearbot_common::utils::store::PersistentCachedStore;
@@ -28,19 +33,10 @@ use tearbot_common::{
     tgbot::{MustAnswerCallbackQuery, TgCallbackContext},
     xeon::XeonBotModule,
 };
-use tearbot_common::{
-    teloxide::{
-        prelude::{ChatId, Message, UserId},
-        types::{InlineKeyboardButton, InlineKeyboardMarkup},
-    },
-    utils::requests::get_reqwest_client,
-};
 
 use bitte::{
-    format_transaction, get_bitte_agents, handle_bitte_agent,
-    score_agent_relevance as bitte_score_agent_relevance, BitteHistoryMessage,
-    BitteHistoryMessageContent, BitteMessage, BitteThreadHistory, BitteToolCall,
-    BitteToolInvocation, BitteToolInvocationState, BitteTransactions,
+    get_bitte_agents, handle_bitte_agent, score_agent_relevance as bitte_score_agent_relevance,
+    MessageRole,
 };
 use near_ai::{
     get_near_ai_agents, handle_near_ai_agent,
@@ -100,6 +96,7 @@ async fn invoke_agent(
                 reply_to_message_id,
                 agent_id,
                 None,
+                MessageRole::User,
                 &prompt,
             )
             .await?;
@@ -312,7 +309,14 @@ impl XeonBotModule for AgentsModule {
                     return Ok(());
                 }
                 handle_bitte_agent(
-                    bot, user_id, chat_id, message.id, &agent_id, thread_id, text,
+                    bot,
+                    user_id,
+                    chat_id,
+                    message.id,
+                    &agent_id,
+                    thread_id,
+                    MessageRole::User,
+                    text,
                 )
                 .await?;
             }
@@ -921,6 +925,163 @@ Send a text message to use the agent
                             .await,
                     ),
                     &mut None,
+                )
+                .await?;
+            }
+            TgCommand::AgentsBitteSendTransaction {
+                transactions,
+                agent_id,
+                thread_id,
+            } => {
+                let message = "Sending transaction \\.\\.\\.";
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                context.send_and_set(message, reply_markup).await?;
+
+                let account = context
+                    .bot()
+                    .xeon()
+                    .get_resource::<SelectedAccount>(context.user_id())
+                    .await;
+                let Some(account) = account else {
+                    context
+                        .edit_or_send(
+                            "Please create an account first",
+                            InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
+                                "Create Account",
+                                context.bot().to_callback_data(&TgCommand::TradingBot).await,
+                            )]]),
+                        )
+                        .await?;
+                    return Ok(());
+                };
+                let signer = Signer::new(account.signer.clone()).expect("Failed to create signer");
+                let Some(network_resource) = context
+                    .bot()
+                    .xeon()
+                    .get_resource::<NetworkConfigResource>(())
+                    .await
+                else {
+                    log::warn!("No network config found");
+                    return Ok(());
+                };
+                let network = network_resource.0;
+
+                let transaction_count = transactions.transactions.len();
+                for (i, transaction) in transactions.transactions.into_iter().enumerate() {
+                    if account.account_id != transaction.signer_id {
+                        context
+                            .edit_or_send(
+                                format!(
+                                    "The agent tried to send a transaction from `{}`, but your selected account is `{}`",
+                                    format_account_id(&transaction.signer_id).await,
+                                    format_account_id(&account.account_id).await,
+                                ),
+                                InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                            )
+                            .await?;
+                        return Ok(());
+                    }
+                    let mut transaction_builder = Transaction::construct(
+                        account.account_id.clone(),
+                        transaction.receiver_id.clone(),
+                    );
+                    for action in transaction.actions.iter() {
+                        match action {
+                            BitteAction::Transfer(transfer) => {
+                                transaction_builder = transaction_builder.add_action(
+                                    Action::Transfer(TransferAction {
+                                        deposit: transfer.deposit,
+                                    }),
+                                );
+                            }
+                            BitteAction::FunctionCall(function_call) => {
+                                transaction_builder = transaction_builder.add_action(
+                                    Action::FunctionCall(Box::new(FunctionCallAction {
+                                        method_name: function_call.method_name.clone(),
+                                        args: serde_json::to_vec(&function_call.args)
+                                            .expect("Failed to serialize function call args"),
+                                        gas: function_call.gas,
+                                        deposit: function_call.deposit,
+                                    })),
+                                );
+                            }
+                        }
+                    }
+                    match transaction_builder
+                        .with_signer(Arc::clone(&signer))
+                        .send_to(&network)
+                        .await
+                    {
+                        Ok(tx) => match tx.status {
+                            FinalExecutionStatus::SuccessValue(_) => {
+                                // everything is fine
+                            }
+                            FinalExecutionStatus::Failure(failure) => {
+                                let message = format!(
+                                    "Transaction failed: {failure}",
+                                    failure = markdown::escape(&failure.to_string())
+                                );
+                                let buttons = Vec::<Vec<_>>::new();
+                                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                context.edit_or_send(message, reply_markup).await?;
+                                return Ok(());
+                            }
+                            _ => {
+                                log::warn!("Unknown transaction status: {:?}", tx.status);
+                                let message = format!(
+                                    "Unknown transaction status, please check on explorer: [Tx](https://nearblocks.io/txns/{})",
+                                    tx.transaction.hash
+                                );
+                                let buttons = Vec::<Vec<_>>::new();
+                                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                context.edit_or_send(message, reply_markup).await?;
+                                return Ok(());
+                            }
+                        },
+                        Err(err) => {
+                            let message = format!(
+                                "Error sending transaction: {err}",
+                                err = markdown::escape(&err.to_string())
+                            );
+                            let buttons = Vec::<Vec<_>>::new();
+                            let reply_markup = InlineKeyboardMarkup::new(buttons);
+                            context.edit_or_send(message, reply_markup).await?;
+                            return Ok(());
+                        }
+                    }
+
+                    let buttons = Vec::<Vec<_>>::new();
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    if i < transaction_count - 1 {
+                        context
+                            .edit_or_send(
+                                format!(
+                                    "Sending transactions \\.\\.\\. \\({}/{}\\)",
+                                    i + 1,
+                                    transaction_count
+                                ),
+                                reply_markup,
+                            )
+                            .await?;
+                    }
+                }
+                let message = "✅ Transaction sent";
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                context.edit_or_send(message, reply_markup).await?;
+
+                handle_bitte_agent(
+                    context.bot(),
+                    context.user_id(),
+                    context.chat_id().chat_id(),
+                    context
+                        .message_id()
+                        .expect("Just sent the message, but no message id"),
+                    &agent_id,
+                    Some(thread_id),
+                    MessageRole::System,
+                    "The user has confirmed and sent the transaction.\n\nExecution status: Success",
                 )
                 .await?;
             }

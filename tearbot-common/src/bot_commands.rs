@@ -13,7 +13,10 @@ use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use inindexer::near_utils::{dec_format, dec_format_map};
 use mongodb::bson::Bson;
-use near_api::{signer::Signer, SignerTrait};
+use near_api::{
+    signer::{secret_key::SecretKeySigner, Signer},
+    NetworkConfig,
+};
 use near_crypto::PublicKey;
 use near_primitives::{
     hash::CryptoHash,
@@ -33,7 +36,7 @@ use crate::{
         chat::ChatPermissionLevel,
         tokens::{format_near_amount, format_near_amount_without_price},
     },
-    xeon::VoteOption,
+    xeon::{Resource, VoteOption},
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1240,6 +1243,51 @@ pub enum TgCommand {
         target_chat_id: ChatId,
         command: String,
     },
+    #[cfg(feature = "agents-module")]
+    AgentsBitteSendTransaction {
+        transactions: BitteTransactions,
+        agent_id: String,
+        thread_id: String,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BitteTransactions {
+    pub transactions: Vec<BitteTransaction>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BitteTransaction {
+    pub signer_id: AccountId,
+    pub receiver_id: AccountId,
+    pub actions: Vec<BitteAction>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", content = "params")]
+pub enum BitteAction {
+    Transfer(BitteTransferParams),
+    FunctionCall(BitteFunctionCallParams),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BitteTransferParams {
+    #[serde(with = "dec_format")]
+    pub deposit: Balance,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BitteFunctionCallParams {
+    pub method_name: String,
+    pub args: serde_json::Value,
+    #[serde(with = "dec_format")]
+    pub gas: u64,
+    #[serde(with = "dec_format")]
+    pub deposit: Balance,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -2242,6 +2290,16 @@ impl From<SolanaKeypair> for SerializableKeypair {
 
 pub struct SelectedAccount {
     pub account_id: AccountId,
-    pub signer: Box<dyn SignerTrait + Send + Sync>,
+    pub signer: SecretKeySigner,
     pub public_key: PublicKey,
+}
+
+impl Resource for SelectedAccount {
+    type Key = UserId;
+}
+
+pub struct NetworkConfigResource(pub Arc<NetworkConfig>);
+
+impl Resource for NetworkConfigResource {
+    type Key = ();
 }
