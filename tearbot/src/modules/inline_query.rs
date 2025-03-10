@@ -488,7 +488,6 @@ CA: `{ca}`
     }
 
     async fn try_get_tx(&self, bot: &BotData, tx_hash: CryptoHash) -> Vec<InlineQueryResult> {
-        log::info!("[{tx_hash}] 1");
         if let Ok(tx) = archive_rpc::<_, RpcTransactionResponse>(serde_json::json!({
             "id": "dontcare",
             "jsonrpc": "2.0",
@@ -501,8 +500,7 @@ CA: `{ca}`
         }))
         .await
         {
-            log::info!("[{tx_hash}] 2");
-            if let Some(outcome) = tx.result.final_execution_outcome {
+            if let Some(outcome) = tx.final_execution_outcome {
                 let outcome = outcome.into_outcome();
                 let status = match &outcome.status {
                     FinalExecutionStatus::NotStarted => "In progress".to_string(),
@@ -590,7 +588,7 @@ CA: `{ca}`
 
 [Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
                         ",
-                        status = match tx.result.final_execution_status {
+                        status = match tx.final_execution_status {
                             TxExecutionStatus::None => "⏳ Pending",
                             TxExecutionStatus::Included => "⏳ Included in block",
                             TxExecutionStatus::ExecutedOptimistic => "⏳ Executed (optimistic)",
@@ -640,9 +638,9 @@ CA: `{ca}`
 *Receiver*: `{receiver}`
 {actions}
                         ",
-                        predecessor = receipt.result.receipt_view.predecessor_id,
-                        receiver = receipt.result.receipt_view.receiver_id,
-                        actions = match receipt.result.receipt_view.receipt {
+                        predecessor = receipt.receipt_view.predecessor_id,
+                        receiver = receipt.receipt_view.receiver_id,
+                        actions = match receipt.receipt_view.receipt {
                             ReceiptEnumView::Action { actions, .. } => {
                                 let mut result = Vec::new();
                                 for action in &actions {
@@ -737,7 +735,6 @@ CA: `{ca}`
                     markdown::escape(&format_tokens(balance, &token_id, Some(bot.xeon())).await),
                 ));
             }
-            log::info!("[{account_id}] 8");
 
             vec![InlineQueryResult::Article(
                 InlineQueryResultArticle::new(
@@ -790,13 +787,11 @@ Tokens:
         struct Entry {
             account_id: AccountId,
         }
-        log::info!("1");
         if let Ok(accounts) = get_cached_30s::<Vec<Entry>>(&format!(
             "https://events-v3.intear.tech/v3/tx_receipt/accounts_by_prefix?prefix={query}"
         ))
         .await
         {
-            log::info!("2");
             let mut futures = Vec::new();
             for Entry { account_id } in accounts.into_iter().take(3) {
                 if account_id == query {

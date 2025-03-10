@@ -55,9 +55,7 @@ macro_rules! try_rpc {
     }};
 }
 
-pub async fn rpc<I: Serialize, O: DeserializeOwned>(
-    data: I,
-) -> Result<RpcResponse<O>, anyhow::Error> {
+pub async fn rpc<I: Serialize, O: DeserializeOwned>(data: I) -> Result<O, anyhow::Error> {
     try_rpc!(|rpc_url| {
         let response = get_reqwest_client()
             .post(rpc_url)
@@ -67,7 +65,7 @@ pub async fn rpc<I: Serialize, O: DeserializeOwned>(
             .json::<serde_json::Value>()
             .await?;
         match serde_json::from_value::<RpcResponse<O>>(response.clone()) {
-            Ok(v) => Ok(v),
+            Ok(v) => Ok(v.result),
             Err(_) => {
                 return Err(anyhow::anyhow!("RPC error: {response:?}"));
             }
@@ -75,16 +73,15 @@ pub async fn rpc<I: Serialize, O: DeserializeOwned>(
     })
 }
 
-pub async fn archive_rpc<I: Serialize, O: DeserializeOwned>(
-    data: I,
-) -> Result<RpcResponse<O>, anyhow::Error> {
+pub async fn archive_rpc<I: Serialize, O: DeserializeOwned>(data: I) -> Result<O, anyhow::Error> {
     Ok(get_reqwest_client()
         .post(ARCHIVE_RPC_URL)
         .json(&data)
         .send()
         .await?
         .json::<RpcResponse<O>>()
-        .await?)
+        .await?
+        .result)
 }
 
 #[derive(Deserialize, Debug)]
@@ -133,8 +130,7 @@ async fn _internal_view(
             "args_base64": BASE64_STANDARD.encode(args.as_bytes()),
         }
     }))
-    .await?
-    .result;
+    .await?;
     let response = match serde_json::from_value::<RpcResponseCallFunctionView>(response.clone()) {
         Ok(v) => v,
         Err(_) => {
@@ -260,7 +256,7 @@ async fn _internal_historical_view(
     }))
     .await?
     .result;
-    Ok(serde_json::from_str(&response.result)?)
+    Ok(serde_json::from_str(&response)?)
 }
 
 #[cached(time = 30, result = true, size = 1000)]
@@ -372,8 +368,7 @@ pub async fn view_account_not_cached(account_id: &AccountId) -> Result<AccountIn
             "account_id": account_id,
         }
     }))
-    .await?
-    .result;
+    .await?;
     Ok(response)
 }
 
