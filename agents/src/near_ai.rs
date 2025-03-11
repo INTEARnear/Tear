@@ -1,4 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use base64::{
     prelude::{BASE64_STANDARD, BASE64_URL_SAFE},
@@ -23,6 +26,7 @@ use tearbot_common::{
     },
     tgbot::BotData,
     utils::requests::get_reqwest_client,
+    xeon::XeonState,
 };
 
 #[derive(Debug, Deserialize, Clone)]
@@ -119,8 +123,10 @@ struct NearAIListMessagesResponse {
 
 #[derive(Debug, Deserialize, Clone)]
 struct NearAIMessage {
+    id: String,
     role: String,
     content: Vec<NearAIContentBlock>,
+    created_at: u64,
     run_id: Option<String>,
     metadata: serde_json::Value,
     #[serde(deserialize_with = "default_if_null")]
@@ -154,7 +160,6 @@ struct NearAIText {
 }
 
 #[cached(
-    time = 9999999999,
     result = true,
     key = "String",
     convert = r#"{account.account_id.to_string()}"#
@@ -203,7 +208,7 @@ async fn near_ai_run(
     bot: &BotData,
     user_id: Option<UserId>,
     agent_id: &str,
-    thread_id: Option<String>,
+    thread_id: &str,
     new_message: String,
 ) -> Result<String, anyhow::Error> {
     let api_key = if let Some(user_id) = user_id {
@@ -218,7 +223,7 @@ async fn near_ai_run(
 
     let request = NearAIRunCreateRequest {
         agent_id: agent_id.to_string(),
-        thread_id,
+        thread_id: Some(thread_id.to_string()),
         new_message,
         max_iterations: 1,
     };
@@ -242,12 +247,12 @@ async fn near_ai_run(
 }
 
 async fn near_ai_get_messages_with_auth(
-    bot: &BotData,
+    xeon: &XeonState,
     user_id: Option<UserId>,
     thread_id: &str,
 ) -> Result<NearAIListMessagesResponse, anyhow::Error> {
     let api_key = if let Some(user_id) = user_id {
-        if let Some(account) = bot.xeon().get_resource::<SelectedAccount>(user_id).await {
+        if let Some(account) = xeon.get_resource::<SelectedAccount>(user_id).await {
             get_api_key(account).await?
         } else {
             std::env::var("NEAR_AI_API_KEY").unwrap_or_default()
@@ -267,7 +272,7 @@ async fn near_ai_get_messages_with_auth(
     if !response.status().is_success() {
         let error_text = response.text().await?;
         return Err(anyhow::anyhow!(
-            "Near AI API returned error after getting messages: {}",
+            "Near AI API returned error trying to get messages: {}",
             error_text
         ));
     }
@@ -293,7 +298,7 @@ pub async fn handle_near_ai_agent(
         std::env::var("NEAR_AI_API_KEY").unwrap_or_default()
     };
 
-    let message_id = bot
+    let mut message_id = bot
         .bot()
         .send_message(chat_id, "_Thinking\\.\\.\\._".to_string())
         .reply_markup(InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()))
@@ -310,159 +315,314 @@ pub async fn handle_near_ai_agent(
         .await?
         .id;
 
-    let thread_id = near_ai_run(bot, Some(user_id), agent_id, thread_id, text.to_string()).await?;
+    let thread_id = if let Some(thread_id) = thread_id {
+        thread_id
+    } else {
+        #[derive(Debug, Deserialize)]
+        struct Response {
+            id: String,
+        }
+        let response: Response = get_reqwest_client()
+            .post("https://api.near.ai/v1/threads")
+            .bearer_auth(&api_key)
+            .json(&serde_json::json!({}))
+            .send()
+            .await?
+            .json()
+            .await?;
+        response.id
+    };
     log::info!("Near AI thread ID: {}", thread_id);
-
-    let messages = near_ai_get_messages_with_auth(bot, Some(user_id), &thread_id).await?;
-
-    let last_run = messages
-        .data
-        .first()
-        .map(|msg| msg.run_id.clone())
-        .flatten();
-    let this_run = messages
-        .data
-        .into_iter()
-        .filter(|msg| msg.run_id == last_run)
-        .collect::<Vec<_>>();
-    let mut assistant_messages: Vec<String> = this_run
-        .iter()
-        .filter(|msg| msg.role == "assistant")
-        .filter(|msg| msg.metadata.get("message_type").is_none())
-        .flat_map(|msg| {
-            msg.content
-                .iter()
-                .filter_map(|content| {
-                    if content.content_type == "text" {
-                        content.text.as_ref().map(|text| text.value.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect();
-
-    let files = this_run
-        .iter()
-        .filter(|msg| msg.role == "assistant")
-        .flat_map(|msg| msg.attachments.iter())
-        .map(|attachment| attachment.file_id.clone())
-        .collect::<Vec<_>>();
-    let mut files_data = Vec::new();
-    for file_id in files {
-        let file_data = get_reqwest_client()
-            .get(format!("https://api.near.ai/v1/files/{file_id}"))
-            .bearer_auth(&api_key)
-            .send()
-            .await?
-            .json::<NearAIFile>()
-            .await?;
-        files_data.push(file_data);
-    }
-
-    let image = files_data.iter().find(|file| {
-        file.filename == "image.png"
-            || file.filename == "image.jpg"
-            || file.filename == "image.jpeg"
-            || file.filename == "image.webp"
-    });
-    let image_content = if let Some(image) = image {
-        let image_bytes = get_reqwest_client()
-            .get(format!("https://api.near.ai/v1/files/{}/content", image.id))
-            .bearer_auth(&api_key)
-            .send()
-            .await?
-            .bytes()
-            .await?;
-        Some(image_bytes)
-    } else {
-        None
-    };
-    if let Some(image_content) = image_content {
-        bot.bot()
-            .send_photo(chat_id, InputFile::memory(image_content))
-            .await?;
-    }
-
-    let ui = files_data.iter().find(|file| file.filename == "index.html");
-    let ui_content = if let Some(ui) = ui {
-        let html = get_reqwest_client()
-            .get(format!("https://api.near.ai/v1/files/{}/content", ui.id))
-            .bearer_auth(&api_key)
-            .send()
-            .await?
-            .text()
-            .await?;
-        Some(html)
-    } else {
-        None
-    };
-
-    let mut buttons = Vec::<Vec<_>>::new();
-    if let Some(ui_content) = ui_content {
-        match encrypt_and_upload_to_hastebin(&ui_content).await {
-            Ok((hastebin_id, encryption_key)) => {
-                if chat_id.is_user() {
-                    buttons.push(vec![InlineKeyboardButton::web_app(
-                    "Open",
-                    WebAppInfo {
-                        url: dbg!(format!(
-                            // Insecure, will be fixed once someone breaks it or once slime thinks it's worth investing time into making something reliable
-                            "https://telegram-webapp-nearai.intear.tech/?id={}&key={}&hastebin_key={}",
-                            hastebin_id, encryption_key, std::env::var("HASTEBIN_API_KEY").unwrap_or_default()
-                        ))
-                        .parse()
-                        .unwrap(),
-                    },
-                )]);
-                } else {
-                    assistant_messages.push(format!("Open the UI: [here](https://telegram-webapp-nearai.intear.tech/?id={}&key={}&hastebin_key={})", hastebin_id, encryption_key, std::env::var("HASTEBIN_API_KEY").unwrap_or_default()));
-                }
-            }
-            Err(e) => {
-                log::error!("Failed to upload UI content to Hastebin: {}", e);
-            }
-        }
-    }
-
-    let reply_markup = InlineKeyboardMarkup::new(buttons);
-
-    if assistant_messages.is_empty() {
-        bot.bot()
-            .edit_message_text(chat_id, message_id, "_The agent didn't respond_")
-            .parse_mode(ParseMode::MarkdownV2)
-            .reply_markup(reply_markup)
-            .await?;
-    } else {
-        let response_text = assistant_messages.iter().rev().join("\n\n");
-
-        #[allow(deprecated)]
-        if bot
-            .bot()
-            .edit_message_text(chat_id, message_id, &response_text)
-            .parse_mode(ParseMode::Markdown)
-            .reply_markup(reply_markup.clone())
-            .await
-            .is_err()
-        {
-            bot.bot()
-                .edit_message_text(chat_id, message_id, markdown::escape(&response_text))
-                .parse_mode(ParseMode::MarkdownV2)
-                .reply_markup(reply_markup)
-                .await?;
-        }
-    }
 
     if chat_id.is_user() {
         bot.set_message_command(
             user_id,
             MessageCommand::AgentsNearAIUse {
                 agent_id: agent_id.to_string(),
-                thread_id: Some(thread_id),
+                thread_id: Some(thread_id.clone()),
             },
         )
         .await?;
+    }
+
+    let (done_tx, mut done_rx) = tokio::sync::oneshot::channel();
+
+    let thread_id_clone = thread_id.clone();
+    let xeon = Arc::clone(&bot.xeon());
+    let bot_id = bot.id();
+    let before_run = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let polling = tokio::spawn(async move {
+        let bot = xeon.bot(&bot_id).unwrap();
+        let thread_id = thread_id_clone;
+        let mut interval = tokio::time::interval(Duration::from_millis(1000));
+        let mut processed_messages = Vec::new();
+        let mut is_last_iteration = false;
+        let mut is_first_iteration = true;
+        let mut sent_at_least_once = false;
+        loop {
+            let messages = near_ai_get_messages_with_auth(&xeon, Some(user_id), &thread_id).await?;
+
+            let first_message = if let Some(first_message) = messages.data.first() {
+                if first_message.created_at < before_run {
+                    None
+                } else {
+                    Some(first_message)
+                }
+            } else {
+                None
+            };
+            let last_run = first_message.map(|msg| msg.run_id.clone()).flatten();
+            let this_run = messages
+                .data
+                .into_iter()
+                .filter(|msg| msg.run_id == last_run)
+                .filter(|msg| !processed_messages.contains(&msg.id))
+                .collect::<Vec<_>>();
+            for msg in this_run.iter() {
+                processed_messages.push(msg.id.clone());
+            }
+            let mut assistant_messages: Vec<String> = this_run
+                .iter()
+                .filter(|msg| msg.role == "assistant")
+                .filter(|msg| msg.metadata.get("message_type").is_none())
+                .flat_map(|msg| {
+                    msg.content
+                        .iter()
+                        .filter_map(|content| {
+                            if content.content_type == "text" {
+                                content.text.as_ref().map(|text| text.value.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+
+            let files = this_run
+                .iter()
+                .filter(|msg| msg.role == "assistant")
+                .flat_map(|msg| msg.attachments.iter())
+                .map(|attachment| attachment.file_id.clone())
+                .collect::<Vec<_>>();
+            let mut files_data = Vec::new();
+            for file_id in files {
+                let file_data = get_reqwest_client()
+                    .get(format!("https://api.near.ai/v1/files/{file_id}"))
+                    .bearer_auth(&api_key)
+                    .send()
+                    .await?
+                    .json::<NearAIFile>()
+                    .await?;
+                files_data.push(file_data);
+            }
+
+            let image = files_data.iter().find(|file| {
+                file.filename == "image.png"
+                    || file.filename == "image.jpg"
+                    || file.filename == "image.jpeg"
+                    || file.filename == "image.webp"
+            });
+            let image_content = if let Some(image) = image {
+                let image_bytes = get_reqwest_client()
+                    .get(format!("https://api.near.ai/v1/files/{}/content", image.id))
+                    .bearer_auth(&api_key)
+                    .send()
+                    .await?
+                    .bytes()
+                    .await?;
+                Some(image_bytes)
+            } else {
+                None
+            };
+            if let Some(image_content) = image_content {
+                bot.bot()
+                    .send_photo(chat_id, InputFile::memory(image_content))
+                    .await?;
+            }
+
+            let ui = files_data.iter().find(|file| file.filename == "index.html");
+            let ui_content = if let Some(ui) = ui {
+                let html = get_reqwest_client()
+                    .get(format!("https://api.near.ai/v1/files/{}/content", ui.id))
+                    .bearer_auth(&api_key)
+                    .send()
+                    .await?
+                    .text()
+                    .await?;
+                Some(html)
+            } else {
+                None
+            };
+
+            let mut buttons = Vec::<Vec<_>>::new();
+            if let Some(ui_content) = ui_content.as_ref() {
+                match encrypt_and_upload_to_hastebin(&ui_content).await {
+                    Ok((hastebin_id, encryption_key)) => {
+                        if chat_id.is_user() {
+                            buttons.push(vec![InlineKeyboardButton::web_app(
+                            "Open",
+                            WebAppInfo {
+                                url: dbg!(format!(
+                                    // Insecure, will be fixed once someone breaks it or once slime thinks it's worth investing time into making something reliable
+                                    "https://telegram-webapp-nearai.intear.tech/?id={}&key={}&hastebin_key={}",
+                                    hastebin_id, encryption_key, std::env::var("HASTEBIN_API_KEY").unwrap_or_default()
+                                ))
+                                .parse()
+                                .unwrap(),
+                            },
+                        )]);
+                        } else {
+                            assistant_messages.push(format!("Open the UI: [here](https://telegram-webapp-nearai.intear.tech/?id={}&key={}&hastebin_key={})", hastebin_id, encryption_key, std::env::var("HASTEBIN_API_KEY").unwrap_or_default()));
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Failed to upload UI content to Hastebin: {}", e);
+                    }
+                }
+            }
+
+            let reply_markup = InlineKeyboardMarkup::new(buttons);
+
+            if assistant_messages.is_empty() {
+                if is_last_iteration && !sent_at_least_once {
+                    if is_first_iteration {
+                        bot.bot()
+                            .edit_message_text(
+                                chat_id,
+                                message_id,
+                                if ui_content.is_some() {
+                                    "The agent sent you an interface"
+                                } else {
+                                    "_The agent didn't respond_"
+                                },
+                            )
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_markup(reply_markup)
+                            .await?;
+                        is_first_iteration = false;
+                    } else {
+                        message_id = bot
+                            .bot()
+                            .send_message(
+                                chat_id,
+                                if ui_content.is_some() {
+                                    "The agent sent you an interface"
+                                } else {
+                                    "_The agent didn't respond_"
+                                },
+                            )
+                            .reply_parameters(ReplyParameters {
+                                message_id,
+                                chat_id: None,
+                                allow_sending_without_reply: None,
+                                quote: None,
+                                quote_parse_mode: None,
+                                quote_entities: None,
+                                quote_position: None,
+                            })
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_markup(reply_markup)
+                            .await?
+                            .id;
+                    }
+                }
+            } else {
+                sent_at_least_once = true;
+                let response_text = assistant_messages.iter().rev().join("\n\n");
+
+                if is_first_iteration {
+                    if bot
+                        .bot()
+                        .edit_message_text(chat_id, message_id, &response_text)
+                        .parse_mode(
+                            #[allow(deprecated)]
+                            ParseMode::Markdown,
+                        )
+                        .reply_markup(reply_markup.clone())
+                        .await
+                        .is_err()
+                    {
+                        bot.bot()
+                            .edit_message_text(
+                                chat_id,
+                                message_id,
+                                markdown::escape(&response_text),
+                            )
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_markup(reply_markup)
+                            .await?;
+                    }
+                    is_first_iteration = false;
+                } else {
+                    message_id = if let Ok(message) = bot
+                        .bot()
+                        .send_message(chat_id, markdown::escape(&response_text))
+                        .reply_parameters(ReplyParameters {
+                            message_id,
+                            chat_id: None,
+                            allow_sending_without_reply: None,
+                            quote: None,
+                            quote_parse_mode: None,
+                            quote_entities: None,
+                            quote_position: None,
+                        })
+                        .parse_mode(
+                            #[allow(deprecated)]
+                            ParseMode::Markdown,
+                        )
+                        .reply_markup(reply_markup.clone())
+                        .await
+                    {
+                        message.id
+                    } else {
+                        bot.bot()
+                            .send_message(chat_id, markdown::escape(&response_text))
+                            .reply_parameters(ReplyParameters {
+                                message_id,
+                                chat_id: None,
+                                allow_sending_without_reply: None,
+                                quote: None,
+                                quote_parse_mode: None,
+                                quote_entities: None,
+                                quote_position: None,
+                            })
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_markup(reply_markup)
+                            .await?
+                            .id
+                    };
+                }
+            }
+
+            if is_last_iteration {
+                break;
+            }
+            if done_rx.try_recv().is_ok() {
+                is_last_iteration = true;
+            } else {
+                // No need to wait for the interval to tick if the run has already finished
+                interval.tick().await;
+            }
+        }
+        Result::<_, anyhow::Error>::Ok(())
+    });
+
+    near_ai_run(bot, Some(user_id), agent_id, &thread_id, text.to_string()).await?;
+    done_tx.send(()).ok();
+
+    let polling_result = polling.await;
+    match polling_result {
+        Err(e) => {
+            log::error!("Error polling Near AI: {}", e);
+        }
+        Ok(Err(e)) => {
+            log::error!("Error polling Near AI: {}", e);
+        }
+        _ => {}
     }
 
     Ok(())
