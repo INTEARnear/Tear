@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -12,9 +13,10 @@ use itertools::Itertools;
 use near_api::{signer::NEP413Payload, AccountId, SignerTrait};
 use near_crypto::Signature;
 use rand::{thread_rng, Rng};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
-    bot_commands::{MessageCommand, SelectedAccount},
+    bot_commands::{MessageCommand, SelectedAccount, TgCommand},
     teloxide::{
         payloads::{EditMessageTextSetters, SendMessageSetters},
         prelude::Requester,
@@ -348,6 +350,7 @@ pub async fn handle_near_ai_agent(
     let (done_tx, mut done_rx) = tokio::sync::oneshot::channel();
 
     let thread_id_clone = thread_id.clone();
+    let agent_id_clone = agent_id.to_string();
     let xeon = Arc::clone(&bot.xeon());
     let bot_id = bot.id();
     let before_run = SystemTime::now()
@@ -362,7 +365,12 @@ pub async fn handle_near_ai_agent(
         let mut is_last_iteration = false;
         let mut is_first_iteration = true;
         let mut sent_at_least_once = false;
+        let mut iterations = 0;
         loop {
+            iterations += 1;
+            if iterations > 1000 {
+                break;
+            }
             let messages = near_ai_get_messages_with_auth(&xeon, Some(user_id), &thread_id).await?;
 
             let first_message = if let Some(first_message) = messages.data.first() {
@@ -384,6 +392,7 @@ pub async fn handle_near_ai_agent(
             for msg in this_run.iter() {
                 processed_messages.push(msg.id.clone());
             }
+
             let mut assistant_messages: Vec<String> = this_run
                 .iter()
                 .filter(|msg| msg.role == "assistant")
@@ -394,6 +403,32 @@ pub async fn handle_near_ai_agent(
                         .filter_map(|content| {
                             if content.content_type == "text" {
                                 content.text.as_ref().map(|text| text.value.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+            let control_messages: HashMap<String, String> = this_run
+                .iter()
+                .filter(|msg| msg.role == "assistant")
+                .filter_map(|msg| {
+                    msg.metadata
+                        .get("message_type")
+                        .map(|v| v.as_str())
+                        .flatten()
+                        .map(|s| (msg, s))
+                })
+                .flat_map(|(msg, s)| {
+                    msg.content
+                        .iter()
+                        .filter_map(|content| {
+                            if content.content_type == "text" {
+                                content
+                                    .text
+                                    .as_ref()
+                                    .map(|text| (s.to_string(), text.value.clone()))
                             } else {
                                 None
                             }
@@ -459,6 +494,68 @@ pub async fn handle_near_ai_agent(
             };
 
             let mut buttons = Vec::<Vec<_>>::new();
+            if let Some(buttons_control_message) = control_messages.get("buttons") {
+                #[derive(Debug, Deserialize)]
+                struct Buttons {
+                    buttons: Vec<Vec<Button>>,
+                }
+
+                #[derive(Debug, Deserialize)]
+                #[serde(untagged)]
+                enum Button {
+                    Text(String),
+                    ButtonType(ButtonType),
+                }
+
+                #[derive(Debug, Deserialize)]
+                enum ButtonType {
+                    LongText {
+                        text_on_button: String,
+                        text_message: String,
+                    },
+                    Url {
+                        text: String,
+                        url: Url,
+                    },
+                }
+
+                if let Ok(buttons_received) =
+                    serde_json::from_str::<Buttons>(buttons_control_message)
+                {
+                    for button in buttons_received.buttons {
+                        let mut row = Vec::new();
+                        for button in button {
+                            row.push(match button {
+                                Button::Text(text) => InlineKeyboardButton::callback(
+                                    text.clone(),
+                                    bot.to_callback_data(&TgCommand::AgentsNearAISendMessage {
+                                        agent_id: agent_id_clone.clone(),
+                                        thread_id: Some(thread_id.clone()),
+                                        user_message: text,
+                                    })
+                                    .await,
+                                ),
+                                Button::ButtonType(ButtonType::LongText {
+                                    text_on_button,
+                                    text_message,
+                                }) => InlineKeyboardButton::callback(
+                                    text_on_button,
+                                    bot.to_callback_data(&TgCommand::AgentsNearAISendMessage {
+                                        agent_id: agent_id_clone.clone(),
+                                        thread_id: Some(thread_id.clone()),
+                                        user_message: text_message,
+                                    })
+                                    .await,
+                                ),
+                                Button::ButtonType(ButtonType::Url { text, url }) => {
+                                    InlineKeyboardButton::url(text, url)
+                                }
+                            });
+                        }
+                        buttons.push(row);
+                    }
+                }
+            }
             if let Some(ui_content) = ui_content.as_ref() {
                 match encrypt_and_upload_to_hastebin(&ui_content).await {
                     Ok((hastebin_id, encryption_key)) => {
@@ -466,11 +563,11 @@ pub async fn handle_near_ai_agent(
                             buttons.push(vec![InlineKeyboardButton::web_app(
                             "Open",
                             WebAppInfo {
-                                url: dbg!(format!(
+                                url: format!(
                                     // Insecure, will be fixed once someone breaks it or once slime thinks it's worth investing time into making something reliable
                                     "https://telegram-webapp-nearai.intear.tech/?id={}&key={}&hastebin_key={}",
                                     hastebin_id, encryption_key, std::env::var("HASTEBIN_API_KEY").unwrap_or_default()
-                                ))
+                                )
                                 .parse()
                                 .unwrap(),
                             },

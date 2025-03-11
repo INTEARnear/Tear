@@ -1273,6 +1273,12 @@ pub enum TgCommand {
         #[serde(with = "dec_format")]
         amount: Balance,
     },
+    #[cfg(feature = "agents-module")]
+    AgentsNearAISendMessage {
+        agent_id: String,
+        thread_id: Option<String>,
+        user_message: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

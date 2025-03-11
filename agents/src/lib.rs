@@ -700,6 +700,49 @@ Send a text message to use the agent
                 } else {
                     &agent.description
                 };
+                let custom_buttons = if let Some(custom_buttons) = agent.details.get("agent") {
+                    if let Some(buttons) = custom_buttons.get("welcome") {
+                        if let Some(buttons) = buttons.get("buttons") {
+                            if let Some(rows) = buttons.as_array() {
+                                let mut rows_buttons = Vec::new();
+                                for row in rows {
+                                    let mut row_buttons = Vec::new();
+                                    if let Some(buttons) = row.as_array() {
+                                        for button in buttons {
+                                            if let Some(text) = button.as_str() {
+                                                row_buttons.push(InlineKeyboardButton::callback(
+                                                    format!("🤖 {text}"),
+                                                    context
+                                                        .bot()
+                                                        .to_callback_data(
+                                                            &TgCommand::AgentsNearAISendMessage {
+                                                                agent_id: agent_id.clone(),
+                                                                thread_id: None,
+                                                                user_message: text.to_string(),
+                                                            },
+                                                        )
+                                                        .await,
+                                                ));
+                                            }
+                                        }
+                                    }
+                                    if !row_buttons.is_empty() {
+                                        rows_buttons.push(row_buttons);
+                                    }
+                                }
+                                rows_buttons
+                            } else {
+                                vec![]
+                            }
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    vec![]
+                };
                 let message = format!(
                     "
 *{name}*
@@ -715,7 +758,7 @@ Send a text message to use the agent
                     namespace = format_account_id(&agent.namespace).await,
                 );
 
-                let buttons = vec![
+                let mut buttons = vec![
                     vec![InlineKeyboardButton::callback(
                         "Add to Chat",
                         context
@@ -733,6 +776,7 @@ Send a text message to use the agent
                         context.bot().to_callback_data(&TgCommand::Agents).await,
                     )],
                 ];
+                buttons.extend(custom_buttons);
 
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context
@@ -1082,6 +1126,30 @@ Send a text message to use the agent
                     Some(thread_id),
                     MessageRole::System,
                     "The user has confirmed and sent the transaction.\n\nExecution status: Success",
+                )
+                .await?;
+            }
+            TgCommand::AgentsNearAISendMessage {
+                agent_id,
+                thread_id,
+                user_message,
+            } => {
+                let message_id = context
+                    .send(
+                        format!("You sent: {}", markdown::escape(&user_message)),
+                        InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                        Attachment::None,
+                    )
+                    .await?
+                    .id;
+                handle_near_ai_agent(
+                    context.bot(),
+                    context.user_id(),
+                    context.chat_id().chat_id(),
+                    message_id,
+                    &agent_id,
+                    thread_id,
+                    &user_message,
                 )
                 .await?;
             }
