@@ -1249,6 +1249,30 @@ pub enum TgCommand {
         agent_id: String,
         thread_id: String,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotStaking,
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotStake {
+        selected_account_id: AccountId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotStakeAmount {
+        selected_account_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotUnstake {
+        selected_account_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotWithdrawStaked {
+        selected_account_id: AccountId,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1689,6 +1713,10 @@ pub enum MessageCommand {
     AgentsAddToChatAskForCommand {
         agent_type: AgentType,
         target_chat_id: ChatId,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotStake {
+        selected_account_id: AccountId,
     },
 }
 
