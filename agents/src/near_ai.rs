@@ -21,8 +21,8 @@ use tearbot_common::{
         payloads::{EditMessageTextSetters, SendMessageSetters},
         prelude::Requester,
         types::{
-            ChatId, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, MessageId, ParseMode,
-            ReplyParameters, UserId, WebAppInfo,
+            ChatAction, ChatId, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, MessageId,
+            ParseMode, ReplyParameters, UserId, WebAppInfo,
         },
         utils::markdown,
     },
@@ -371,6 +371,9 @@ pub async fn handle_near_ai_agent(
             if iterations > 1000 {
                 break;
             }
+            bot.bot()
+                .send_chat_action(chat_id, ChatAction::Typing)
+                .await?;
             let messages = near_ai_get_messages_with_auth(&xeon, Some(user_id), &thread_id).await?;
 
             let first_message = if let Some(first_message) = messages.data.first() {

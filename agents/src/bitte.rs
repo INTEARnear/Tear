@@ -12,7 +12,7 @@ use tearbot_common::{
         payloads::{EditMessageTextSetters, SendMessageSetters},
         prelude::Requester,
         types::{
-            ChatId, InlineKeyboardButton, InlineKeyboardMarkup, MessageId, ParseMode,
+            ChatAction, ChatId, InlineKeyboardButton, InlineKeyboardMarkup, MessageId, ParseMode,
             ReplyParameters, UserId,
         },
         utils::markdown,
@@ -510,6 +510,9 @@ pub async fn handle_bitte_agent(
     let mut response_text = String::new();
     let mut last_edit = Instant::now();
 
+    bot.bot()
+        .send_chat_action(chat_id, ChatAction::Typing)
+        .await?;
     let mut edits = 0usize;
     while let Some(Ok(chunk)) = stream.next().await {
         if let Ok(chunk_str) = String::from_utf8(chunk.to_vec()) {
@@ -531,6 +534,9 @@ pub async fn handle_bitte_agent(
                                     format!("{} _\\.\\.\\._", markdown::escape(&response_text)),
                                 )
                                 .parse_mode(ParseMode::MarkdownV2)
+                                .await?;
+                            bot.bot()
+                                .send_chat_action(chat_id, ChatAction::Typing)
                                 .await?;
                             last_edit = Instant::now();
                             edits += 1;
