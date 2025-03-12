@@ -360,12 +360,13 @@ pub async fn handle_near_ai_agent(
     let polling = tokio::spawn(async move {
         let bot = xeon.bot(&bot_id).unwrap();
         let thread_id = thread_id_clone;
-        let mut interval = tokio::time::interval(Duration::from_millis(1000));
+        let mut interval = tokio::time::interval(Duration::from_millis(500));
         let mut processed_messages = Vec::new();
         let mut is_last_iteration = false;
-        let mut is_first_iteration = true;
         let mut sent_at_least_once = false;
+        let mut has_thinking_message = true;
         let mut iterations = 0;
+        let mut errors = 0;
         loop {
             iterations += 1;
             if iterations > 1000 {
@@ -374,7 +375,21 @@ pub async fn handle_near_ai_agent(
             bot.bot()
                 .send_chat_action(chat_id, ChatAction::Typing)
                 .await?;
-            let messages = near_ai_get_messages_with_auth(&xeon, Some(user_id), &thread_id).await?;
+            let Ok(messages) =
+                near_ai_get_messages_with_auth(&xeon, Some(user_id), &thread_id).await
+            else {
+                errors += 1;
+                if errors > 20 {
+                    let message = "We're experiencing issues with connecting to Near AI right now\\. Please try again later\\.";
+                    bot.bot()
+                        .edit_message_text(chat_id, message_id, message)
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .await?;
+                    break;
+                }
+                interval.tick().await;
+                continue;
+            };
 
             let first_message = if let Some(first_message) = messages.data.first() {
                 if first_message.created_at < before_run {
@@ -391,10 +406,8 @@ pub async fn handle_near_ai_agent(
                 .into_iter()
                 .filter(|msg| msg.run_id == last_run)
                 .filter(|msg| !processed_messages.contains(&msg.id))
+                .rev()
                 .collect::<Vec<_>>();
-            for msg in this_run.iter() {
-                processed_messages.push(msg.id.clone());
-            }
 
             let mut assistant_messages: Vec<String> = this_run
                 .iter()
@@ -439,6 +452,28 @@ pub async fn handle_near_ai_agent(
                         .collect::<Vec<_>>()
                 })
                 .collect();
+
+            let mut waiting_for_text_message = Vec::new();
+            for msg in this_run.iter() {
+                // Some control messages can only be processed when they are before
+                // a text message. For example, buttons.
+                const DEPENDENT_MESSAGE_TYPES: &[&str] = &["buttons"];
+                if DEPENDENT_MESSAGE_TYPES.contains(
+                    &msg.metadata
+                        .get("message_type")
+                        .map(|v| v.as_str())
+                        .flatten()
+                        .unwrap_or_default(),
+                ) {
+                    waiting_for_text_message.push(msg.id.clone());
+                    continue;
+                }
+                if msg.metadata.get("message_type").is_none() {
+                    processed_messages.extend(waiting_for_text_message.clone());
+                    waiting_for_text_message.clear();
+                }
+                processed_messages.push(msg.id.clone());
+            }
 
             let files = this_run
                 .iter()
@@ -589,7 +624,7 @@ pub async fn handle_near_ai_agent(
 
             if assistant_messages.is_empty() {
                 if is_last_iteration && !sent_at_least_once {
-                    if is_first_iteration {
+                    if has_thinking_message {
                         bot.bot()
                             .edit_message_text(
                                 chat_id,
@@ -603,7 +638,6 @@ pub async fn handle_near_ai_agent(
                             .parse_mode(ParseMode::MarkdownV2)
                             .reply_markup(reply_markup)
                             .await?;
-                        is_first_iteration = false;
                     } else {
                         message_id = bot
                             .bot()
@@ -632,9 +666,9 @@ pub async fn handle_near_ai_agent(
                 }
             } else {
                 sent_at_least_once = true;
-                let response_text = assistant_messages.iter().rev().join("\n\n");
+                let response_text = assistant_messages.iter().join("\n\n");
 
-                if is_first_iteration {
+                if has_thinking_message {
                     if bot
                         .bot()
                         .edit_message_text(chat_id, message_id, &response_text)
@@ -656,7 +690,6 @@ pub async fn handle_near_ai_agent(
                             .reply_markup(reply_markup)
                             .await?;
                     }
-                    is_first_iteration = false;
                 } else {
                     message_id = if let Ok(message) = bot
                         .bot()
@@ -696,9 +729,52 @@ pub async fn handle_near_ai_agent(
                             .id
                     };
                 }
+                has_thinking_message = false;
+            }
+            if let Some(status_control_message) = control_messages.get("status") {
+                #[derive(Debug, Deserialize)]
+                struct Status {
+                    message: String,
+                    progress: Option<f64>,
+                }
+
+                if let Ok(status_received) = serde_json::from_str::<Status>(status_control_message)
+                {
+                    let message = format!(
+                        "_{}_{}",
+                        markdown::escape(&status_received.message),
+                        if let Some(progress) = status_received.progress {
+                            format!(
+                                " \\({}%\\)",
+                                (progress * 100.0).clamp(0.0, 100.0).round() as u8
+                            )
+                        } else {
+                            "".to_string()
+                        }
+                    );
+                    if has_thinking_message {
+                        bot.bot()
+                            .edit_message_text(chat_id, message_id, message)
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .await?;
+                    } else {
+                        message_id = bot
+                            .send_text_message(
+                                chat_id.into(),
+                                message,
+                                InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                            )
+                            .await?
+                            .id;
+                        has_thinking_message = true;
+                    }
+                }
             }
 
             if is_last_iteration {
+                if has_thinking_message {
+                    bot.bot().delete_message(chat_id, message_id).await?;
+                }
                 break;
             }
             if done_rx.try_recv().is_ok() {
