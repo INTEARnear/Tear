@@ -2439,7 +2439,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         let mut buttons = Vec::new();
         #[cfg(feature = "trading-bot-module")]
         buttons.push(vec![InlineKeyboardButton::callback(
-            "💰 Trade (BETA)",
+            "💰 Trade",
             context.bot().to_callback_data(&TgCommand::TradingBot).await,
         )]);
         buttons.push(vec![InlineKeyboardButton::callback(
@@ -2825,7 +2825,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 {
                     if target_chat_id.thread_id().is_none() {
                         buttons.push(vec![InlineKeyboardButton::callback(
-                            "🤖 AI Agents (beta)",
+                            "🤖 AI Agents",
                             context
                                 .bot()
                                 .to_callback_data(&TgCommand::AgentsChatSettings {

@@ -86,6 +86,10 @@ No additional setup is required.
 
 Also, you need to have `geckodriver` installed and in your PATH.
 
+#### AI Agents
+
+You need to have `NEAR_AI_API_KEY` and `BITTE_API_KEY` environment variables set. Get `NEAR_AI_API_KEY` from Near AI CLI (`pip install nearai`, `nearai login`, `cat ~/.nearai/config.json | jq .auth`) and `BITTE_API_KEY` from [Bitte](https://key.bitte.ai).
+
 ### Architecture
 
 The bot consists of multiple modules. The first and necessary one is HubModule. It handles /start and gives buttons that help users access other modules. There are also event handlers that handle events from blockchain, they are somewhat similar to modules, and one struct can implement both traits. Check out `tearbot/src/main.rs` to see how to register a module. Modules in Tear are hidden behind feature flags. Some of the modules are open-source, so these features are enabled by default, but some are stored inside `xeon-private-modules`, which are not accessible publicly. Tear can support multiple telegram bot instances, with different or shared per-bot data and modules, check out the `main.rs` to see more.
