@@ -693,7 +693,7 @@ pub async fn handle_near_ai_agent(
                 } else {
                     message_id = if let Ok(message) = bot
                         .bot()
-                        .send_message(chat_id, markdown::escape(&response_text))
+                        .send_message(chat_id, &response_text)
                         .reply_parameters(ReplyParameters {
                             message_id,
                             chat_id: None,
