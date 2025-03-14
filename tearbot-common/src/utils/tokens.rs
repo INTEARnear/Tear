@@ -235,7 +235,7 @@ pub async fn format_account_id(account_id: &AccountId) -> String {
     format!("{badge}[{name}](https://pikespeak.ai/wallet-explorer/{account_id})")
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Default)]
 #[serde(transparent)]
 pub struct StringifiedBalance(#[serde(with = "dec_format")] pub Balance);
 
