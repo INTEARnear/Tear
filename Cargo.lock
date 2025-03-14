@@ -3888,24 +3888,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "image-gen"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.22.1",
- "chrono",
- "dashmap 6.1.0",
- "log",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "tearbot-common",
- "tokio",
- "zip 2.2.3",
-]
-
-[[package]]
 name = "image-webp"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11580,7 +11562,6 @@ dependencies = [
  "dotenvy",
  "ft-buybot",
  "futures-util",
- "image-gen",
  "itertools 0.14.0",
  "log",
  "near-jsonrpc-primitives 0.28.0",
@@ -12583,7 +12564,7 @@ dependencies = [
  "serde_json",
  "url",
  "utoipa",
- "zip 1.1.4",
+ "zip",
 ]
 
 [[package]]
@@ -13398,21 +13379,6 @@ dependencies = [
  "indexmap 2.7.1",
  "num_enum",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "zip"
-version = "2.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b280484c454e74e5fff658bbf7df8fdbe7a07c6b2de4a53def232c15ef138f3a"
-dependencies = [
- "arbitrary",
- "crc32fast",
- "crossbeam-utils",
- "displaydoc",
- "indexmap 2.7.1",
- "memchr",
- "thiserror 2.0.11",
 ]
 
 [[package]]

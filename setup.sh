@@ -2,7 +2,7 @@
 
 SUBMODULE_PATH="./xeon-private-modules"
 
-declare -a SHIM_PACKAGES=("ft-buybot" "new-liquidity-pools" "nft-buybot" "potlock" "price-alerts" "socialdb" "new-tokens" "image-gen" "trading-bot")
+declare -a SHIM_PACKAGES=("ft-buybot" "new-liquidity-pools" "nft-buybot" "potlock" "price-alerts" "socialdb" "new-tokens" "trading-bot")
 
 if [ -f "$SUBMODULE_PATH/.git" ] || [ -d "$SUBMODULE_PATH/.git" ]; then
     echo "Submodule $SUBMODULE_PATH already exists."

@@ -17,7 +17,6 @@ new-tokens = { path = "../xeon-private-modules/new-tokens", optional = true }
 utilities = { path = "../utilities", optional = true }
 near-tgi = { path = "../near-tgi", optional = true }
 ai-moderator = { path = "../ai-moderator", optional = true }
-image-gen = { path = "../xeon-private-modules/image-gen", optional = true }
 burrow-liquidations = { path = "../burrow-liquidations", optional = true }
 price-commands = { path = "../price-commands", optional = true }
 trading-bot = { path = "../xeon-private-modules/trading-bot", optional = true }
@@ -82,7 +81,6 @@ xeon = [
 ]
 int = [
     "ai-moderator-module",
-    "image-gen-module",
     "all-group-features-need-admin",
     "configure-channels",
 ]
@@ -106,7 +104,6 @@ new-tokens-module = ["tearbot-common/new-tokens-module", "new-tokens"]
 utilities-module = ["tearbot-common/utilities-module", "utilities"]
 near-tgi-module = ["tearbot-common/near-tgi-module", "near-tgi"]
 ai-moderator-module = ["tearbot-common/ai-moderator-module", "ai-moderator"]
-image-gen-module = ["tearbot-common/image-gen-module", "image-gen"]
 burrow-liquidations-module = [
     "tearbot-common/burrow-liquidations-module",
     "burrow-liquidations",

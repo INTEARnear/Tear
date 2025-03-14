@@ -1,4 +1,4 @@
-#[cfg(any(feature = "ai-moderator-module", feature = "image-gen-module"))]
+#[cfg(feature = "ai-moderator-module")]
 pub mod ai;
 pub mod apis;
 pub mod chat;

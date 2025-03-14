@@ -20,8 +20,6 @@ use contract_logs::text::ContractLogsTextModule;
 use contract_logs::ContractLogsModule;
 #[cfg(feature = "ft-buybot-module")]
 use ft_buybot::FtBuybotModule;
-#[cfg(feature = "image-gen-module")]
-use image_gen::ImageGenModule;
 use log::info;
 #[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
 use modules::hub::HubModule;
@@ -278,12 +276,6 @@ fn main() -> Result<(), anyhow::Error> {
                 {
                     xeon.state()
                         .add_bot_module(AiModeratorModule::new(xeon.arc_clone_state()).await?)
-                        .await;
-                }
-                #[cfg(feature = "image-gen-module")]
-                {
-                    xeon.state()
-                        .add_bot_module(ImageGenModule::new(xeon.arc_clone_state()).await?)
                         .await;
                 }
                 #[cfg(feature = "burrow-liquidations")]

@@ -2506,11 +2506,6 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 "tg://resolve?domain=intearchat".parse().unwrap(),
             )],
         ]);
-        #[cfg(feature = "image-gen-module")]
-        buttons.push(vec![InlineKeyboardButton::callback(
-            "🎨 AI Image Generation",
-            context.bot().to_callback_data(&TgCommand::ImageGen).await,
-        )]);
         let reply_markup = InlineKeyboardMarkup::new(buttons);
         context.edit_or_send(message, reply_markup).await?;
         Ok(())

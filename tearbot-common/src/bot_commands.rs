@@ -495,48 +495,6 @@ pub enum TgCommand {
     AiModeratorPromptConstructorAddOther(PromptBuilder),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorUndeleteMessage(ChatId, ChatId, ChatId, String, Attachment),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenGenerateAnother(String, Option<(reqwest::Url, f64)>, FluxModel),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenUpscale(reqwest::Url),
-    #[cfg(feature = "image-gen-module")]
-    CreateLoRA(reqwest::Url, String),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenBuyCredits,
-    #[cfg(feature = "image-gen-module")]
-    ImageGenBuyCreditsAmount(u32),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenSettings,
-    #[cfg(feature = "image-gen-module")]
-    ImageGenSetPromptEnhancer(bool),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenSetNSFWMode(bool),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenCreateLoRA,
-    #[cfg(feature = "image-gen-module")]
-    ImageGenDiscoverLoRAs,
-    #[cfg(feature = "image-gen-module")]
-    ImageGenCreateLoRAChooseType {
-        token: String,
-        is_style: bool,
-    },
-    #[cfg(feature = "image-gen-module")]
-    ImageGenLoRAConfirmation {
-        token: String,
-        images: Vec<(String, String)>,
-        page: usize,
-    },
-    #[cfg(feature = "image-gen-module")]
-    ImageGenLoRAConfirmed {
-        token: String,
-        images: Vec<(String, String)>,
-    },
-    #[cfg(feature = "image-gen-module")]
-    ImageGenLoRAInfo {
-        key: String,
-    },
-    #[cfg(feature = "image-gen-module")]
-    ImageGen,
     #[cfg(feature = "burrow-liquidations-module")]
     BurrowLiquidationsSettings(NotificationDestination),
     #[cfg(feature = "burrow-liquidations-module")]
@@ -1448,14 +1406,6 @@ pub enum MessageCommand {
     AiModeratorTest(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorPromptConstructorAddOther(PromptBuilder),
-    #[cfg(feature = "image-gen-module")]
-    ImageGenLoRAName,
-    #[cfg(feature = "image-gen-module")]
-    ImageGenLoRAAddImages {
-        token: String,
-        is_style: bool,
-        images: Vec<(String, Option<String>)>,
-    },
     #[cfg(feature = "burrow-liquidations-module")]
     BurrowLiquidationsAddAccount(NotificationDestination),
     ConnectAccountAnonymously,
@@ -1727,10 +1677,7 @@ pub enum MessageCommand {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PaymentReference {
-    #[cfg(feature = "image-gen-module")]
-    ImageGenBuyingCredits(u32),
-}
+pub enum PaymentReference {}
 
 impl From<MessageCommand> for Bson {
     fn from(command: MessageCommand) -> Self {
@@ -2177,14 +2124,6 @@ pub enum ProfanityLevel {
     NotAllowed,
     LightProfanityAllowed,
     Allowed,
-}
-
-#[cfg(feature = "image-gen-module")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FluxModel {
-    Schnell,
-    Dev,
-    Pro,
 }
 
 #[cfg(feature = "ft-buybot-module")]
