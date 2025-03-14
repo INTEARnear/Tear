@@ -434,8 +434,7 @@ pub async fn handle_near_ai_agent(
                         .get("message_type")
                         .map(|v| v.as_str())
                         .flatten()
-                        .filter(|s| s.starts_with("system:"))
-                        .map(|s| &s["system:".len()..])
+                        .and_then(|s| s.strip_prefix("system:"))
                         .map(|s| (msg, s))
                 })
                 .flat_map(|(msg, s)| {
