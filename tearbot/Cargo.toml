@@ -6,6 +6,7 @@ license = { workspace = true }
 
 [dependencies]
 tearbot-common = { path = "../tearbot-common" }
+explorer = { path = "../explorer", optional = true }
 contract-logs = { path = "../contract-logs", optional = true }
 ft-buybot = { path = "../xeon-private-modules/ft-buybot", optional = true }
 new-liquidity-pools = { path = "../xeon-private-modules/new-liquidity-pools", optional = true }
@@ -57,6 +58,7 @@ tear = [
     "price-commands-module",
     "wallet-tracking-module",
     "agents-module",
+    "explorer-module",
 ]
 xeon = [
     "contract-logs-module",
@@ -78,6 +80,7 @@ xeon = [
     "trading-bot-module",
     "wallet-tracking-module",
     "agents-module",
+    "explorer-module",
 ]
 int = [
     "ai-moderator-module",
@@ -115,3 +118,4 @@ wallet-tracking-module = [
     "wallet-tracking",
 ]
 agents-module = ["tearbot-common/agents-module", "agents"]
+explorer-module = ["tearbot-common/explorer-module", "explorer"]

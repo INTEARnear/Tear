@@ -18,12 +18,13 @@ use contract_logs::nep297::ContractLogsNep297Module;
 use contract_logs::text::ContractLogsTextModule;
 #[cfg(feature = "contract-logs-module")]
 use contract_logs::ContractLogsModule;
+#[cfg(feature = "explorer-module")]
+use explorer::ExplorerModule;
 #[cfg(feature = "ft-buybot-module")]
 use ft_buybot::FtBuybotModule;
 use log::info;
 #[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
 use modules::hub::HubModule;
-use modules::inline_query::InlineQueryModule;
 #[cfg(feature = "near-tgi-module")]
 use near_tgi::NearTgiModule;
 #[cfg(feature = "new-liquidity-pools-module")]
@@ -120,34 +121,13 @@ fn main() -> Result<(), anyhow::Error> {
                 )
                 .await?;
                 xeon.state().add_bot(main_bot).await?;
-                if let Ok(old_main_bot_token) = std::env::var("OLD_MAIN_TOKEN") {
-                    let old_main_bot = BotData::new(
-                        CacheMe::new(
-                            Bot::with_client(
-                                old_main_bot_token,
-                                reqwest::Client::builder()
-                                    .timeout(Duration::from_secs(30))
-                                    .build()
-                                    .unwrap(),
-                            )
-                            .set_api_url(base.clone())
-                            .throttle(Limits {
-                                messages_per_sec_overall: 1000, // just to increase queue size
-                                ..Limits::default()
-                            }),
-                        ),
-                        BotType::Main,
-                        xeon.arc_clone_state(),
-                    )
-                    .await?;
-                    xeon.state().add_bot(old_main_bot).await?;
-                }
 
                 #[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
                 xeon.state()
                     .add_bot_module(HubModule::new(xeon.arc_clone_state()).await)
                     .await;
-                xeon.state().add_bot_module(InlineQueryModule).await;
+                #[cfg(feature = "explorer-module")]
+                xeon.state().add_bot_module(ExplorerModule).await;
                 #[cfg(feature = "utilities-module")]
                 xeon.state()
                     .add_bot_module(UtilitiesModule::new(xeon.arc_clone_state()))

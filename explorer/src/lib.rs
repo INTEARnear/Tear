@@ -47,12 +47,12 @@ use tearbot_common::{
     xeon::XeonBotModule,
 };
 
-pub struct InlineQueryModule;
+pub struct ExplorerModule;
 
 #[async_trait]
-impl XeonBotModule for InlineQueryModule {
+impl XeonBotModule for ExplorerModule {
     fn name(&self) -> &'static str {
-        "inline_query"
+        "explorer"
     }
 
     async fn handle_message(
@@ -132,7 +132,7 @@ impl XeonBotModule for InlineQueryModule {
     }
 }
 
-impl InlineQueryModule {
+impl ExplorerModule {
     async fn get_recent_account_trades(
         &self,
         _bot: &BotData,

@@ -2696,6 +2696,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "explorer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "futures-util",
+ "itertools 0.14.0",
+ "log",
+ "near-jsonrpc-primitives 0.28.0",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+]
+
+[[package]]
 name = "exr"
 version = "1.73.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11560,6 +11577,7 @@ dependencies = [
  "chrono",
  "contract-logs",
  "dotenvy",
+ "explorer",
  "ft-buybot",
  "futures-util",
  "itertools 0.14.0",

@@ -1,7 +1,8 @@
 [package]
 name = "tearbot-common"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
@@ -53,6 +54,8 @@ near-jsonrpc-primitives = { workspace = true }
 near-crypto = { workspace = true }
 
 [features]
+redis-events = ["redis", "inevents-redis", "inevents-redis-old"]
+websocket-events = ["tokio-tungstenite"]
 contract-logs-module = ["semver"]
 ft-buybot-module = []
 new-liquidity-pools-module = []
@@ -69,6 +72,4 @@ price-commands-module = []
 trading-bot-module = ["solana-sdk"]
 wallet-tracking-module = []
 agents-module = []
-
-redis-events = ["redis", "inevents-redis", "inevents-redis-old"]
-websocket-events = ["tokio-tungstenite"]
+explorer-module = []
