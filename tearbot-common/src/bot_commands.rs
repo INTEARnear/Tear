@@ -551,6 +551,8 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBot,
     #[cfg(feature = "trading-bot-module")]
+    TradingBotCreateFirstAccountAnd(Box<TgCommand>),
+    #[cfg(feature = "trading-bot-module")]
     TradingBotBuy {
         selected_account_id: Option<AccountId>,
         selected_solana_account: Option<SerializableKeypair>,
@@ -1237,6 +1239,27 @@ pub enum TgCommand {
         thread_id: Option<String>,
         user_message: String,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTeardropCreate {
+        token: TokenType,
+        #[serde(with = "dec_format")]
+        amount: Balance,
+        from_user: UserId,
+        id: CryptoHash,
+        drops_count: u32,
+    },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotTeardropClaim {
+        drop_id: CryptoHash,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum TokenType {
+    Near,
+    Nep141(AccountId),
+    Solana,
+    Spl(Pubkey),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

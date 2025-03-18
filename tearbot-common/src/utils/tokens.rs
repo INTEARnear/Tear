@@ -19,7 +19,7 @@ pub const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 pub const SOL_DECIMALS: u32 = 9;
 pub const SOL_CONTRACT_ON_NEAR: &str = "22.contract.portalbridge.near";
 
-pub async fn format_near_amount(amount: Balance, price_source: impl AsRef<XeonState>) -> String {
+pub async fn format_near_amount(amount: Balance, price_source: &XeonState) -> String {
     if amount == 0 {
         "0 NEAR".to_string()
     } else if amount < 10u128.pow(6) {
@@ -30,10 +30,7 @@ pub async fn format_near_amount(amount: Balance, price_source: impl AsRef<XeonSt
             format_token_amount(amount, NEAR_DECIMALS, "NEAR"),
             format_usd_amount(
                 (amount as f64 / 10u128.pow(NEAR_DECIMALS) as f64)
-                    * price_source
-                        .as_ref()
-                        .get_price(&WRAP_NEAR.parse().unwrap())
-                        .await,
+                    * price_source.get_price(&WRAP_NEAR.parse().unwrap()).await,
             )
         )
     }
@@ -49,7 +46,7 @@ pub fn format_near_amount_without_price(amount: Balance) -> String {
     }
 }
 
-pub async fn format_sol_amount(amount: u64, price_source: impl AsRef<XeonState>) -> String {
+pub async fn format_sol_amount(amount: u64, price_source: &XeonState) -> String {
     if amount == 0 {
         "0 SOL".to_string()
     } else if amount < 10u64.pow(3) {
@@ -61,7 +58,6 @@ pub async fn format_sol_amount(amount: u64, price_source: impl AsRef<XeonState>)
             format_usd_amount(
                 (amount as f64 / 10u64.pow(SOL_DECIMALS) as f64)
                     * price_source
-                        .as_ref()
                         .get_price(&SOL_CONTRACT_ON_NEAR.parse().unwrap())
                         .await,
             )

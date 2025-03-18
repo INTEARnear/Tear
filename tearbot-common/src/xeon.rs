@@ -367,6 +367,17 @@ pub trait XeonBotModule: Send + Sync + 'static {
         query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error>;
 
+    async fn handle_inline_callback<'a>(
+        &'a self,
+        _bot: &BotData,
+        _user_id: UserId,
+        _inline_message_id: String,
+        _data: &str,
+        _query: &mut Option<MustAnswerCallbackQuery>,
+    ) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
     #[allow(unused_variables, clippy::too_many_arguments)]
     async fn handle_payment(
         &self,

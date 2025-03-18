@@ -587,36 +587,76 @@ impl BotData {
             while let Some(callback_query) = callback_query_receiver.recv().await {
                 let xeon = Arc::clone(&xeon);
                 tokio::spawn(async move {
-                    if let (Some(data), Some(message)) =
-                        (callback_query.data, callback_query.message)
-                    {
-                        for module in xeon.bot_modules().await.iter() {
-                            let bot = xeon.bot(&me).unwrap();
-                            let context = TgCallbackContext::new(
-                                bot.value(),
-                                callback_query.from.id,
-                                message.chat().id,
-                                Some(message.id()),
-                                &data,
-                            );
-                            log::debug!("Callback data: {data}, module: {}", module.name());
-                            let mut query = Some(MustAnswerCallbackQuery {
-                                bot_id: me,
-                                callback_query: callback_query.id.clone(),
-                                callback_query_answered: false,
-                            });
-                            if let Err(err) = module.handle_callback(context, &mut query).await {
-                                warn!(
-                                    "Error handling callback data {} in module {}: {:?}",
-                                    data,
-                                    module.name(),
-                                    err
+                    match (
+                        callback_query.data,
+                        callback_query.message,
+                        callback_query.inline_message_id,
+                    ) {
+                        (Some(data), Some(message), None) => {
+                            for module in xeon.bot_modules().await.iter() {
+                                let bot = xeon.bot(&me).unwrap();
+                                let context = TgCallbackContext::new(
+                                    bot.value(),
+                                    callback_query.from.id,
+                                    message.chat().id,
+                                    Some(message.id()),
+                                    &data,
                                 );
-                            }
-                            if let Some(query) = query {
-                                query.answer_callback_query(&xeon).await;
+                                log::debug!("Callback data: {data}, module: {}", module.name());
+                                let mut query = Some(MustAnswerCallbackQuery {
+                                    bot_id: me,
+                                    callback_query: callback_query.id.clone(),
+                                    callback_query_answered: false,
+                                });
+                                if let Err(err) = module.handle_callback(context, &mut query).await
+                                {
+                                    warn!(
+                                        "Error handling callback data {} in module {}: {:?}",
+                                        data,
+                                        module.name(),
+                                        err
+                                    );
+                                }
+                                if let Some(query) = query {
+                                    query.answer_callback_query(&xeon).await;
+                                }
                             }
                         }
+                        (Some(data), None, Some(inline_message_id)) => {
+                            for module in xeon.bot_modules().await.iter() {
+                                let bot = xeon.bot(&me).unwrap();
+                                log::debug!(
+                                    "Inline callback data: {data}, module: {}",
+                                    module.name()
+                                );
+                                let mut query = Some(MustAnswerCallbackQuery {
+                                    bot_id: me,
+                                    callback_query: callback_query.id.clone(),
+                                    callback_query_answered: false,
+                                });
+                                if let Err(err) = module
+                                    .handle_inline_callback(
+                                        bot.value(),
+                                        callback_query.from.id,
+                                        inline_message_id.clone(),
+                                        &data,
+                                        &mut query,
+                                    )
+                                    .await
+                                {
+                                    warn!(
+                                        "Error handling inline callback data {} in module {}: {:?}",
+                                        data,
+                                        module.name(),
+                                        err
+                                    );
+                                }
+                                if let Some(query) = query {
+                                    query.answer_callback_query(&xeon).await;
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 });
             }

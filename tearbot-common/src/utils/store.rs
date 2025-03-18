@@ -107,13 +107,19 @@ where
             return Some(value.clone());
         }
         match bson::to_bson(key) {
-            Ok(key_bson) => self
-                .db
-                .find_one(bson::doc! { "key": key_bson })
-                .await
-                .map_err(|e| log::error!("Error getting cache entry: {:?}", e))
-                .unwrap_or(None)
-                .map(|entry| entry.value),
+            Ok(key_bson) => {
+                let value = self
+                    .db
+                    .find_one(bson::doc! { "key": key_bson })
+                    .await
+                    .map_err(|e| log::error!("Error getting cache entry: {:?}", e))
+                    .unwrap_or(None)
+                    .map(|entry| entry.value);
+                if let Some(value) = value.as_ref() {
+                    self.cache.insert(key.clone(), value.clone());
+                }
+                value
+            }
             Err(e) => {
                 log::error!("Error serializing key: {:?}", e);
                 None
@@ -157,6 +163,7 @@ where
             .entry(key.clone())
             .or_insert_with(|| Arc::new(Mutex::new(())));
         let guard = lock.lock().await;
+        let _ = self.get(&key).await;
         let mut value = self
             .cache
             .get(&key)
@@ -184,6 +191,7 @@ where
             .entry(key.clone())
             .or_insert_with(|| Arc::new(Mutex::new(())));
         let guard = lock.lock().await;
+        let _ = self.get(&key).await;
         let value = self
             .cache
             .get(&key)
@@ -214,6 +222,7 @@ where
             .entry(key.clone())
             .or_insert_with(|| Arc::new(Mutex::new(())));
         let guard = lock.lock().await;
+        let _ = self.get(&key).await;
         let mut value = self
             .cache
             .get(&key)
