@@ -281,7 +281,7 @@ impl XeonState {
             .read()
             .await
             .get(account_id)
-            .map(|info| info.price_usd_raw / 1e6) // 6 is decimals of usdt
+            .map(|info| info.price_usd_hardcoded / 10f64.powi(info.metadata.decimals as i32))
     }
 
     pub async fn get_token_info(&self, account_id: &AccountId) -> Option<TokenInfo> {

@@ -268,6 +268,8 @@ pub struct MemeCookingInfo {
     pub id: u64,
     pub owner: String,
     #[serde(with = "dec_format")]
+    pub start_timestamp_ms: Option<u64>,
+    #[serde(with = "dec_format")]
     pub end_timestamp_ms: u64,
     pub name: String,
     pub symbol: String,

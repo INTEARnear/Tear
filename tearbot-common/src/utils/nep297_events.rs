@@ -16,7 +16,7 @@ pub enum MemeCookingEventKind {
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct CreateMeme {
-    pub meme_id: u32,
+    pub meme_id: u64,
     pub owner: AccountId,
     #[serde(with = "dec_format", default)]
     pub start_timestamp_ms: Option<u64>,

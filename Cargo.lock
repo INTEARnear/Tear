@@ -12370,6 +12370,7 @@ dependencies = [
  "imageproc",
  "itertools 0.14.0",
  "jupiter-swap-api-client",
+ "lazy_static",
  "log",
  "mpl-token-metadata",
  "near-api",
