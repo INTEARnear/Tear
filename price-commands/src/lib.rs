@@ -302,6 +302,11 @@ impl XeonBotModule for PriceCommandsModule {
                         bot.bot().get_me().await?.username.as_ref().unwrap(),
                     ),
                 ];
+                if token == "dogshit-1408.meme-cooking.near" {
+                    exchanges.push(format!(
+                        "[Veax](https://app.veax.com/trade?tokens=near%25{token})"
+                    ));
+                }
                 if let Some(meme) = token.as_str().strip_suffix(".meme-cooking.near") {
                     if let Some(meme_id) = meme.split('-').last() {
                         exchanges.push(format!(
