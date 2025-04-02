@@ -1773,9 +1773,16 @@ pub enum ReorderMode {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PoolId {
+    /// Pool ID
     Ref(u64),
+    /// (wrap.near, token)
     Aidols(AccountId),
+    /// (wrap.near, token)
     GraFun(AccountId),
+    /// (token1, token2, fee)
+    RefDcl(AccountId, AccountId, u64),
+    /// (token1, token2)
+    Veax(AccountId, AccountId),
 }
 
 impl PoolId {
@@ -1784,6 +1791,12 @@ impl PoolId {
             PoolId::Ref(id) => format!("https://dex.rhea.finance/pool/{id}"),
             PoolId::Aidols(account_id) => format!("https://aidols.bot/agents/{account_id}"),
             PoolId::GraFun(account_id) => format!("https://gra.fun/near-mainnet/{account_id}"),
+            PoolId::RefDcl(token1, token2, fee) => {
+                format!("https://dex.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee}")
+            }
+            PoolId::Veax(token1, token2) => {
+                format!("https://app.veax.com/liquidity/add?tokenTo={token2}&tokenFrom={token1}")
+            }
         }
     }
 
@@ -1792,6 +1805,11 @@ impl PoolId {
             PoolId::Ref(id) => format!("Ref#{id}"),
             PoolId::Aidols(account_id) => format!("AIdols: {account_id}"),
             PoolId::GraFun(account_id) => format!("GraFun: {account_id}"),
+            PoolId::RefDcl(token1, token2, fee) => format!(
+                "Rhea DCL: {token1} <-> {token2} @ {fee:.02}%",
+                fee = *fee as f64 / 100.0
+            ),
+            PoolId::Veax(token1, token2) => format!("Veax: {token1} <-> {token2}"),
         }
     }
 
@@ -1800,6 +1818,8 @@ impl PoolId {
             PoolId::Ref(_) => Exchange::RefFinance,
             PoolId::Aidols(_) => Exchange::Aidols,
             PoolId::GraFun(_) => Exchange::Grafun,
+            PoolId::RefDcl(_, _, _) => Exchange::RefDcl,
+            PoolId::Veax(_, _) => Exchange::Veax,
         }
     }
 }
@@ -1837,6 +1857,39 @@ impl FromStr for PoolId {
                     ));
                 }
             }
+            "REFDCL" => {
+                let Ok([token1, token2, fee]) =
+                    <[&str; 3]>::try_from(exchange_pool_id.split('|').collect::<Vec<_>>())
+                else {
+                    return Err(anyhow::anyhow!(
+                        "Invalid RefDcl pool id: {exchange_pool_id}"
+                    ));
+                };
+                let (Ok(token1), Ok(token2), Ok(fee)) = (
+                    AccountId::from_str(token1),
+                    AccountId::from_str(token2),
+                    u64::from_str(fee),
+                ) else {
+                    return Err(anyhow::anyhow!(
+                        "Invalid RefDcl pool id: {exchange_pool_id}"
+                    ));
+                };
+                PoolId::RefDcl(token1, token2, fee)
+            }
+            "VEAX" => {
+                let Ok([token1, token2]) =
+                    <[&str; 2]>::try_from(exchange_pool_id.split(',').collect::<Vec<_>>())
+                else {
+                    return Err(anyhow::anyhow!("Invalid Veax pool id: {exchange_pool_id}"));
+                };
+                let (Ok(token1), Ok(token2)) =
+                    (AccountId::from_str(token1), AccountId::from_str(token2))
+                else {
+                    return Err(anyhow::anyhow!("Invalid Veax pool id: {exchange_pool_id}"));
+                };
+                PoolId::Veax(token1, token2)
+            }
+
             _ => {
                 return Err(anyhow::anyhow!("Unknown exchange: {exchange_id}"));
             }
@@ -1851,6 +1904,10 @@ impl Display for PoolId {
             PoolId::Ref(id) => write!(f, "REF-{id}"),
             PoolId::Aidols(account_id) => write!(f, "AIDOLS-{account_id}"),
             PoolId::GraFun(account_id) => write!(f, "GRAFUN-{account_id}"),
+            PoolId::RefDcl(token1, token2, fee) => {
+                write!(f, "REFDCL-{token1}|{token2}|{fee}")
+            }
+            PoolId::Veax(token1, token2) => write!(f, "VEAX-{token1},{token2}"),
         }
     }
 }
@@ -1860,6 +1917,8 @@ pub enum Exchange {
     RefFinance,
     Aidols,
     Grafun,
+    RefDcl,
+    Veax,
 }
 
 impl Exchange {
@@ -1868,6 +1927,8 @@ impl Exchange {
             Exchange::RefFinance => "Rhea Finance",
             Exchange::Aidols => "AIdols",
             Exchange::Grafun => "GraFun",
+            Exchange::RefDcl => "Rhea DCL",
+            Exchange::Veax => "Veax",
         }
     }
 }

@@ -342,6 +342,12 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             PoolId::GraFun(account_id) => format!(
                                 "[GraFun](https://gra.fun/near-mainnet/{account_id})"
                             ),
+                            PoolId::RefDcl(token1, token2, fee) => format!(
+                                "[Rhea DCL](https://dex.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee})"
+                            ),
+                            PoolId::Veax(token1, token2) => format!(
+                                "[Veax](https://app.veax.com/liquidity/add?tokenTo={token2}&tokenFrom={token1}"
+                            ),
                         }
                     } else {
                         "No chart available".to_string()

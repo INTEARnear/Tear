@@ -24,7 +24,7 @@ pub const ARCHIVE_RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
 macro_rules! try_rpc {
     (|$rpc_url: ident| $body: block) => {{
         let mut rpc_urls = RPC_URLS.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        if let Some(additional_rpc_urls) = ::std::env::var("RPC_URL").ok() {
+        if let Ok(additional_rpc_urls) = ::std::env::var("RPC_URL") {
             rpc_urls = [
                 additional_rpc_urls
                     .split(',')
