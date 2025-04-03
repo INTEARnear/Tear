@@ -21,17 +21,7 @@ use intear_events::events::{
 pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
     use intear_events::events::ft::ft_transfer::FtTransferEvent;
 
-    #[cfg(feature = "redis-events")]
-    let redis_client = redis::Client::open(
-        std::env::var("REDIS_URL").expect("REDIS_URL enviroment variable not set"),
-    )
-    .expect("Failed to create redis client");
-    #[cfg(feature = "redis-events")]
-    let connection = redis::aio::ConnectionManager::new(redis_client)
-        .await
-        .expect("Failed to create redis connection");
     let (tx, mut rx) = tokio::sync::mpsc::channel(1000);
-
     #[cfg(feature = "redis-events")]
     let redis_client_v3 = redis::Client::open(
         std::env::var("REDIS_URL_V3").expect("REDIS_URL_V3 enviroment variable not set"),
@@ -41,150 +31,177 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
     let connection_v3 = redis::aio::ConnectionManager::new(redis_client_v3)
         .await
         .expect("Failed to create v3 redis connection");
+    #[cfg(feature = "redis-events")]
+    let redis_client_testnet = redis::Client::open(
+        std::env::var("REDIS_URL_TESTNET").expect("REDIS_URL_TESTNET enviroment variable not set"),
+    )
+    .expect("Failed to create v3 testnet redis client");
+    #[cfg(feature = "redis-events")]
+    let connection_testnet = redis::aio::ConnectionManager::new(redis_client_testnet)
+        .await
+        .expect("Failed to create v3 testnet redis connection");
 
     tokio::spawn(stream_v3_events::<NftMintEvent>(
         NftMintEvent::ID,
-        false,
         IndexerEvent::NftMint,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<NftTransferEvent>(
         NftTransferEvent::ID,
-        false,
         IndexerEvent::NftTransfer,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<NftBurnEvent>(
         NftBurnEvent::ID,
-        false,
         IndexerEvent::NftBurn,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<PotlockDonationEvent>(
         PotlockDonationEvent::ID,
-        false,
         IndexerEvent::PotlockDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<PotlockPotProjectDonationEvent>(
         PotlockPotProjectDonationEvent::ID,
-        false,
         IndexerEvent::PotlockPotProjectDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<PotlockPotDonationEvent>(
         PotlockPotDonationEvent::ID,
-        false,
         IndexerEvent::PotlockPotDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<TradeSwapEvent>(
         TradeSwapEvent::ID,
-        false,
         IndexerEvent::TradeSwap,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<PriceTokenEvent>(
         PriceTokenEvent::ID,
-        false,
         IndexerEvent::PriceToken,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<NewContractNep141Event>(
         NewContractNep141Event::ID,
-        false,
         IndexerEvent::NewContractNep141,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<TradePoolChangeEvent>(
         TradePoolChangeEvent::ID,
-        false,
         IndexerEvent::TradePoolChange,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<LogTextEvent>(
         LogTextEvent::ID,
-        false,
         IndexerEvent::LogText,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
-    tokio::spawn(stream_events::<LogTextEvent>(
+    tokio::spawn(stream_v3_events::<LogTextEvent>(
         LogTextEvent::ID,
-        true,
         IndexerEvent::TestnetLogText,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_testnet.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3-testnet.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<LogNep297Event>(
         LogNep297Event::ID,
-        false,
         IndexerEvent::LogNep297,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
-    tokio::spawn(stream_events::<LogNep297Event>(
+    tokio::spawn(stream_v3_events::<LogNep297Event>(
         LogNep297Event::ID,
-        true,
         IndexerEvent::TestnetLogNep297,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection.clone(),
+        connection_testnet.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3-testnet.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<SocialDBIndexEvent>(
         SocialDBIndexEvent::ID,
-        false,
         IndexerEvent::SocialDBIndex,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<LiquidityPoolEvent>(
         LiquidityPoolEvent::ID,
-        false,
         IndexerEvent::LiquidityPool,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<FtTransferEvent>(
         FtTransferEvent::ID,
-        false,
         IndexerEvent::FtTransfer,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
     tokio::spawn(stream_v3_events::<TxTransactionEvent>(
         TxTransactionEvent::ID,
-        false,
         IndexerEvent::TxTransaction,
         tx.clone(),
         #[cfg(feature = "redis-events")]
         connection_v3.clone(),
+        #[cfg(feature = "websocket-events")]
+        "wss://ws-events-v3.intear.tech/events",
     ));
 
     tokio::spawn(async move {
@@ -239,56 +256,17 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
 compile_error!("Only one of redis-events and websocket-events can be enabled");
 
 #[cfg(feature = "redis-events")]
-async fn stream_events<
-    E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
->(
-    event_id: &'static str,
-    testnet: bool,
-    convert: fn(E) -> IndexerEvent,
-    tx: tokio::sync::mpsc::Sender<IndexerEvent>,
-    connection: redis::aio::ConnectionManager,
-) {
-    use std::convert::Infallible;
-
-    let id = if testnet {
-        format!("{event_id}_testnet")
-    } else {
-        event_id.to_string()
-    };
-    inevents_redis_old::RedisEventStream::new(connection, id)
-        .start_reading_events(
-            "xeon",
-            move |event: E| {
-                let tx = tx.clone();
-                async move {
-                    tx.send(convert(event)).await.unwrap();
-                    Ok::<(), Infallible>(())
-                }
-            },
-            || false,
-        )
-        .await
-        .unwrap();
-}
-
-#[cfg(feature = "redis-events")]
 async fn stream_v3_events<
     E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
 >(
     event_id: &'static str,
-    testnet: bool,
     convert: fn(E) -> IndexerEvent,
     tx: tokio::sync::mpsc::Sender<IndexerEvent>,
     connection: redis::aio::ConnectionManager,
 ) {
     use std::convert::Infallible;
 
-    let id = if testnet {
-        format!("{event_id}_testnet")
-    } else {
-        event_id.to_string()
-    };
-    inevents_redis::RedisEventStream::new(connection, id)
+    inevents_redis::RedisEventStream::new(connection, event_id)
         .start_reading_events(
             "xeon",
             move |event: E| {
@@ -305,77 +283,22 @@ async fn stream_v3_events<
 }
 
 #[cfg(feature = "websocket-events")]
-async fn stream_events<
-    E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
->(
-    event_id: &'static str,
-    testnet: bool,
-    convert: fn(E) -> IndexerEvent,
-    tx: tokio::sync::mpsc::Sender<IndexerEvent>,
-) {
-    use futures_util::{SinkExt, StreamExt};
-    use tokio_tungstenite::tungstenite::Message;
-
-    let events = if testnet { "events-testnet" } else { "events" };
-    'outer: loop {
-        let (mut stream, _) = tokio_tungstenite::connect_async(format!(
-            "wss://ws-events.intear.tech/{events}/{event_id}"
-        ))
-        .await
-        .expect("Failed to connect to event stream");
-        stream
-            .send(Message::Text("{}".to_string()))
-            .await
-            .expect("Failed to send empty filter");
-        while let Some(message) = stream.next().await {
-            let Ok(msg) = message else {
-                continue 'outer;
-            };
-            match msg {
-                Message::Close(_) => {
-                    log::warn!("Event stream {events}/{event_id} closed");
-                    break 'outer;
-                }
-                tokio_tungstenite::tungstenite::Message::Ping(data) => {
-                    stream
-                        .send(Message::Pong(data))
-                        .await
-                        .expect("Failed to pong");
-                }
-                Message::Pong(_) => {}
-                Message::Text(text) => {
-                    let event: E =
-                        serde_json::from_str(&text).expect("Failed to parse message as json");
-                    let event = convert(event);
-                    tx.send(event).await.expect("Failed to send event");
-                }
-                Message::Binary(_) => {}
-                Message::Frame(_) => unreachable!(),
-            }
-        }
-        log::warn!("Reconnecting to event stream {events}/{event_id}");
-    }
-}
-
-#[cfg(feature = "websocket-events")]
 async fn stream_v3_events<
     E: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static,
 >(
     event_id: &'static str,
-    testnet: bool,
     convert: fn(E) -> IndexerEvent,
     tx: tokio::sync::mpsc::Sender<IndexerEvent>,
+    websocket_url: &'static str,
 ) {
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::tungstenite::Message;
 
-    let events = if testnet { "events-testnet" } else { "events" };
     'outer: loop {
-        let (mut stream, _) = tokio_tungstenite::connect_async(format!(
-            "wss://ws-events-v3.intear.tech/{events}/{event_id}"
-        ))
-        .await
-        .expect("Failed to connect to event stream");
+        let (mut stream, _) =
+            tokio_tungstenite::connect_async(format!("{websocket_url}/{event_id}"))
+                .await
+                .expect("Failed to connect to event stream");
         stream
             .send(Message::Text(r#"{"And":[]}"#.to_string()))
             .await
