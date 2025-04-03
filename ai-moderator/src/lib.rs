@@ -1011,6 +1011,7 @@ impl AiModeratorModule {
                 if let Some(quote) = message.quote() {
                     original_message_text = format!("Quote:\n{}\n\nMessage:\n{original_message_text}", quote.text);
                 }
+                original_message_text = expandable_blockquote(&original_message_text);
                 match action {
                     ModerationAction::Ban => {
                         if !chat_config.debug_mode {
