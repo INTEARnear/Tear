@@ -23,12 +23,12 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(1000);
     #[cfg(feature = "redis-events")]
-    let redis_client_v3 = redis::Client::open(
-        std::env::var("REDIS_URL_V3").expect("REDIS_URL_V3 enviroment variable not set"),
+    let redis_client = redis::Client::open(
+        std::env::var("REDIS_URL").expect("REDIS_URL enviroment variable not set"),
     )
     .expect("Failed to create v3 redis client");
     #[cfg(feature = "redis-events")]
-    let connection_v3 = redis::aio::ConnectionManager::new(redis_client_v3)
+    let connection = redis::aio::ConnectionManager::new(redis_client)
         .await
         .expect("Failed to create v3 redis connection");
     #[cfg(feature = "redis-events")]
@@ -46,7 +46,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::NftMint,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -55,7 +55,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::NftTransfer,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -64,7 +64,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::NftBurn,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -73,7 +73,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::PotlockDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -82,7 +82,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::PotlockPotProjectDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -91,7 +91,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::PotlockPotDonation,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -100,7 +100,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::TradeSwap,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -109,7 +109,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::PriceToken,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -118,7 +118,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::NewContractNep141,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -127,7 +127,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::TradePoolChange,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -136,7 +136,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::LogText,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -154,7 +154,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::LogNep297,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -172,7 +172,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::SocialDBIndex,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -181,7 +181,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::LiquidityPool,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -190,7 +190,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::FtTransfer,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
@@ -199,7 +199,7 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         IndexerEvent::TxTransaction,
         tx.clone(),
         #[cfg(feature = "redis-events")]
-        connection_v3.clone(),
+        connection.clone(),
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
