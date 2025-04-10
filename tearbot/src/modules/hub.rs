@@ -922,6 +922,7 @@ impl XeonBotModule for HubModule {
                     ("gm8", UserId(7091308405)),
                     ("gm9", UserId(7091308405)),
                     ("dt", UserId(1888839649)),
+                    ("smile", UserId(7091308405)),
                 ];
                 for (prefix, referrer_id) in PREFIXES {
                     if let Some(data_without_referrer) = data.strip_prefix(&format!("{prefix}-")) {

@@ -254,7 +254,7 @@ where
         if self.cached_all.load(Ordering::Relaxed) && removed.is_none() {
             return Ok(None);
         }
-        if let Some(value) = self.get(key).await {
+        if let (Some((_, value)), _) | (_, Some(value)) = (removed, self.get(key).await) {
             let key_bson = bson::to_bson(key)?;
             self.db.delete_one(bson::doc! { "key": key_bson }).await?;
             Ok(Some(value))
