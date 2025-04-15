@@ -255,6 +255,8 @@ where
             return Ok(None);
         }
         if let (Some((_, value)), _) | (_, Some(value)) = (removed, self.get(key).await) {
+            // After .get, the value might be added to the cache
+            self.cache.remove(key);
             let key_bson = bson::to_bson(key)?;
             self.db.delete_one(bson::doc! { "key": key_bson }).await?;
             Ok(Some(value))
