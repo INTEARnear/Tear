@@ -13,8 +13,13 @@ pub enum Model {
     RecommendedBest,
     RecommendedFast,
     Gpt4o,
+    Gpt4_1,
     Gpt4oMini,
-    Llama70B,
+    Gpt4_1Mini,
+    Gpt4_1Nano,
+    GPTO4Mini,
+    Llama70B, // 3.3
+    Llama4Scout,
 }
 
 pub const SCHEMA_STRING: &str = "string";
@@ -25,22 +30,39 @@ impl Model {
             Self::RecommendedBest => "Recommended (best)",
             Self::RecommendedFast => "Recommended (fast)",
             Self::Gpt4o => "GPT-4o",
-            Self::Gpt4oMini => "GPT-4o-mini",
+            Self::Gpt4oMini => "GPT 4o Mini",
+            Self::Gpt4_1 => "GPT 4.1",
+            Self::Gpt4_1Mini => "GPT 4.1 Mini",
+            Self::Gpt4_1Nano => "GPT 4.1 Nano",
+            Self::GPTO4Mini => "o4 mini",
             Self::Llama70B => "Llama 3.3 70B",
+            Self::Llama4Scout => "Llama 4 Scout",
         }
     }
 
     pub fn supports_image(&self) -> bool {
         match self {
             Self::RecommendedBest | Self::RecommendedFast | Self::Gpt4o | Self::Gpt4oMini => true,
-            Self::Llama70B => false,
+            Self::Llama70B
+            | Self::Llama4Scout
+            | Self::Gpt4_1
+            | Self::Gpt4_1Mini
+            | Self::Gpt4_1Nano
+            | Self::GPTO4Mini => false,
         }
     }
 
     pub fn supports_schema(&self) -> bool {
         match self {
-            Self::RecommendedBest | Self::RecommendedFast | Self::Gpt4o | Self::Gpt4oMini => true,
-            Self::Llama70B => false,
+            Self::RecommendedBest
+            | Self::RecommendedFast
+            | Self::Gpt4o
+            | Self::Gpt4oMini
+            | Self::Gpt4_1
+            | Self::Gpt4_1Mini
+            | Self::Gpt4_1Nano
+            | Self::GPTO4Mini => true,
+            Self::Llama70B | Self::Llama4Scout => false,
         }
     }
 
@@ -54,7 +76,12 @@ impl Model {
             }
             Self::Gpt4o => "gpt-4o-2024-08-06",
             Self::Gpt4oMini => "gpt-4o-mini",
+            Self::Gpt4_1 => "gpt-4.1",
+            Self::Gpt4_1Mini => "gpt-4.1-mini",
+            Self::Gpt4_1Nano => "gpt-4.1-nano",
+            Self::GPTO4Mini => "o4-mini",
             Self::Llama70B => "llama3.3-70b",
+            Self::Llama4Scout => "llama-4-scout-17b-16e-instruct",
         }
     }
 
@@ -64,7 +91,12 @@ impl Model {
             Self::RecommendedFast => 1,
             Self::Gpt4o => 3,
             Self::Gpt4oMini => 1,
+            Self::Gpt4_1 => 3,
+            Self::Gpt4_1Mini => 2,
+            Self::Gpt4_1Nano => 1,
+            Self::GPTO4Mini => 1,
             Self::Llama70B => 1,
+            Self::Llama4Scout => 1,
         }
     }
 
@@ -120,7 +152,7 @@ impl Model {
         match self {
             Model::RecommendedBest => {
                 Box::pin(async move {
-                    Self::Gpt4o
+                    Self::Gpt4_1
                         .get_completion_response(
                             prompt,
                             schema,
@@ -135,7 +167,7 @@ impl Model {
             Model::RecommendedFast => {
                 Box::pin(async move {
                     if image_jpeg.is_some() {
-                        Self::Gpt4oMini
+                        Self::Gpt4_1Nano
                             .get_completion_response(
                                 prompt,
                                 schema,
@@ -145,7 +177,7 @@ impl Model {
                             )
                             .await
                     } else {
-                        Self::Llama70B
+                        Self::Llama4Scout
                             .get_completion_response(
                                 prompt,
                                 schema,
@@ -169,6 +201,7 @@ impl Model {
                     message,
                     image_jpeg,
                     high_quality_image,
+                    true,
                 )
                 .await
             }
@@ -183,6 +216,67 @@ impl Model {
                     message,
                     None,
                     high_quality_image,
+                    true,
+                )
+                .await
+            }
+            Model::Gpt4_1 => {
+                get_ai_response(
+                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
+                    "https://api.openai.com/v1/chat/completions",
+                    self.model_id(),
+                    prompt,
+                    schema,
+                    self.supports_schema(),
+                    message,
+                    None,
+                    high_quality_image,
+                    true,
+                )
+                .await
+            }
+            Model::Gpt4_1Mini => {
+                get_ai_response(
+                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
+                    "https://api.openai.com/v1/chat/completions",
+                    self.model_id(),
+                    prompt,
+                    schema,
+                    self.supports_schema(),
+                    message,
+                    None,
+                    high_quality_image,
+                    true,
+                )
+                .await
+            }
+            Model::Gpt4_1Nano => {
+                get_ai_response(
+                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
+                    "https://api.openai.com/v1/chat/completions",
+                    self.model_id(),
+                    prompt,
+                    schema,
+                    self.supports_schema(),
+                    message,
+                    None,
+                    high_quality_image,
+                    true,
+                )
+                .await
+            }
+            Model::GPTO4Mini => {
+                get_ai_response(
+                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
+                    "https://api.openai.com/v1/chat/completions",
+                    self.model_id(),
+                    prompt,
+                    schema,
+                    self.supports_schema(),
+                    message,
+                    None,
+                    high_quality_image,
+                    true,
                 )
                 .await
             }
@@ -197,6 +291,22 @@ impl Model {
                     message,
                     None,
                     high_quality_image,
+                    false,
+                )
+                .await
+            }
+            Model::Llama4Scout => {
+                get_ai_response(
+                    std::env::var("CEREBRAS_API_KEY").unwrap().as_str(),
+                    "https://api.cerebras.ai/v1/chat/completions",
+                    self.model_id(),
+                    prompt,
+                    schema,
+                    self.supports_schema(),
+                    message,
+                    None,
+                    high_quality_image,
+                    false,
                 )
                 .await
             }
@@ -216,6 +326,7 @@ pub async fn get_ai_response(
     message: &str,
     image_jpeg: Option<Vec<u8>>,
     high_quality_image: bool,
+    is_openai: bool,
 ) -> Result<CreateChatCompletionResponse, anyhow::Error> {
     let prompt = if schema_supported || schema == SCHEMA_STRING {
         prompt.to_string()
@@ -241,7 +352,7 @@ pub async fn get_ai_response(
     };
     let messages = serde_json::json!([
         {
-            "role": "developer",
+            "role": "system",
             "content": prompt
         },
         {
@@ -264,12 +375,21 @@ pub async fn get_ai_response(
     } else {
         serde_json::json!({ "type": "json_object" })
     };
-    let data = serde_json::json!({
-        "model": model_id,
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "response_format": response_format,
-    });
+    let data = if is_openai {
+        serde_json::json!({
+            "model": model_id,
+            "messages": messages,
+            "max_completion_tokens": max_tokens,
+            "response_format": response_format,
+        })
+    } else {
+        serde_json::json!({
+            "model": model_id,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "response_format": response_format,
+        })
+    };
     let authorization = format!("Bearer {api_key}");
     let response = get_reqwest_client()
         .post(api_url)

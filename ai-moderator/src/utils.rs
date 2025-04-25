@@ -204,8 +204,8 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
             image_jpeg,
         }
     } else {
-        log::error!("Failed to get {model:?} moderation response, defaulting to Gpt-4o-mini");
-        let model = Model::Gpt4oMini;
+        log::error!("Failed to get {model:?} moderation response, defaulting to Gpt-4.1-mini");
+        let model = Model::Gpt4_1Mini;
         if let Ok(response) = model
             .get_ai_response::<ModerationResponse>(
                 &prompt,
@@ -223,7 +223,7 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
                 image_jpeg,
             }
         } else {
-            log::warn!("Gpt-4o-mini failed to moderate message");
+            log::warn!("Gpt-4.1-mini failed to moderate message");
             MessageRating::Ok {
                 judgement: ModerationJudgement::Good,
                 reasoning: "Error: failed to create a moderation thread, this should never happen"
