@@ -625,6 +625,24 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
+            TgCommand::AiModeratorSetBlockMostlyEmojiMessages(target_chat_id, block) => {
+                edit::additional_settings::handle_block_mostly_emoji_button(
+                    &mut ctx,
+                    target_chat_id,
+                    block,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSetBlockForwardedStories(target_chat_id, block) => {
+                edit::additional_settings::handle_block_forwarded_stories_button(
+                    &mut ctx,
+                    target_chat_id,
+                    block,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -653,6 +671,10 @@ struct AiModeratorChatConfig {
     deletion_message_attachment: Attachment,
     #[serde(default)]
     model: Model,
+    #[serde(default)]
+    block_mostly_emoji_messages: bool,
+    #[serde(default = "default_block_forwarded_stories")]
+    block_forwarded_stories: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -660,6 +682,10 @@ enum EnterpriseVariant {}
 
 fn default_deletion_message() -> String {
     "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string()
+}
+
+fn default_block_forwarded_stories() -> bool {
+    true
 }
 
 impl Default for AiModeratorChatConfig {
@@ -680,6 +706,8 @@ impl Default for AiModeratorChatConfig {
             deletion_message: "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string(),
             deletion_message_attachment: Attachment::None,
             model: Model::RecommendedBest,
+            block_mostly_emoji_messages: false,
+            block_forwarded_stories: true,
         }
     }
 }

@@ -1252,6 +1252,10 @@ pub enum TgCommand {
     TradingBotTeardropClaim {
         drop_id: CryptoHash,
     },
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetBlockMostlyEmojiMessages(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetBlockForwardedStories(ChatId, bool),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod additional_settings;
 pub mod debug_mode;
 pub mod deletion_message;
 pub mod enabled;

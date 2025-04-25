@@ -25,7 +25,7 @@ use tearbot_common::{
     xeon::XeonState,
 };
 
-use crate::{AiModeratorBotConfig, AiModeratorChatConfig};
+use crate::{utils, AiModeratorBotConfig, AiModeratorChatConfig};
 
 pub async fn is_in_moderator_chat_or_dm(
     chat_id: ChatId,
@@ -109,13 +109,24 @@ pub async fn get_message_rating(
             image_jpeg: None,
         };
     }
-    if message.story().is_some() {
+    if message.story().is_some() && config.block_forwarded_stories {
         return MessageRating::Ok {
             judgement: ModerationJudgement::Suspicious,
             reasoning: "This message appears to be a forwarded story, and bots don't have an ability to read stories yet, due to Telegram's Bot API limitations. Some bots may spam with stories, so we're not allowing new users to forward any stories.".to_string(),
             message_text,
             image_jpeg: None,
         };
+    }
+    if config.block_mostly_emoji_messages {
+        if utils::is_mostly_emoji(&message_text) {
+            return MessageRating::Ok {
+                judgement: ModerationJudgement::Suspicious,
+                reasoning: "This message is mostly emojis, which was configured to be blocked"
+                    .to_string(),
+                message_text,
+                image_jpeg: None,
+            };
+        }
     }
     let entities = message.parse_entities().unwrap_or_default();
     let message_text = match std::panic::catch_unwind(move || {
@@ -239,4 +250,30 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
 struct ModerationResponse {
     reasoning: String,
     judgement: ModerationJudgement,
+}
+
+pub fn is_mostly_emoji(message: &str) -> bool {
+    let chars: Vec<char> = message.chars().collect();
+    let len = chars.len();
+    if len <= 20 {
+        return false;
+    }
+    let emoji_count = chars.iter().filter(|c| is_emoji_char(**c)).count();
+    let emoji_ratio = (emoji_count as f32) / (len as f32);
+    emoji_ratio >= 0.6 || (emoji_count >= 20 && (emoji_ratio >= 0.4))
+}
+
+fn is_emoji_char(ch: char) -> bool {
+    (ch >= '\u{1F600}' && ch <= '\u{1F64F}') // Emoticons
+        || (ch >= '\u{1F300}' && ch <= '\u{1F5FF}') // Misc Symbols and Pictographs
+        || (ch >= '\u{1F680}' && ch <= '\u{1F6FF}') // Transport and Map
+        || (ch >= '\u{2600}' && ch <= '\u{26FF}')   // Misc symbols
+        || (ch >= '\u{2700}' && ch <= '\u{27BF}')   // Dingbats
+        || (ch >= '\u{1F900}' && ch <= '\u{1F9FF}') // Supplemental Symbols and Pictographs
+        || (ch >= '\u{1FA70}' && ch <= '\u{1FAFF}') // Symbols and Pictographs Extended-A
+        || (ch >= '\u{1F1E6}' && ch <= '\u{1F1FF}') // Regional Indicator Symbols
+        || (ch >= '\u{1F191}' && ch <= '\u{1F251}') // Enclosed characters
+        || (ch >= '\u{1F004}' && ch <= '\u{1F0CF}') // Playing cards
+        || (ch >= '\u{1F018}' && ch <= '\u{1F270}') // Various
+        || (ch >= '\u{238C}' && ch <= '\u{2454}') // Misc technical
 }

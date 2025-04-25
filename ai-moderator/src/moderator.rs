@@ -287,6 +287,34 @@ Message that appears when a message is deleted:
                 .to_callback_data(&TgCommand::AiModeratorFirstMessages(target_chat_id))
                 .await,
         )],
+        vec![
+            InlineKeyboardButton::callback(
+                if chat_config.block_mostly_emoji_messages {
+                    "❌ Block mostly emoji"
+                } else {
+                    "✅ Allow mostly emoji"
+                },
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorSetBlockMostlyEmojiMessages(
+                        target_chat_id,
+                        !chat_config.block_mostly_emoji_messages,
+                    ))
+                    .await,
+            ),
+            InlineKeyboardButton::callback(
+                if chat_config.block_forwarded_stories {
+                    "❌ Block forwarded stories"
+                } else {
+                    "✅ Allow forwarded stories"
+                },
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorSetBlockForwardedStories(
+                        target_chat_id,
+                        !chat_config.block_forwarded_stories,
+                    ))
+                    .await,
+            ),
+        ],
         vec![InlineKeyboardButton::callback(
             format!("🤖 Model: {}", chat_config.model.name()),
             ctx.bot()
