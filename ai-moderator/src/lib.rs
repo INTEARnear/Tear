@@ -15,7 +15,6 @@ use std::{
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tearbot_common::utils::chat::get_chat_title_cached_5m;
 use tearbot_common::utils::SLIME_USER_ID;
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
@@ -36,6 +35,7 @@ use tearbot_common::{
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
     utils::chat::{get_chat_cached_5m, mention_sender},
 };
+use tearbot_common::{teloxide::types::True, utils::chat::get_chat_title_cached_5m};
 use tearbot_common::{tgbot::NotificationDestination, utils::ai::Model};
 use tokio::sync::RwLock;
 
@@ -1045,16 +1045,32 @@ impl AiModeratorModule {
                         if !chat_config.debug_mode {
                             let result = if let Some(user_id) = sender_id.as_user() {
                                 let _ = bot.bot().delete_message(chat_id, message.id).await;
-                                bot
+                                if let Err(err) = bot
                                     .bot()
                                     .ban_chat_member(chat_id, user_id)
                                     .revoke_messages(true)
-                                    .await
+                                    .await {
+                                        log::warn!("Failed to ban user: {err}");
+                                        bot
+                                            .bot()
+                                            .delete_message(chat_id, message.id)
+                                            .await
+                                    } else {
+                                        Ok(True)
+                                    }
                             } else {
-                                bot
+                                if let Err(err) = bot
                                     .bot()
                                     .ban_chat_sender_chat(chat_id, sender_id)
-                                    .await
+                                    .await {
+                                        log::warn!("Failed to ban sender chat: {err}");
+                                        bot
+                                            .bot()
+                                            .delete_message(chat_id, message.id)
+                                            .await
+                                    } else {
+                                        Ok(True)
+                                    }
                             };
                             if let Err(RequestError::Api(err)) = result
                             {
@@ -1121,7 +1137,7 @@ impl AiModeratorModule {
                         if !chat_config.debug_mode {
                             let _ = bot.bot().delete_message(chat_id, message.id).await;
                             let result = if let Some(user_id) = sender_id.as_user() {
-                                bot
+                                if let Err(err) = bot
                                     .bot()
                                     .restrict_chat_member(
                                         chat_id,
@@ -1129,6 +1145,15 @@ impl AiModeratorModule {
                                         ChatPermissions::empty(),
                                     )
                                     .await
+                                {
+                                    log::warn!("Failed to mute user: {err}");
+                                    bot
+                                        .bot()
+                                        .delete_message(chat_id, message.id)
+                                        .await
+                                } else {
+                                    Ok(True)
+                                }
                             } else {
                                 unreachable!()
                             };
@@ -1202,11 +1227,20 @@ impl AiModeratorModule {
                         if !chat_config.debug_mode {
                             let _ = bot.bot().delete_message(chat_id, message.id).await;
                             let result = if let Some(user_id) = sender_id.as_user() {
-                                bot
-                                .bot()
-                                .restrict_chat_member(chat_id, user_id, ChatPermissions::empty())
-                                .until_date(chrono::Utc::now() + chrono::Duration::minutes(15))
-                                .await
+                                if let Err(err) = bot
+                                    .bot()
+                                    .restrict_chat_member(chat_id, user_id, ChatPermissions::empty())
+                                    .until_date(chrono::Utc::now() + chrono::Duration::minutes(15))
+                                    .await
+                                {
+                                    log::warn!("Failed to temp mute user: {err}");
+                                    bot
+                                        .bot()
+                                        .delete_message(chat_id, message.id)
+                                        .await
+                                } else {
+                                    Ok(True)
+                                }
                             } else {
                                 unreachable!()
                             };

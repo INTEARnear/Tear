@@ -109,13 +109,22 @@ pub async fn get_message_rating(
             image_jpeg: None,
         };
     }
-    if message.story().is_some() && config.block_forwarded_stories {
-        return MessageRating::Ok {
-            judgement: ModerationJudgement::Suspicious,
-            reasoning: "This message appears to be a forwarded story, and bots don't have an ability to read stories yet, due to Telegram's Bot API limitations. Some bots may spam with stories, so we're not allowing new users to forward any stories.".to_string(),
-            message_text,
-            image_jpeg: None,
-        };
+    if message.story().is_some() {
+        if config.block_forwarded_stories {
+            return MessageRating::Ok {
+                judgement: ModerationJudgement::Suspicious,
+                reasoning: "This message appears to be a forwarded story, and bots don't have an ability to read stories yet, due to Telegram's Bot API limitations. Some bots may spam with stories, so we're not allowing new users to forward any stories.".to_string(),
+                message_text,
+                image_jpeg: None,
+            };
+        } else {
+            return MessageRating::Ok {
+                judgement: ModerationJudgement::Good,
+                reasoning: "This message appears to be a forwarded story, and bots don't have an ability to read stories yet, due to Telegram's Bot API limitations. If this is spam, I recommend enabling 'Block forwarded stories' in the bot settings.".to_string(),
+                message_text,
+                image_jpeg: None,
+            };
+        }
     }
     if config.block_mostly_emoji_messages {
         if utils::is_mostly_emoji(&message_text) {
