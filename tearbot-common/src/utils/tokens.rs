@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use teloxide::utils::markdown;
 
 use crate::{
-    utils::{apis::get_near_social_details, get_selected_badge},
+    utils::{apis::get_near_social_details, badges::get_selected_badge},
     xeon::XeonState,
 };
 
@@ -228,7 +228,14 @@ pub async fn format_account_id(account_id: &AccountId) -> String {
         name
     });
     let badge = get_selected_badge(account_id).await;
-    format!("{badge}[{name}](https://pikespeak.ai/wallet-explorer/{account_id})")
+    format!(
+        "{badge}[{name}](https://pikespeak.ai/wallet-explorer/{account_id})",
+        badge = if !badge.is_empty() {
+            format!("{badge} ")
+        } else {
+            "".to_string()
+        }
+    )
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Default)]

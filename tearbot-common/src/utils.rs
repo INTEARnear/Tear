@@ -1,6 +1,7 @@
 #[cfg(feature = "ai-moderator-module")]
 pub mod ai;
 pub mod apis;
+pub mod badges;
 pub mod chat;
 pub mod nep297_events;
 pub mod requests;
@@ -19,18 +20,6 @@ pub const SLIME_USER_ID: UserId = if cfg!(debug_assertions) {
 } else {
     UserId(7091308405)
 };
-
-pub async fn get_selected_badge(account_id: &AccountId) -> &str {
-    if account_id == "slimedragon.near"
-        || account_id == "slimegirl.near"
-        || account_id == "slimedrgn.near"
-        || account_id == "i-am-a-slime-that-only-dissolves-clothing"
-    {
-        "🟩"
-    } else {
-        ""
-    }
-}
 
 pub fn format_duration(duration: Duration) -> String {
     let mut duration = duration;

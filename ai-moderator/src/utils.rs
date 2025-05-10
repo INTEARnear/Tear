@@ -263,7 +263,7 @@ struct ModerationResponse {
 
 pub fn is_mostly_emoji(message: &str) -> bool {
     let chars: Vec<char> = message.chars().collect();
-    let len = chars.len();
+    let len = chars.len() - message.chars().filter(|ch| ch.is_whitespace()).count();
     if len <= 20 {
         return false;
     }

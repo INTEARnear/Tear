@@ -10,7 +10,9 @@ use async_trait::async_trait;
 use itertools::Itertools;
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
-use tearbot_common::utils::{apis::parse_meme_cooking_link, rpc::account_exists};
+use tearbot_common::utils::{
+    apis::parse_meme_cooking_link, badges::get_all_badges, rpc::account_exists,
+};
 use tearbot_common::utils::{tokens::MEME_COOKING_CONTRACT_ID, SLIME_USER_ID};
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
@@ -1525,6 +1527,28 @@ impl XeonBotModule for HubModule {
                                     )
                                     .await?;
                             }
+                        }
+                    }
+                }
+                if let Some(account_id) = data.strip_prefix("badge-") {
+                    if let Ok(account_id) = account_id.parse::<u64>() {
+                        let all_badges = get_all_badges().await;
+                        if let Some(badge) = all_badges.iter().find(|badge| badge.id == account_id)
+                        {
+                            let message = format!(
+                                "
+Badge: {name}
+
+_{description}_
+
+Sign up on [Imminent\\.build](https://imminent.build) to start collecting badges\\!
+                                ",
+                                name = markdown::escape(&badge.name),
+                                description = markdown::escape(&badge.description)
+                            );
+                            let reply_markup = InlineKeyboardMarkup::default();
+                            bot.send_text_message(chat_id.into(), message, reply_markup)
+                                .await?;
                         }
                     }
                 }
