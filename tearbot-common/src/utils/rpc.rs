@@ -19,7 +19,11 @@ pub const RPC_URLS: &[&str] = &[
     "https://free.rpc.fastnear.com",
     "https://near.lava.build",
 ];
-pub const ARCHIVE_RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
+pub const ARCHIVE_RPC_URL: &str = if let Some(url) = option_env!("ARCHIVE_RPC_URL") {
+    url
+} else {
+    "https://archival-rpc.mainnet.near.org"
+};
 
 macro_rules! try_rpc {
     (|$rpc_url: ident| $body: block) => {{
