@@ -92,7 +92,7 @@ fn main() -> Result<(), anyhow::Error> {
             let db = get_db().await?;
             let xeon = Xeon::new(db.clone()).await?;
 
-            let base: Url = if let Some(url) = option_env!("TELEGRAM_API_URL") {
+            let base: Url = if let Ok(url) = std::env::var("TELEGRAM_API_URL") {
                 url.parse().unwrap()
             } else if cfg!(not(debug_assertions))
                 || reqwest::get("http://localhost:5555").await.is_err()

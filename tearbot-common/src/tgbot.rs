@@ -22,17 +22,18 @@ use teloxide::payloads::SendMessageSetters;
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::payloads::{AnswerInlineQuerySetters, SendAudioSetters};
 use teloxide::payloads::{EditMessageTextSetters, SendDocumentSetters};
-use teloxide::prelude::dptree;
 use teloxide::prelude::CallbackQuery;
 use teloxide::prelude::Dispatcher;
 use teloxide::prelude::Message;
 use teloxide::prelude::Requester;
 use teloxide::prelude::Update;
 use teloxide::prelude::UserId;
+use teloxide::prelude::{dptree, LoggingErrorHandler};
 use teloxide::types::{
     InlineKeyboardMarkup, InlineQuery, InputFile, LinkPreviewOptions, MessageId, ParseMode,
     ReplyMarkup, ThreadId,
 };
+use teloxide::update_listeners::webhooks;
 use teloxide::utils::markdown;
 use teloxide::{adaptors::throttle::Throttle, prelude::ChatId};
 use teloxide::{adaptors::CacheMe, payloads::SendVideoSetters};
@@ -445,7 +446,25 @@ impl BotData {
                         }
                     },
                 ));
-            Dispatcher::builder(bot, handler).build().dispatch().await;
+            if let Ok(address) = std::env::var("WEBHOOK_ADDRESS") {
+                let listener = webhooks::axum(
+                    bot.clone(),
+                    webhooks::Options::new(
+                        address.parse().unwrap(),
+                        format!("http://{address}").parse().unwrap(),
+                    ),
+                )
+                .await
+                .expect("Couldn't setup webhook");
+                let error_handler =
+                    LoggingErrorHandler::with_custom_text("An error from the update listener");
+                Dispatcher::builder(bot, handler)
+                    .build()
+                    .dispatch_with_listener(listener, error_handler)
+                    .await;
+            } else {
+                Dispatcher::builder(bot, handler).build().dispatch().await;
+            }
         });
 
         let me = self.id();

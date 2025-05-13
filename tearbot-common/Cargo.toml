@@ -26,6 +26,7 @@ serde_json = { workspace = true }
 teloxide = { workspace = true, features = [
     "throttle",
     "cache-me",
+    "webhooks-axum",
 ] }
 tokio = { workspace = true, features = ["sync", "time"] }
 tokio-stream = { workspace = true }
