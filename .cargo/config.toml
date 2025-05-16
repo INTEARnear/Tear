@@ -8,6 +8,3 @@ rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold", "-Z", "share-generics=y", 
 
 [unstable]
 codegen-backend = true
-
-[build]
-incremental = false # temporary workaround for https://github.com/rust-lang/rust/issues/139110
