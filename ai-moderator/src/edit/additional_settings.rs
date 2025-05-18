@@ -43,7 +43,7 @@ pub async fn handle_block_forwarded_stories_button(
     if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
         let mut chat_config =
             (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
-        chat_config.block_mostly_emoji_messages = block;
+        chat_config.block_forwarded_stories = block;
         bot_config
             .chat_configs
             .insert_or_update(target_chat_id, chat_config)
