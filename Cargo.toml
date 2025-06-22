@@ -26,7 +26,7 @@ serde_json = "1.0.115"
 teloxide = { path = "./teloxide/crates/teloxide" }
 tokio = "1.37.0"
 tokio-stream = "0.1.15"
-near-primitives = "0.28.0"
+near-primitives = "0.30"
 inindexer = { git = "https://github.com/INTEARnear/inindexer" }
 redis = "0.25.3"
 intear-events = { git = "https://github.com/INTEARnear/intear-events" }
@@ -39,13 +39,13 @@ urlencoding = "2.1.3"
 bigdecimal = "0.4.5"
 inquire = { path = "./near-tgi/inquire" }
 keyring = { path = "./near-tgi/keyring" }
-near-api = { git = "https://github.com/near/near-api-rs", rev = "797f9fcb5e8fae3be8883d382968331888809f62" }
+near-api = "0.6"
 serde_with = "3.12.0"
 imageproc = "0.25.0"
 ab_glyph = "0.2.29"
 qrcode = "0.14.1"
 near-token = "0.3.0"
 near-gas = "0.3.0"
-near-jsonrpc-primitives = "0.28.0"
-near-crypto = "0.28.0"
+near-jsonrpc-primitives = "0.30"
+near-crypto = "0.30"
 regex = "1.11.1"

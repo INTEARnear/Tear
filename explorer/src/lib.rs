@@ -680,6 +680,9 @@ CA: `{ca}`
                                     format!("*Data*: {data}")
                                 }
                             }
+                            ReceiptEnumView::GlobalContractDistribution { id, target_shard, already_delivered_shards, .. } => {
+                                format!("*Global contract distribution*: {id:?}, shard {target_shard}, already delivered shards: {already_delivered_shards:?}")
+                            }
                         },
                     ))
                     .parse_mode(ParseMode::MarkdownV2)
@@ -905,6 +908,18 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
                 result.join("\n")
             },
         ),
+        ActionView::DeployGlobalContract { code } => {
+            format!("Deploy global contract \\({} bytes\\)", code.len())
+        }
+        ActionView::UseGlobalContract { code_hash } => {
+            format!("Use global contract `{code_hash}`")
+        }
+        ActionView::DeployGlobalContractByAccountId { code } => {
+            format!("Deploy global contract by account id \\({} bytes\\)", code.len())
+        }
+        ActionView::UseGlobalContractByAccountId { account_id } => {
+            format!("Use global contract by account id `{account_id}`")
+        }
     }
 }
 
