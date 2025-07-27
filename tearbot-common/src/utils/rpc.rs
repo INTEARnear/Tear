@@ -3,6 +3,7 @@ use cached::proc_macro::cached;
 use chrono::{DateTime, Utc};
 use inindexer::near_utils::dec_format;
 use near_jsonrpc_primitives::types::blocks::RpcBlockResponse;
+use near_primitives::account::id::AccountIdRef;
 use near_primitives::types::BlockId;
 use near_primitives::utils::account_is_implicit;
 use near_primitives::{
@@ -134,6 +135,34 @@ async fn _internal_view(
             "account_id": contract_id,
             "method_name": method_name,
             "args_base64": BASE64_STANDARD.encode(args.as_bytes()),
+        }
+    }))
+    .await?;
+    let response = match serde_json::from_value::<RpcResponseCallFunctionView>(response.clone()) {
+        Ok(v) => v,
+        Err(_) => {
+            return Err(anyhow::anyhow!("RPC view error: {response:?}"));
+        }
+    };
+    Ok(serde_json::from_str(&response.result)?)
+}
+
+pub async fn view_at<O: DeserializeOwned>(
+    contract_id: &AccountIdRef,
+    method_name: &str,
+    args: impl Serialize,
+    block_id: BlockId,
+) -> Result<O, anyhow::Error> {
+    let response = rpc::<_, serde_json::Value>(serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": "dontcare",
+        "method": "query",
+        "params": {
+            "request_type": "call_function",
+            "block_id": block_id,
+            "account_id": contract_id,
+            "method_name": method_name,
+            "args_base64": BASE64_STANDARD.encode(serde_json::to_vec(&args)?),
         }
     }))
     .await?;

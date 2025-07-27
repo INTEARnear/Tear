@@ -3118,6 +3118,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "dashmap 6.1.0",
+ "futures-util",
  "itertools 0.14.0",
  "log",
  "regex",

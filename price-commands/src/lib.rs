@@ -296,7 +296,7 @@ impl XeonBotModule for PriceCommandsModule {
                     }
                 };
                 let mut exchanges = vec![
-                    format!("[Rhea\\.finance](https://dex.rhea.finance/#near|{token})"),
+                    format!("[Rhea\\.finance](https://app.rhea.finance/#near|{token})"),
                     format!(
                         "[Bettear Bot](tg://resolve?domain={}&start={bot_start_query})",
                         bot.bot().get_me().await?.username.as_ref().unwrap(),
@@ -320,6 +320,9 @@ impl XeonBotModule for PriceCommandsModule {
                 if token.as_str().ends_with(".gra-fun.near") {
                     exchanges.push(format!("[GraFun](https://gra.fun/near-mainnet/{token})"));
                 }
+                exchanges.push(format!(
+                    "[Intear Wallet](https://wallet.intear.tech/swap?from=near&to={token})"
+                ));
                 let exchanges = exchanges.join(", ");
                 let message = format!("Click to copy CA: `{token}`\n\nBuy on: {exchanges}");
                 let buttons = vec![vec![InlineKeyboardButton::url(

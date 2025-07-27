@@ -915,7 +915,10 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
             format!("Use global contract `{code_hash}`")
         }
         ActionView::DeployGlobalContractByAccountId { code } => {
-            format!("Deploy global contract by account id \\({} bytes\\)", code.len())
+            format!(
+                "Deploy global contract by account id \\({} bytes\\)",
+                code.len()
+            )
         }
         ActionView::UseGlobalContractByAccountId { account_id } => {
             format!("Use global contract by account id `{account_id}`")

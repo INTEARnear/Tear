@@ -138,6 +138,8 @@ pub struct TokenInfo {
     pub reputation: TokenScore,
     pub socials: HashMap<String, String>,
     pub slug: Vec<String>,
+    pub volume_usd_24h: f64,
+    pub liquidity_usd: f64,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

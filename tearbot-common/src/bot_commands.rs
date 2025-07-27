@@ -218,6 +218,22 @@ pub enum TgCommand {
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsComponentTraderDisable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentTraderNewHolderCycle(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentTraderExistingHolderCycle(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentTraderShowSocialNameEnable(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentTraderShowSocialNameDisable(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentWhaleAlert(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentWhaleAlertEnable(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentWhaleAlertDisable(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentWhaleAlertEditThreshold(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
     FtNotificationsComponentAmount(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsComponentAmountEnable(NotificationDestination, Token),
@@ -1374,6 +1390,8 @@ pub enum MessageCommand {
     FtNotificationsComponentEmojisEditEmojis(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsComponentEmojisEditAmountFormulaLinearStep(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentWhaleAlertEditThresholdValue(NotificationDestination, Token),
     #[cfg(feature = "price-alerts-module")]
     PriceAlertsAddToken(NotificationDestination),
     #[cfg(feature = "price-alerts-module")]
@@ -1792,11 +1810,11 @@ pub enum PoolId {
 impl PoolId {
     pub fn get_link(&self) -> String {
         match self {
-            PoolId::Ref(id) => format!("https://dex.rhea.finance/pool/{id}"),
+            PoolId::Ref(id) => format!("https://app.rhea.finance/pool/{id}"),
             PoolId::Aidols(account_id) => format!("https://aidols.bot/agents/{account_id}"),
             PoolId::GraFun(account_id) => format!("https://gra.fun/near-mainnet/{account_id}"),
             PoolId::RefDcl(token1, token2, fee) => {
-                format!("https://dex.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee}")
+                format!("https://app.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee}")
             }
             PoolId::Veax(token1, token2) => {
                 format!("https://app.veax.com/liquidity/add?tokenTo={token2}&tokenFrom={token1}")
