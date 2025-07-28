@@ -429,7 +429,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                 let metadata = if let Ok(metadata) = get_ft_metadata(&token_id).await {
                     metadata
                 } else {
-                    let message = format!("Token `{}` not found", token_id);
+                    let message = format!("Token `{token_id}` not found");
                     let buttons =
                         InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
                             "⬅️ Back",

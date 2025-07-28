@@ -158,7 +158,7 @@ pub fn format_token_amount(amount: Balance, decimals: u32, symbol: &str) -> Stri
         format!("{token_float:.3}")
     } else if token_float >= 1.0 / 1e12 {
         let digits = -token_float.abs().log10().floor() as usize + 2;
-        format!("{token_float:.*}", digits)
+        format!("{token_float:.digits$}")
     } else {
         "0".to_string()
     };
@@ -174,7 +174,7 @@ pub fn format_token_amount(amount: Balance, decimals: u32, symbol: &str) -> Stri
 
 fn format_number(num: f64, precision: usize) -> String {
     // First format with the desired precision
-    let formatted = format!("{:.1$}", num, precision);
+    let formatted = format!("{num:.precision$}");
 
     // Split into integer and decimal parts
     let parts: Vec<&str> = formatted.split('.').collect();

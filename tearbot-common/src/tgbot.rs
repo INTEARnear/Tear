@@ -699,10 +699,7 @@ impl BotData {
                     .await
                 {
                     log::error!(
-                        "Error answering inline query {:?}: {:?}\n\nTried to answer: {:?}",
-                        inline_query,
-                        err,
-                        results
+                        "Error answering inline query {inline_query:?}: {err:?}\n\nTried to answer: {results:?}"
                     );
                 }
             }
@@ -1320,7 +1317,7 @@ impl BotData {
                     show_above_text: false,
                 })
                 .await {
-                    warn!("Error sending message limit notification: {:?}", err);
+                    warn!("Error sending message limit notification: {err:?}");
                 }
         });
     }

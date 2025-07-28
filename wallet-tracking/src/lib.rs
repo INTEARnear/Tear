@@ -333,13 +333,11 @@ impl WalletTrackingModule {
 
                         let message = format!(
                             "
-*Transaction by* `{signer}`
-*Contract / Receiver:* `{receiver}`
+*Transaction by* `{signer_id}`
+*Contract / Receiver:* `{receiver_id}`
 
 [Tx](https://nearblocks.io/txns/{tx_hash})
                             ",
-                            signer = signer_id,
-                            receiver = receiver_id,
                         );
 
                         let buttons = if chat_id.is_user() {

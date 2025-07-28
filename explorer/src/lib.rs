@@ -903,7 +903,7 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
                         bot,
                     ))
                     .await;
-                    result.push(format!("\\-\\> {}", formatted_action));
+                    result.push(format!("\\-\\> {formatted_action}"));
                 }
                 result.join("\n")
             },

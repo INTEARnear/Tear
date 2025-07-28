@@ -26,8 +26,7 @@ pub struct Badge {
 
 pub async fn get_selected_badge(account_id: &AccountId) -> String {
     match get_cached_5m::<BadgeResponse>(&format!(
-        "https://imminent.build/api/users/{}/badges",
-        account_id
+        "https://imminent.build/api/users/{account_id}/badges"
     ))
     .await
     {
@@ -46,7 +45,7 @@ pub async fn get_selected_badge(account_id: &AccountId) -> String {
 }
 
 pub async fn get_all_badges() -> Vec<Badge> {
-    match get_cached_5m::<Vec<Badge>>(&format!("https://imminent.build/api/badges")).await {
+    match get_cached_5m::<Vec<Badge>>("https://imminent.build/api/badges").await {
         Ok(response) => response,
         Err(_) => vec![],
     }

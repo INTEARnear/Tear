@@ -1058,19 +1058,17 @@ impl AiModeratorModule {
                                     } else {
                                         Ok(True)
                                     }
-                            } else {
-                                if let Err(err) = bot
+                            } else if let Err(err) = bot
+                            .bot()
+                            .ban_chat_sender_chat(chat_id, sender_id)
+                            .await {
+                                log::warn!("Failed to ban sender chat: {err}");
+                                bot
                                     .bot()
-                                    .ban_chat_sender_chat(chat_id, sender_id)
-                                    .await {
-                                        log::warn!("Failed to ban sender chat: {err}");
-                                        bot
-                                            .bot()
-                                            .delete_message(chat_id, message.id)
-                                            .await
-                                    } else {
-                                        Ok(True)
-                                    }
+                                    .delete_message(chat_id, message.id)
+                                    .await
+                            } else {
+                                Ok(True)
                             };
                             if let Err(RequestError::Api(err)) = result
                             {

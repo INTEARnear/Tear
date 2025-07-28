@@ -126,16 +126,14 @@ pub async fn get_message_rating(
             };
         }
     }
-    if config.block_mostly_emoji_messages {
-        if utils::is_mostly_emoji(&message_text) {
-            return MessageRating::Ok {
-                judgement: ModerationJudgement::Suspicious,
-                reasoning: "This message is mostly emojis, which was configured to be blocked"
-                    .to_string(),
-                message_text,
-                image_jpeg: None,
-            };
-        }
+    if config.block_mostly_emoji_messages && utils::is_mostly_emoji(&message_text) {
+        return MessageRating::Ok {
+            judgement: ModerationJudgement::Suspicious,
+            reasoning: "This message is mostly emojis, which was configured to be blocked"
+                .to_string(),
+            message_text,
+            image_jpeg: None,
+        };
     }
     let entities = message.parse_entities().unwrap_or_default();
     let message_text = match std::panic::catch_unwind(move || {
@@ -279,16 +277,16 @@ pub fn is_mostly_emoji(message: &str) -> bool {
 }
 
 fn is_emoji_char(ch: char) -> bool {
-    (ch >= '\u{1F600}' && ch <= '\u{1F64F}') // Emoticons
-        || (ch >= '\u{1F300}' && ch <= '\u{1F5FF}') // Misc Symbols and Pictographs
-        || (ch >= '\u{1F680}' && ch <= '\u{1F6FF}') // Transport and Map
-        || (ch >= '\u{2600}' && ch <= '\u{26FF}')   // Misc symbols
-        || (ch >= '\u{2700}' && ch <= '\u{27BF}')   // Dingbats
-        || (ch >= '\u{1F900}' && ch <= '\u{1F9FF}') // Supplemental Symbols and Pictographs
-        || (ch >= '\u{1FA70}' && ch <= '\u{1FAFF}') // Symbols and Pictographs Extended-A
-        || (ch >= '\u{1F1E6}' && ch <= '\u{1F1FF}') // Regional Indicator Symbols
-        || (ch >= '\u{1F191}' && ch <= '\u{1F251}') // Enclosed characters
-        || (ch >= '\u{1F004}' && ch <= '\u{1F0CF}') // Playing cards
-        || (ch >= '\u{1F018}' && ch <= '\u{1F270}') // Various
-        || (ch >= '\u{238C}' && ch <= '\u{2454}') // Misc technical
+    ('\u{1F600}'..='\u{1F64F}').contains(&ch) // Emoticons
+        || ('\u{1F300}'..='\u{1F5FF}').contains(&ch) // Misc Symbols and Pictographs
+        || ('\u{1F680}'..='\u{1F6FF}').contains(&ch) // Transport and Map
+        || ('\u{2600}'..='\u{26FF}').contains(&ch)   // Misc symbols
+        || ('\u{2700}'..='\u{27BF}').contains(&ch)   // Dingbats
+        || ('\u{1F900}'..='\u{1F9FF}').contains(&ch) // Supplemental Symbols and Pictographs
+        || ('\u{1FA70}'..='\u{1FAFF}').contains(&ch) // Symbols and Pictographs Extended-A
+        || ('\u{1F1E6}'..='\u{1F1FF}').contains(&ch) // Regional Indicator Symbols
+        || ('\u{1F191}'..='\u{1F251}').contains(&ch) // Enclosed characters
+        || ('\u{1F004}'..='\u{1F0CF}').contains(&ch) // Playing cards
+        || ('\u{1F018}'..='\u{1F270}').contains(&ch) // Various
+        || ('\u{238C}'..='\u{2454}').contains(&ch) // Misc technical
 }

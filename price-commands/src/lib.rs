@@ -308,7 +308,7 @@ impl XeonBotModule for PriceCommandsModule {
                     ));
                 }
                 if let Some(meme) = token.as_str().strip_suffix(".meme-cooking.near") {
-                    if let Some(meme_id) = meme.split('-').last() {
+                    if let Some(meme_id) = meme.split('-').next_back() {
                         exchanges.push(format!(
                             "[Meme Cooking](https://meme.cooking/meme/{meme_id})"
                         ))

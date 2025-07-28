@@ -245,6 +245,15 @@ pub enum TgCommand {
     FtNotificationsComponentFullyDilutedValuationEnable(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsComponentFullyDilutedValuationDisable(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentFullyDilutedValuationCycle(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentFullyDilutedValuationEditExcludedAddresses(
+        NotificationDestination,
+        Token,
+    ),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentFullyDilutedValuationEditFixedSupply(NotificationDestination, Token),
     #[cfg(feature = "price-alerts-module")]
     PriceAlertsNotificationsSettings(NotificationDestination),
     #[cfg(feature = "price-alerts-module")]
@@ -1392,6 +1401,16 @@ pub enum MessageCommand {
     FtNotificationsComponentEmojisEditAmountFormulaLinearStep(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsComponentWhaleAlertEditThresholdValue(NotificationDestination, Token),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentFullyDilutedValuationEditExcludedAddressesValue(
+        NotificationDestination,
+        Token,
+    ),
+    #[cfg(feature = "ft-buybot-module")]
+    FtNotificationsComponentFullyDilutedValuationEditFixedSupplyValue(
+        NotificationDestination,
+        Token,
+    ),
     #[cfg(feature = "price-alerts-module")]
     PriceAlertsAddToken(NotificationDestination),
     #[cfg(feature = "price-alerts-module")]

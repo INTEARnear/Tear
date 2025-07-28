@@ -112,7 +112,7 @@ where
                     .db
                     .find_one(bson::doc! { "key": key_bson })
                     .await
-                    .map_err(|e| log::error!("Error getting cache entry: {:?}", e))
+                    .map_err(|e| log::error!("Error getting cache entry: {e:?}"))
                     .unwrap_or(None)
                     .map(|entry| entry.value);
                 if let Some(value) = value.as_ref() {
@@ -121,7 +121,7 @@ where
                 value
             }
             Err(e) => {
-                log::error!("Error serializing key: {:?}", e);
+                log::error!("Error serializing key: {e:?}");
                 None
             }
         }
@@ -345,11 +345,11 @@ where
                 .db
                 .find_one(bson::doc! { "key": key_bson })
                 .await
-                .map_err(|e| log::error!("Error getting cache entry: {:?}", e))
+                .map_err(|e| log::error!("Error getting cache entry: {e:?}"))
                 .unwrap_or(None)
                 .map(|entry| entry.value),
             Err(e) => {
-                log::error!("Error serializing key: {:?}", e);
+                log::error!("Error serializing key: {e:?}");
                 None
             }
         }
