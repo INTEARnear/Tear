@@ -20,6 +20,9 @@ pub enum Model {
     GPTO4Mini,
     Llama70B, // 3.3
     Llama4Scout,
+    Gpt5,
+    Gpt5Mini,
+    Gpt5Nano,
 }
 
 pub const SCHEMA_STRING: &str = "string";
@@ -37,12 +40,21 @@ impl Model {
             Self::GPTO4Mini => "o4 mini",
             Self::Llama70B => "Llama 3.3 70B",
             Self::Llama4Scout => "Llama 4 Scout",
+            Self::Gpt5 => "GPT 5",
+            Self::Gpt5Mini => "GPT 5 Mini",
+            Self::Gpt5Nano => "GPT 5 Nano",
         }
     }
 
     pub fn supports_image(&self) -> bool {
         match self {
-            Self::RecommendedBest | Self::RecommendedFast | Self::Gpt4o | Self::Gpt4oMini => true,
+            Self::RecommendedBest
+            | Self::RecommendedFast
+            | Self::Gpt4o
+            | Self::Gpt4oMini
+            | Self::Gpt5
+            | Self::Gpt5Mini
+            | Self::Gpt5Nano => true,
             Self::Llama70B
             | Self::Llama4Scout
             | Self::Gpt4_1
@@ -61,7 +73,10 @@ impl Model {
             | Self::Gpt4_1
             | Self::Gpt4_1Mini
             | Self::Gpt4_1Nano
-            | Self::GPTO4Mini => true,
+            | Self::GPTO4Mini
+            | Self::Gpt5
+            | Self::Gpt5Mini
+            | Self::Gpt5Nano => true,
             Self::Llama70B | Self::Llama4Scout => false,
         }
     }
@@ -82,6 +97,9 @@ impl Model {
             Self::GPTO4Mini => "o4-mini",
             Self::Llama70B => "llama3.3-70b",
             Self::Llama4Scout => "llama-4-scout-17b-16e-instruct",
+            Self::Gpt5 => "gpt-5",
+            Self::Gpt5Mini => "gpt-5-mini",
+            Self::Gpt5Nano => "gpt-5-nano",
         }
     }
 
@@ -97,6 +115,9 @@ impl Model {
             Self::GPTO4Mini => 1,
             Self::Llama70B => 1,
             Self::Llama4Scout => 1,
+            Self::Gpt5 => 3,
+            Self::Gpt5Mini => 1,
+            Self::Gpt5Nano => 1,
         }
     }
 
@@ -152,7 +173,7 @@ impl Model {
         match self {
             Model::RecommendedBest => {
                 Box::pin(async move {
-                    Self::Gpt4_1
+                    Self::Gpt5
                         .get_completion_response(
                             prompt,
                             schema,
@@ -167,7 +188,7 @@ impl Model {
             Model::RecommendedFast => {
                 Box::pin(async move {
                     if image_jpeg.is_some() {
-                        Self::Gpt4_1Nano
+                        Self::Gpt5Nano
                             .get_completion_response(
                                 prompt,
                                 schema,
@@ -190,7 +211,30 @@ impl Model {
                 })
                 .await
             }
-            Model::Gpt4o => {
+            Model::Llama70B | Model::Llama4Scout => {
+                get_ai_response(
+                    std::env::var("CEREBRAS_API_KEY").unwrap().as_str(),
+                    "https://api.cerebras.ai/v1/chat/completions",
+                    self.model_id(),
+                    prompt,
+                    schema,
+                    self.supports_schema(),
+                    message,
+                    None,
+                    high_quality_image,
+                    false,
+                )
+                .await
+            }
+            Model::Gpt5
+            | Model::Gpt5Mini
+            | Model::Gpt5Nano
+            | Model::Gpt4oMini
+            | Model::Gpt4_1
+            | Model::Gpt4_1Mini
+            | Model::Gpt4_1Nano
+            | Model::GPTO4Mini
+            | Model::Gpt4o => {
                 get_ai_response(
                     std::env::var("OPENAI_API_KEY").unwrap().as_str(),
                     "https://api.openai.com/v1/chat/completions",
@@ -202,111 +246,6 @@ impl Model {
                     image_jpeg,
                     high_quality_image,
                     true,
-                )
-                .await
-            }
-            Model::Gpt4oMini => {
-                get_ai_response(
-                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
-                    "https://api.openai.com/v1/chat/completions",
-                    self.model_id(),
-                    prompt,
-                    schema,
-                    self.supports_schema(),
-                    message,
-                    None,
-                    high_quality_image,
-                    true,
-                )
-                .await
-            }
-            Model::Gpt4_1 => {
-                get_ai_response(
-                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
-                    "https://api.openai.com/v1/chat/completions",
-                    self.model_id(),
-                    prompt,
-                    schema,
-                    self.supports_schema(),
-                    message,
-                    None,
-                    high_quality_image,
-                    true,
-                )
-                .await
-            }
-            Model::Gpt4_1Mini => {
-                get_ai_response(
-                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
-                    "https://api.openai.com/v1/chat/completions",
-                    self.model_id(),
-                    prompt,
-                    schema,
-                    self.supports_schema(),
-                    message,
-                    None,
-                    high_quality_image,
-                    true,
-                )
-                .await
-            }
-            Model::Gpt4_1Nano => {
-                get_ai_response(
-                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
-                    "https://api.openai.com/v1/chat/completions",
-                    self.model_id(),
-                    prompt,
-                    schema,
-                    self.supports_schema(),
-                    message,
-                    None,
-                    high_quality_image,
-                    true,
-                )
-                .await
-            }
-            Model::GPTO4Mini => {
-                get_ai_response(
-                    std::env::var("OPENAI_API_KEY").unwrap().as_str(),
-                    "https://api.openai.com/v1/chat/completions",
-                    self.model_id(),
-                    prompt,
-                    schema,
-                    self.supports_schema(),
-                    message,
-                    None,
-                    high_quality_image,
-                    true,
-                )
-                .await
-            }
-            Model::Llama70B => {
-                get_ai_response(
-                    std::env::var("CEREBRAS_API_KEY").unwrap().as_str(),
-                    "https://api.cerebras.ai/v1/chat/completions",
-                    self.model_id(),
-                    prompt,
-                    schema,
-                    self.supports_schema(),
-                    message,
-                    None,
-                    high_quality_image,
-                    false,
-                )
-                .await
-            }
-            Model::Llama4Scout => {
-                get_ai_response(
-                    std::env::var("CEREBRAS_API_KEY").unwrap().as_str(),
-                    "https://api.cerebras.ai/v1/chat/completions",
-                    self.model_id(),
-                    prompt,
-                    schema,
-                    self.supports_schema(),
-                    message,
-                    None,
-                    high_quality_image,
-                    false,
                 )
                 .await
             }

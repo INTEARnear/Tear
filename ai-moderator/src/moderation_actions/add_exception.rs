@@ -15,7 +15,7 @@ use tearbot_common::{
     xeon::XeonState,
 };
 
-use crate::{utils::reached_gpt4o_rate_limit, AiModeratorBotConfig};
+use crate::{utils::reached_base_rate_limit, AiModeratorBotConfig};
 
 pub async fn handle_button(
     ctx: &mut TgCallbackContext<'_>,
@@ -83,10 +83,10 @@ The AI Moderator can't flag for review, update its model, or do anything other t
             "Old Prompt: {}\n\nMessage: {}\n\nReasoning:{}",
             chat_config.prompt, message_text, reasoning,
         );
-        let model = if reached_gpt4o_rate_limit(*chat_id) {
-            Model::Gpt4oMini
+        let model = if reached_base_rate_limit(*chat_id) {
+            Model::Gpt5Nano
         } else {
-            Model::Gpt4o
+            Model::Gpt5Mini
         };
         match model
             .get_ai_response::<PromptEditionResponse>(

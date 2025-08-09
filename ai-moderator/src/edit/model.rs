@@ -23,7 +23,10 @@ pub async fn handle_rotate_model_button(
             (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
         chat_config.model = match chat_config.model {
             Model::RecommendedBest => Model::RecommendedFast,
-            Model::RecommendedFast => Model::Gpt4_1,
+            Model::RecommendedFast => Model::Gpt5,
+            Model::Gpt5 => Model::Gpt5Mini,
+            Model::Gpt5Mini => Model::Gpt5Nano,
+            Model::Gpt5Nano => Model::Gpt4_1,
             Model::Gpt4_1 => Model::Gpt4_1Mini,
             Model::Gpt4_1Mini => Model::Gpt4_1Nano,
             Model::Gpt4_1Nano => Model::GPTO4Mini,

@@ -160,7 +160,7 @@ pub async fn search_token(
         } else {
             None
         };
-        if let Ok(result) = Model::Gpt4o
+        if let Ok(result) = Model::Gpt5Nano
             .get_ai_response::<AiTokenSearchResults>(
                 "Extract the token name, ticker, or contract address (usually ends with .near) from the user's forwarded message. If you see multiple tokens, list them all. If there are no tokens to be found in the user's message, return an empty array. Don't include NEAR in the results, since it's the quote token.",
                 r#"{

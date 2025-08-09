@@ -52,20 +52,20 @@ pub async fn is_in_moderator_chat_or_dm(
     }
 }
 
-pub fn reached_gpt4o_rate_limit(chat_id: ChatId) -> bool {
+pub fn reached_base_rate_limit(chat_id: ChatId) -> bool {
     lazy_static! {
         static ref CURRENT_DAY: AtomicI32 = AtomicI32::new(chrono::Utc::now().num_days_from_ce());
-        static ref GPT4O_MESSAGES_PER_DAY: DashMap<ChatId, u32> = DashMap::new();
+        static ref BASE_MESSAGES_PER_DAY: DashMap<ChatId, u32> = DashMap::new();
     }
-    const MAX_GPT4O_MESSAGES_PER_DAY: u32 = 5;
+    const MAX_BASE_MESSAGES_PER_DAY: u32 = 5;
 
     let current_day = chrono::Utc::now().num_days_from_ce();
     if CURRENT_DAY.swap(current_day, Ordering::Relaxed) != current_day {
-        GPT4O_MESSAGES_PER_DAY.clear();
+        BASE_MESSAGES_PER_DAY.clear();
     }
-    let mut messages = GPT4O_MESSAGES_PER_DAY.entry(chat_id).or_insert(0);
+    let mut messages = BASE_MESSAGES_PER_DAY.entry(chat_id).or_insert(0);
     *messages += 1;
-    *messages > MAX_GPT4O_MESSAGES_PER_DAY
+    *messages > MAX_BASE_MESSAGES_PER_DAY
 }
 
 pub enum MessageRating {

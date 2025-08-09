@@ -638,7 +638,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotSettingsSlippage,
     #[cfg(feature = "trading-bot-module")]
-    TradingBotSettingsSetSlippage(f64),
+    TradingBotSettingsSetSlippage(Option<f64>),
     #[cfg(feature = "trading-bot-module")]
     TradingBotSettingsButtons,
     #[cfg(feature = "trading-bot-module")]

@@ -18,7 +18,7 @@ use tearbot_common::{
 
 use crate::{
     moderator,
-    utils::{self, reached_gpt4o_rate_limit},
+    utils::{self, reached_base_rate_limit},
     AiModeratorBotConfig,
 };
 
@@ -196,10 +196,10 @@ pub async fn handle_edit_prompt_input(
             } else {
                 return Ok(());
             };
-            let model = if reached_gpt4o_rate_limit(target_chat_id) {
-                Model::Gpt4oMini
+            let model = if reached_base_rate_limit(target_chat_id) {
+                Model::Gpt5Nano
             } else {
-                Model::Gpt4o
+                Model::Gpt5Mini
             };
             let prompt = "You help users to configure their AI Moderator prompt. Your job is to rewrite the old prompt in accordance with the changes that the user requested. If possible, don't alter the parts that the user didn't ask to change.";
             match model
