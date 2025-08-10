@@ -173,7 +173,7 @@ impl Model {
         match self {
             Model::RecommendedBest => {
                 Box::pin(async move {
-                    Self::Gpt5
+                    Self::Gpt5Mini
                         .get_completion_response(
                             prompt,
                             schema,

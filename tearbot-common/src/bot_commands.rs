@@ -1277,6 +1277,11 @@ pub enum TgCommand {
     TradingBotTeardropClaim {
         drop_id: CryptoHash,
     },
+    #[cfg(feature = "trading-bot-module")]
+    TradingBotRheaAirdropClaim {
+        account_id: AccountId,
+        airdrop_id: i64,
+    },
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetBlockMostlyEmojiMessages(ChatId, bool),
     #[cfg(feature = "ai-moderator-module")]
