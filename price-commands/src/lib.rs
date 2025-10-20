@@ -302,11 +302,6 @@ impl XeonBotModule for PriceCommandsModule {
                         bot.bot().get_me().await?.username.as_ref().unwrap(),
                     ),
                 ];
-                if token == "dogshit-1408.meme-cooking.near" {
-                    exchanges.push(format!(
-                        "[Veax](https://app.veax.com/trade?tokens=near%25{token})"
-                    ));
-                }
                 if let Some(meme) = token.as_str().strip_suffix(".meme-cooking.near") {
                     if let Some(meme_id) = meme.split('-').next_back() {
                         exchanges.push(format!(
@@ -316,9 +311,6 @@ impl XeonBotModule for PriceCommandsModule {
                 }
                 if token.as_str().ends_with(".aidols.near") {
                     exchanges.push(format!("[AIdols](https://aidols.bot/agents/{token})"));
-                }
-                if token.as_str().ends_with(".gra-fun.near") {
-                    exchanges.push(format!("[GraFun](https://gra.fun/near-mainnet/{token})"));
                 }
                 exchanges.push(format!(
                     "[Intear Wallet](https://wallet.intear.tech/swap?from=near&to={token})"

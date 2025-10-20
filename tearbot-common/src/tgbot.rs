@@ -66,7 +66,7 @@ pub type TgBot = CacheMe<Throttle<Bot>>;
 
 /// Use this as callback data if you're 100% sure that the callback data will never be used
 pub const DONT_CARE: &str = "dontcare";
-pub const BASE_REFERRAL_SHARE: f64 = 0.15;
+pub const BASE_REFERRAL_SHARE: f64 = 0.25;
 pub const STARS_PER_USD: u32 = 77; // 77 stars = $1
 pub const NOTIFICATION_LIMIT_5M: usize = 20;
 pub const NOTIFICATION_LIMIT_1H: usize = 150;
@@ -248,8 +248,6 @@ impl BotData {
         // Meme.cooking (Mario)
         if user_id == UserId(28757995) {
             0.5
-        } else if user_id == UserId(1888839649) {
-            0.25
         } else {
             BASE_REFERRAL_SHARE
         }
@@ -1583,7 +1581,10 @@ fn log_parse_error(text: impl Into<String>) -> impl FnOnce(&RequestError) {
 #[serde(untagged)]
 pub enum NotificationDestination {
     Chat(ChatId),
-    Topic(ChatId, ThreadId),
+    Topic {
+        chat_id: ChatId,
+        thread_id: ThreadId,
+    },
 }
 
 impl From<ChatId> for NotificationDestination {
@@ -1601,7 +1602,10 @@ impl From<NotificationDestination> for ChatId {
 impl NotificationDestination {
     pub fn from_message(message: &Message) -> Self {
         if let Some(thread_id) = message.thread_id {
-            Self::Topic(message.chat.id, thread_id)
+            Self::Topic {
+                chat_id: message.chat.id,
+                thread_id,
+            }
         } else {
             Self::Chat(message.chat.id)
         }
@@ -1610,14 +1614,14 @@ impl NotificationDestination {
     pub fn chat_id(&self) -> ChatId {
         match self {
             Self::Chat(chat_id) => *chat_id,
-            Self::Topic(chat_id, _) => *chat_id,
+            Self::Topic { chat_id, .. } => *chat_id,
         }
     }
 
     pub fn thread_id(&self) -> Option<ThreadId> {
         match self {
             Self::Chat(_) => None,
-            Self::Topic(_, thread_id) => Some(*thread_id),
+            Self::Topic { thread_id, .. } => Some(*thread_id),
         }
     }
 }
@@ -1628,7 +1632,7 @@ impl Deref for NotificationDestination {
     fn deref(&self) -> &Self::Target {
         match self {
             Self::Chat(chat_id) => chat_id,
-            Self::Topic(chat_id, _) => chat_id,
+            Self::Topic { chat_id, .. } => chat_id,
         }
     }
 }

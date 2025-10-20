@@ -265,7 +265,7 @@ where
         }
     }
 
-    pub async fn values(&self) -> Result<impl Iterator<Item = RefMulti<K, V>>, anyhow::Error> {
+    pub async fn values<'a>(&'a self) -> Result<impl Iterator<Item = RefMulti<'a, K, V>>, anyhow::Error> {
         if !self.cached_all.load(Ordering::Relaxed) {
             let mut cursor = self.db.find(bson::doc! {}).await?;
             while let Some(result) = cursor.try_next().await? {

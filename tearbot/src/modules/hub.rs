@@ -402,7 +402,6 @@ impl XeonBotModule for HubModule {
                                     None,
                                     &bot.to_callback_data(&TgCommand::TradingBotPositions {
                                         selected_account_id: None,
-                                        selected_solana_account: None,
                                     })
                                     .await,
                                 ),
@@ -429,7 +428,6 @@ impl XeonBotModule for HubModule {
                                         None,
                                         &bot.to_callback_data(&TgCommand::TradingBotBuy {
                                             selected_account_id: None,
-                                            selected_solana_account: None,
                                         })
                                         .await,
                                     ),
@@ -1057,10 +1055,10 @@ impl XeonBotModule for HubModule {
                         {
                             self.open_chat_settings(
                                 &mut TgCallbackContext::new(bot, user_id, chat_id, None, DONT_CARE),
-                                Some(NotificationDestination::Topic(
-                                    ChatId(target_chat_id),
-                                    ThreadId(MessageId(target_thread_id)),
-                                )),
+                                Some(NotificationDestination::Topic {
+                                    chat_id: ChatId(target_chat_id),
+                                    thread_id: ThreadId(MessageId(target_thread_id)),
+                                }),
                             )
                             .await?;
                         }

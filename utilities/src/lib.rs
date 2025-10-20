@@ -339,14 +339,8 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             PoolId::Aidols(account_id) => format!(
                                 "[AIdols](https://aidols.bot/agents/{account_id})",
                             ),
-                            PoolId::GraFun(account_id) => format!(
-                                "[GraFun](https://gra.fun/near-mainnet/{account_id})"
-                            ),
                             PoolId::RefDcl(token1, token2, fee) => format!(
                                 "[Rhea CLMM](https://app.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee})"
-                            ),
-                            PoolId::Veax(token1, token2) => format!(
-                                "[Veax](https://app.veax.com/liquidity/add?tokenTo={token2}&tokenFrom={token1}"
                             ),
                         }
                     } else {

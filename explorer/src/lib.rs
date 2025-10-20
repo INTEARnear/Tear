@@ -198,9 +198,9 @@ impl ExplorerModule {
                             ",
                             balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
                                 [(token1, amount1), (token2, amount2)] => {
-                                    if **amount1 > 0 && **amount2 < 0 {
+                                    if **amount1 < 0 && **amount2 > 0 {
                                         format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
-                                    } else if **amount1 < 0 && **amount2 > 0 {
+                                    } else if **amount1 > 0 && **amount2 < 0 {
                                         format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
                                     } else {
                                         let mut result = Vec::new();
@@ -320,9 +320,9 @@ impl ExplorerModule {
                             ",
                             balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
                                 [(token1, amount1), (token2, amount2)] => {
-                                    if **amount1 > 0 && **amount2 < 0 {
+                                    if **amount1 < 0 && **amount2 > 0 {
                                         format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
-                                    } else if **amount1 < 0 && **amount2 > 0 {
+                                    } else if **amount1 > 0 && **amount2 < 0 {
                                         format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
                                     } else {
                                         let mut result = Vec::new();

@@ -84,8 +84,6 @@ pub struct XeonState {
     >,
 }
 
-pub const TRADING_POINTS_DAILY_CAP: f64 = 10.0;
-
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct AirdropState {

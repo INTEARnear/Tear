@@ -3,12 +3,12 @@ use near_primitives::types::{AccountId, Balance};
 use serde::{Deserialize, Serialize};
 use teloxide::utils::markdown;
 
-use crate::{
-    utils::{apis::get_near_social_details, badges::get_selected_badge},
-    xeon::XeonState,
-};
+use crate::{utils::badges::get_selected_badge, xeon::XeonState};
 
-use super::rpc::{view_cached_30s, view_cached_7d};
+use super::{
+    requests::get_cached_30s,
+    rpc::{view_cached_30s, view_cached_7d},
+};
 
 pub const NEAR_DECIMALS: u32 = 24;
 pub const WRAP_NEAR: &str = "wrap.near";
@@ -217,16 +217,6 @@ pub fn format_usd_amount(amount: f64) -> String {
 }
 
 pub async fn format_account_id(account_id: &AccountId) -> String {
-    let name = get_near_social_details(account_id)
-        .await
-        .ok()
-        .and_then(|profile| profile.name)
-        .unwrap_or(account_id.to_string());
-    let name = markdown::escape(&if name.chars().all(|c| !c.is_alphanumeric()) {
-        account_id.to_string()
-    } else {
-        name
-    });
     let badge = get_selected_badge(account_id).await;
     format!(
         "{badge}[{name}](https://pikespeak.ai/wallet-explorer/{account_id})",
@@ -234,7 +224,8 @@ pub async fn format_account_id(account_id: &AccountId) -> String {
             format!("{badge} ")
         } else {
             "".to_string()
-        }
+        },
+        name = markdown::escape(&account_id.to_string()),
     )
 }
 
@@ -310,6 +301,81 @@ pub struct TeamAllocation {
     pub cliff_duration_ms: u64,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+struct MemeCookingApiResponse {
+    meme: MemeCookingApiMeme,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct MemeCookingApiMeme {
+    meme_id: u64,
+    owner: String,
+    #[serde(with = "dec_format")]
+    start_timestamp_ms: Option<u64>,
+    #[serde(with = "dec_format")]
+    end_timestamp_ms: u64,
+    name: String,
+    symbol: String,
+    decimals: u32,
+    #[serde(with = "dec_format")]
+    total_supply: Balance,
+    reference: String,
+    reference_hash: String,
+    deposit_token_id: AccountId,
+    #[serde(with = "dec_format")]
+    soft_cap: Balance,
+    #[serde(with = "dec_format")]
+    hard_cap: Balance,
+    #[serde(with = "dec_format")]
+    team_allocation: Option<Balance>,
+    vesting_duration_ms: Option<u64>,
+    cliff_duration_ms: Option<u64>,
+    #[serde(with = "dec_format")]
+    total_withdraw_fees: Balance,
+    image: String,
+}
+
+impl From<MemeCookingApiMeme> for MemeCookingInfo {
+    fn from(api_meme: MemeCookingApiMeme) -> Self {
+        let team_allocation =
+            if let (Some(team_allocation), Some(vesting_duration_ms), Some(cliff_duration_ms)) = (
+                api_meme.team_allocation,
+                api_meme.vesting_duration_ms,
+                api_meme.cliff_duration_ms,
+            ) {
+                Some(TeamAllocation {
+                    amount: team_allocation,
+                    vesting_duration_ms: vesting_duration_ms,
+                    cliff_duration_ms: cliff_duration_ms,
+                })
+            } else {
+                None
+            };
+
+        MemeCookingInfo {
+            id: api_meme.meme_id,
+            owner: api_meme.owner,
+            start_timestamp_ms: api_meme.start_timestamp_ms,
+            end_timestamp_ms: api_meme.end_timestamp_ms,
+            name: api_meme.name,
+            symbol: api_meme.symbol,
+            icon: api_meme.image,
+            decimals: api_meme.decimals,
+            total_supply: api_meme.total_supply,
+            reference: api_meme.reference,
+            reference_hash: api_meme.reference_hash,
+            deposit_token_id: api_meme.deposit_token_id,
+            soft_cap: api_meme.soft_cap,
+            hard_cap: Some(api_meme.hard_cap),
+            team_allocation,
+            total_withdrawal_fees: api_meme.total_withdraw_fees,
+            pool_amount: 0,              // Not possible to get from API
+            amount_to_be_distributed: 0, // Not possible to get from API
+            total_staked: 0,             // Not possible to get from API
+        }
+    }
+}
+
 #[derive(Serialize, Debug)]
 struct MemeCokingRequest {
     meme_id: u64,
@@ -320,12 +386,22 @@ pub const MEME_COOKING_CONTRACT_ID: &str = "meme-cooking.near";
 pub async fn get_memecooking_prelaunch_info(
     meme_id: u64,
 ) -> Result<Option<MemeCookingInfo>, anyhow::Error> {
-    view_cached_30s(
+    match view_cached_30s(
         MEME_COOKING_CONTRACT_ID,
         "get_meme",
         &MemeCokingRequest { meme_id },
     )
     .await
+    {
+        Ok(Some(result)) => Ok(result),
+        _ => {
+            let api_url = format!("https://api.meme.cooking/meme/{}", meme_id);
+            match get_cached_30s::<MemeCookingApiResponse>(&api_url).await {
+                Ok(api_response) => Ok(Some(api_response.meme.into())),
+                Err(_) => Ok(None),
+            }
+        }
+    }
 }
 
 pub async fn get_memecooking_finalized_info(

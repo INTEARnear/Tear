@@ -65,7 +65,7 @@ pub async fn get_chat_title_not_cached(
         .map(|chat| chat.title().map(|s| s.to_owned()));
     match chat_id {
         NotificationDestination::Chat(_) => chat_title,
-        NotificationDestination::Topic(_, thread_id) => chat_title.map(|chat_title| {
+        NotificationDestination::Topic { thread_id, .. } => chat_title.map(|chat_title| {
             chat_title.map(|chat_title| format!("{chat_title} (topic with id={thread_id})"))
         }),
     }
