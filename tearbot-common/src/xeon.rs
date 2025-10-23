@@ -220,11 +220,11 @@ impl XeonState {
         Ok(())
     }
 
-    pub fn bot(&self, user_id: &UserId) -> Option<Ref<UserId, BotData>> {
+    pub fn bot<'a>(&'a self, user_id: &UserId) -> Option<Ref<'a, UserId, BotData>> {
         self.bots.get(user_id)
     }
 
-    pub fn bots(&self) -> Vec<RefMulti<UserId, BotData>> {
+    pub fn bots<'a>(&'a self) -> Vec<RefMulti<'a, UserId, BotData>> {
         self.bots.iter().collect()
     }
 
@@ -232,13 +232,13 @@ impl XeonState {
         self.bot_modules.write().await.push(module.into());
     }
 
-    pub async fn bot_modules(&self) -> RwLockReadGuard<Vec<Arc<dyn XeonBotModule>>> {
+    pub async fn bot_modules<'a>(&'a self) -> RwLockReadGuard<'a, Vec<Arc<dyn XeonBotModule>>> {
         self.bot_modules.read().await
     }
 
-    pub async fn indexer_event_handlers(
-        &self,
-    ) -> RwLockReadGuard<Vec<Arc<dyn IndexerEventHandler>>> {
+    pub async fn indexer_event_handlers<'a>(
+        &'a self,
+    ) -> RwLockReadGuard<'a, Vec<Arc<dyn IndexerEventHandler>>> {
         self.indexer_event_handlers.read().await
     }
 
@@ -292,7 +292,7 @@ impl XeonState {
         self.prices.read().await.values().cloned().collect()
     }
 
-    pub async fn get_spamlist(&self) -> RwLockReadGuard<Vec<AccountId>> {
+    pub async fn get_spamlist<'a>(&'a self) -> RwLockReadGuard<'a, Vec<AccountId>> {
         self.spamlist.read().await
     }
 

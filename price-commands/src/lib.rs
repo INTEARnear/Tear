@@ -32,7 +32,7 @@ use tearbot_common::{
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     tgbot::{BotData, BotType, MustAnswerCallbackQuery, TgCallbackContext},
-    xeon::{XeonBotModule, XeonState},
+    xeon::{TokenScore, XeonBotModule, XeonState},
 };
 use tokio::process::Command;
 use tokio::sync::{Mutex, MutexGuard};
@@ -363,7 +363,11 @@ impl XeonBotModule for PriceCommandsModule {
                 for token in search_results {
                     buttons.push(vec![InlineKeyboardButton::callback(
                         format!(
-                            "{} ({})",
+                            "{}{} ({})",
+                            match token.reputation {
+                                TokenScore::NotFake | TokenScore::Reputable => "✅ ",
+                                _ => "",
+                            },
                             token.metadata.symbol,
                             if token.account_id.len() > 25 {
                                 token.account_id.as_str()[..(25 - 3)]
@@ -414,7 +418,11 @@ impl XeonBotModule for PriceCommandsModule {
                 for token in search_results {
                     buttons.push(vec![InlineKeyboardButton::callback(
                         format!(
-                            "{} ({})",
+                            "{}{} ({})",
+                            match token.reputation {
+                                TokenScore::NotFake | TokenScore::Reputable => "✅ ",
+                                _ => "",
+                            },
                             token.metadata.symbol,
                             if token.account_id.len() > 25 {
                                 token.account_id.as_str()[..(25 - 3)]
@@ -463,7 +471,11 @@ impl XeonBotModule for PriceCommandsModule {
                 for token in search_results {
                     buttons.push(vec![InlineKeyboardButton::callback(
                         format!(
-                            "{} ({})",
+                            "{}{} ({})",
+                            match token.reputation {
+                                TokenScore::NotFake | TokenScore::Reputable => "✅ ",
+                                _ => "",
+                            },
                             token.metadata.symbol,
                             if token.account_id.len() > 25 {
                                 token.account_id.as_str()[..(25 - 3)]

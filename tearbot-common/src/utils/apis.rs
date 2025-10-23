@@ -7,7 +7,7 @@ use teloxide::{net::Download, prelude::Requester, types::PhotoSize};
 use crate::{
     tgbot::BotData,
     utils::ai::Model,
-    xeon::{TokenInfo, TokenPartialMetadata},
+    xeon::{TokenInfo, TokenPartialMetadata, TokenScore},
 };
 
 use super::{
@@ -72,6 +72,7 @@ pub struct PartialTokenInfo {
     pub circulating_supply: Balance,
     pub circulating_supply_excluding_team: Balance,
     pub launched: bool,
+    pub reputation: TokenScore,
 }
 
 impl From<TokenInfo> for PartialTokenInfo {
@@ -83,6 +84,7 @@ impl From<TokenInfo> for PartialTokenInfo {
             circulating_supply: token.circulating_supply,
             circulating_supply_excluding_team: token.circulating_supply,
             launched: true,
+            reputation: token.reputation,
         }
     }
 }
@@ -112,6 +114,7 @@ pub async fn search_token(
             circulating_supply: meme.total_supply,
             circulating_supply_excluding_team: meme.total_supply,
             launched,
+            reputation: TokenScore::Unknown,
         }]);
     }
     if let Some(token_id) = query.strip_prefix("https://aidols.bot/agents/") {

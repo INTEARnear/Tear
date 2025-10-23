@@ -2830,30 +2830,47 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 }
             }
         }
-        #[cfg(feature = "agents-module")]
+        #[cfg(any(feature = "agents-module", feature = "tip-bot-module"))]
         {
-            let chat = context
-                .bot()
-                .bot()
-                .get_chat(target_chat_id.chat_id())
-                .await?;
-            if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
-                if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
-                | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
-                {
-                    if target_chat_id.thread_id().is_none() {
-                        buttons.push(vec![InlineKeyboardButton::callback(
-                            "🤖 AI Agents",
-                            context
-                                .bot()
-                                .to_callback_data(&TgCommand::AgentsChatSettings {
-                                    target_chat_id: target_chat_id.chat_id(),
-                                })
-                                .await,
-                        )]);
+            let mut row = Vec::new();
+            #[cfg(feature = "agents-module")]
+            {
+                let chat = context
+                    .bot()
+                    .bot()
+                    .get_chat(target_chat_id.chat_id())
+                    .await?;
+                if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
+                    if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
+                    | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
+                    {
+                        if target_chat_id.thread_id().is_none() {
+                            row.push(InlineKeyboardButton::callback(
+                                "🤖 AI Agents",
+                                context
+                                    .bot()
+                                    .to_callback_data(&TgCommand::AgentsChatSettings {
+                                        target_chat_id: target_chat_id.chat_id(),
+                                    })
+                                    .await,
+                            ));
+                        }
                     }
                 }
             }
+            #[cfg(feature = "tip-bot-module")]
+            {
+                row.push(InlineKeyboardButton::callback(
+                    "💁 Tip Bot",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::TipBotChatSettings {
+                            target_chat_id: target_chat_id.chat_id(),
+                        })
+                        .await,
+                ));
+            }
+            buttons.push(row);
         }
         if !target_chat_id.is_user() && target_chat_id.thread_id().is_none() {
             buttons.push(vec![InlineKeyboardButton::callback(

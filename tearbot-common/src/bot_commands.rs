@@ -1145,8 +1145,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotCreateAccountSolana,
     #[cfg(feature = "trading-bot-module")]
-    TradingBotWithdrawSolana {
-    },
+    TradingBotWithdrawSolana {},
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawSolanaAmount {
         #[serde(with = "dec_format")]
@@ -1278,6 +1277,41 @@ pub enum TgCommand {
     AiModeratorSetBlockForwardedStories(ChatId, bool),
     #[cfg(feature = "trading-bot-module")]
     TradingBotContestJoin,
+    #[cfg(feature = "tip-bot-module")]
+    TipBotChatSettings {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotSetWallet {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotSetWalletConfirm {
+        target_chat_id: ChatId,
+        wallet: AccountId,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotManageTokens {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotAddToken {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotAddTokenConfirm {
+        target_chat_id: ChatId,
+        contract: AccountId,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotRemoveToken {
+        target_chat_id: ChatId,
+        ticker: String,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotExportWallet {
+        target_chat_id: ChatId,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1674,8 +1708,7 @@ pub enum MessageCommand {
         token_address: String,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotWithdrawAskForAmountSolana {
-    },
+    TradingBotWithdrawAskForAmountSolana {},
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawAskForAccountSolana {
         #[serde(with = "dec_format")]
@@ -1720,6 +1753,14 @@ pub enum MessageCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotStake {
         selected_account_id: AccountId,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotSetWallet {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "tip-bot-module")]
+    TipBotAddToken {
+        target_chat_id: ChatId,
     },
 }
 
@@ -2305,6 +2346,7 @@ impl<'de> Deserialize<'de> for SerializableKeypair {
 
 impl Clone for SerializableKeypair {
     fn clone(&self) -> Self {
+        #[allow(deprecated)]
         SerializableKeypair(SolanaKeypair::from_bytes(&self.0.to_bytes()).unwrap())
     }
 }

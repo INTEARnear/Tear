@@ -677,9 +677,6 @@ struct AiModeratorChatConfig {
     block_forwarded_stories: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-enum EnterpriseVariant {}
-
 fn default_deletion_message() -> String {
     "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string()
 }

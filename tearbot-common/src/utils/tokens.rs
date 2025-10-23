@@ -225,7 +225,7 @@ pub async fn format_account_id(account_id: &AccountId) -> String {
         } else {
             "".to_string()
         },
-        name = markdown::escape(&account_id.to_string()),
+        name = markdown::escape(account_id.as_ref()),
     )
 }
 
@@ -265,7 +265,7 @@ pub fn format_price_change(price_change: f64) -> String {
 pub struct MemeCookingInfo {
     pub id: u64,
     pub owner: String,
-    #[serde(with = "dec_format")]
+    #[serde(with = "dec_format", default)]
     pub start_timestamp_ms: Option<u64>,
     #[serde(with = "dec_format")]
     pub end_timestamp_ms: u64,
@@ -310,7 +310,7 @@ struct MemeCookingApiResponse {
 struct MemeCookingApiMeme {
     meme_id: u64,
     owner: String,
-    #[serde(with = "dec_format")]
+    #[serde(with = "dec_format", default)]
     start_timestamp_ms: Option<u64>,
     #[serde(with = "dec_format")]
     end_timestamp_ms: u64,
@@ -345,8 +345,8 @@ impl From<MemeCookingApiMeme> for MemeCookingInfo {
             ) {
                 Some(TeamAllocation {
                     amount: team_allocation,
-                    vesting_duration_ms: vesting_duration_ms,
-                    cliff_duration_ms: cliff_duration_ms,
+                    vesting_duration_ms,
+                    cliff_duration_ms,
                 })
             } else {
                 None

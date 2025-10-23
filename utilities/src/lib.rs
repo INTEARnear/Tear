@@ -25,7 +25,7 @@ use tearbot_common::{
             StringifiedBalance, WRAP_NEAR,
         },
     },
-    xeon::{XeonBotModule, XeonState},
+    xeon::{TokenScore, XeonBotModule, XeonState},
 };
 
 pub struct UtilitiesModule {
@@ -143,7 +143,11 @@ impl XeonBotModule for UtilitiesModule {
                 for token in search_results {
                     buttons.push(vec![InlineKeyboardButton::callback(
                         format!(
-                            "{} ({})",
+                            "{}{} ({})",
+                            match token.reputation {
+                                TokenScore::NotFake | TokenScore::Reputable => "✅ ",
+                                _ => "",
+                            },
                             token.metadata.symbol,
                             if token.account_id.len() > 25 {
                                 token.account_id.as_str()[..(25 - 3)]
