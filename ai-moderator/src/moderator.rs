@@ -19,7 +19,7 @@ use tearbot_common::{
 };
 
 use crate::utils::MessageRating;
-use crate::{setup, utils::get_message_rating, AiModeratorBotConfig, AiModeratorChatConfig};
+use crate::{setup, utils::get_message_rating, AiModeratorBotConfig};
 
 pub async fn open_main(
     ctx: &mut TgCallbackContext<'_>,
@@ -48,33 +48,17 @@ pub async fn open_main(
         if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
             chat_config
         } else {
+            let default_config = Default::default();
             bot_config
                 .chat_configs
-                .insert_or_update(target_chat_id, AiModeratorChatConfig::default())
+                .insert_if_not_exists(target_chat_id, default_config)
                 .await?;
-            setup::builder::handle_start_button(
-                ctx,
-                PromptBuilder {
-                    chat_id: target_chat_id,
-                    is_near: None,
-                    links: None,
-                    price_talk: None,
-                    scam: None,
-                    ask_dm: None,
-                    profanity: None,
-                    nsfw: None,
-                    other: None,
-                },
-            )
-            .await?;
-            return Ok(());
+            Default::default()
         }
     } else {
         return Ok(());
     };
-    let first_messages = chat_config.first_messages;
 
-    let prompt = expandable_blockquote(&chat_config.prompt);
     let mut warnings = Vec::new();
     if chat_config.moderator_chat.is_none() {
         warnings.push("⚠️ Moderator chat is not set. The moderator chat is the chat where all logs will be sent");
@@ -114,6 +98,141 @@ pub async fn open_main(
     } else {
         "".to_string()
     };
+    let message = format!("Setting up Moderator{in_chat_name}{warnings}");
+    let mut buttons = vec![
+        vec![InlineKeyboardButton::callback(
+            if chat_config.debug_mode {
+                "👷 Mode: Testing (only warns)"
+            } else {
+                "🤖 Mode: Running"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetDebugMode(
+                    target_chat_id,
+                    !chat_config.debug_mode,
+                ))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            format!("👤 Moderator Chat: {moderator_chat_name}"),
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorRequestModeratorChat(target_chat_id))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.silent {
+                "🔇 Doesn't send deletion messages"
+            } else {
+                "🔊 Sends deletion messages"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetSilent(
+                    target_chat_id,
+                    !chat_config.silent,
+                ))
+                .await,
+        )],
+        vec![
+            InlineKeyboardButton::callback(
+                "⚙️ Non-AI Settings",
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorSettings(target_chat_id))
+                    .await,
+            ),
+            InlineKeyboardButton::callback(
+                "✨ AI Settings",
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorAiSettings(target_chat_id))
+                    .await,
+            ),
+        ],
+        vec![InlineKeyboardButton::callback(
+            "✏️ Set Message",
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetMessage(target_chat_id))
+                .await,
+        )],
+        vec![InlineKeyboardButton::url(
+            "📖 Guide",
+            "https://telegra.ph/AI-Moderator-09-09".parse().unwrap(),
+        )],
+        vec![InlineKeyboardButton::callback(
+            "⬅️ Back",
+            ctx.bot()
+                .to_callback_data(&TgCommand::ChatSettings(target_chat_id.into()))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.enabled {
+                "✅ Enabled"
+            } else {
+                "❌ Disabled"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetEnabled(
+                    target_chat_id,
+                    !chat_config.enabled,
+                ))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            "🍥 Test",
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorTest(target_chat_id))
+                .await,
+        )],
+    ];
+    if add_admin_button {
+        buttons.insert(
+            0,
+            vec![InlineKeyboardButton::callback(
+                "❗️ Add Bot as Admin",
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorAddAsAdmin(target_chat_id))
+                    .await,
+            )],
+        );
+    }
+    let reply_markup = InlineKeyboardMarkup::new(buttons);
+    ctx.edit_or_send(message, reply_markup).await?;
+    Ok(())
+}
+
+pub async fn open_ai(
+    ctx: &mut TgCallbackContext<'_>,
+    target_chat_id: ChatId,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
+) -> Result<(), anyhow::Error> {
+    ctx.bot().remove_message_command(&ctx.user_id()).await?;
+    if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
+        return Ok(());
+    }
+
+    let in_chat_name = if target_chat_id.is_user() {
+        "".to_string()
+    } else {
+        format!(
+            " in *{}*",
+            markdown::escape(
+                &get_chat_title_cached_5m(ctx.bot().bot(), target_chat_id.into())
+                    .await?
+                    .unwrap_or(DM_CHAT.to_string()),
+            )
+        )
+    };
+
+    let chat_config = if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
+        if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
+            chat_config
+        } else {
+            return Ok(());
+        }
+    } else {
+        return Ok(());
+    };
+    let first_messages = chat_config.first_messages;
+
+    let prompt = expandable_blockquote(&chat_config.prompt);
     let deletion_message = chat_config.deletion_message.clone()
         + match chat_config.deletion_message_attachment {
             Attachment::None => "",
@@ -129,16 +248,16 @@ pub async fn open_main(
         };
     let deletion_message = expandable_blockquote(&deletion_message);
     let message =
-        format!("Setting up AI Moderator {in_chat_name}
-        
+        format!("Setting up AI Moderator{in_chat_name}
+
 Prompt:
 {prompt}
 
 Message that appears when a message is deleted:
 {deletion_message}
 
-ℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.{warnings}");
-    let mut buttons = vec![
+ℹ️ Remember that 95% of the bot's success is a correct prompt\\. A prompt is your set of rules by which the AI will determine whether to ban or not a user\\. AI doesn't know the context of the conversation, so don't try anything crazier than spam filter, \"smart light profanity filter\", or NSFW image filter, it just won't be reliable\\.");
+    let buttons = vec![
         vec![InlineKeyboardButton::callback(
             "⌨ Enter New Prompt",
             ctx.bot()
@@ -169,25 +288,6 @@ Message that appears when a message is deleted:
                     .await,
             ),
         ],
-        vec![InlineKeyboardButton::callback(
-            if chat_config.debug_mode {
-                "👷 Mode: Testing (only warns)"
-            } else {
-                "🤖 Mode: Running"
-            },
-            ctx.bot()
-                .to_callback_data(&TgCommand::AiModeratorSetDebugMode(
-                    target_chat_id,
-                    !chat_config.debug_mode,
-                ))
-                .await,
-        )],
-        vec![InlineKeyboardButton::callback(
-            format!("👤 Moderator Chat: {moderator_chat_name}"),
-            ctx.bot()
-                .to_callback_data(&TgCommand::AiModeratorRequestModeratorChat(target_chat_id))
-                .await,
-        )],
         vec![
             InlineKeyboardButton::callback(
                 format!(
@@ -232,45 +332,24 @@ Message that appears when a message is deleted:
                     .await,
             ),
         ],
-        vec![
-            InlineKeyboardButton::callback(
-                format!(
-                    "ℹ️ Inform: {}",
+        vec![InlineKeyboardButton::callback(
+            format!(
+                "ℹ️ Inform: {}",
+                chat_config
+                    .actions
+                    .get(&ModerationJudgement::Inform)
+                    .unwrap_or(&ModerationAction::Delete) // TODO add message configuration
+                    .name()
+            ),
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetAction(
+                    target_chat_id,
+                    ModerationJudgement::Inform,
                     chat_config
                         .actions
                         .get(&ModerationJudgement::Inform)
-                        .unwrap_or(&ModerationAction::Delete) // TODO add message configuration
-                        .name()
-                ),
-                ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorSetAction(
-                        target_chat_id,
-                        ModerationJudgement::Inform,
-                        chat_config
-                            .actions
-                            .get(&ModerationJudgement::Inform)
-                            .unwrap_or(&ModerationAction::Delete)
-                            .next(),
-                    ))
-                    .await,
-            ),
-            InlineKeyboardButton::callback(
-                "✏️ Set Message",
-                ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorSetMessage(target_chat_id))
-                    .await,
-            ),
-        ],
-        vec![InlineKeyboardButton::callback(
-            if chat_config.silent {
-                "🔇 Doesn't send deletion messages"
-            } else {
-                "🔊 Sends deletion messages"
-            },
-            ctx.bot()
-                .to_callback_data(&TgCommand::AiModeratorSetSilent(
-                    target_chat_id,
-                    !chat_config.silent,
+                        .unwrap_or(&ModerationAction::Delete)
+                        .next(),
                 ))
                 .await,
         )],
@@ -287,34 +366,6 @@ Message that appears when a message is deleted:
                 .to_callback_data(&TgCommand::AiModeratorFirstMessages(target_chat_id))
                 .await,
         )],
-        vec![
-            InlineKeyboardButton::callback(
-                if chat_config.block_mostly_emoji_messages {
-                    "❌ Block mostly emoji"
-                } else {
-                    "✅ Allow mostly emoji"
-                },
-                ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorSetBlockMostlyEmojiMessages(
-                        target_chat_id,
-                        !chat_config.block_mostly_emoji_messages,
-                    ))
-                    .await,
-            ),
-            InlineKeyboardButton::callback(
-                if chat_config.block_forwarded_stories {
-                    "❌ Block forwarded stories"
-                } else {
-                    "✅ Allow forwarded stories"
-                },
-                ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorSetBlockForwardedStories(
-                        target_chat_id,
-                        !chat_config.block_forwarded_stories,
-                    ))
-                    .await,
-            ),
-        ],
         vec![InlineKeyboardButton::callback(
             format!("🤖 Model: {}", chat_config.model.name()),
             ctx.bot()
@@ -322,46 +373,97 @@ Message that appears when a message is deleted:
                 .await,
         )],
         vec![InlineKeyboardButton::callback(
-            "🍥 Test",
-            ctx.bot()
-                .to_callback_data(&TgCommand::AiModeratorTest(target_chat_id))
-                .await,
-        )],
-        vec![InlineKeyboardButton::callback(
-            if chat_config.enabled {
-                "✅ Enabled"
+            if chat_config.ai_enabled {
+                "✅ AI: Enabled"
             } else {
-                "❌ Disabled"
+                "❌ AI: Disabled"
             },
             ctx.bot()
-                .to_callback_data(&TgCommand::AiModeratorSetEnabled(
+                .to_callback_data(&TgCommand::AiModeratorSetAiEnabled(
                     target_chat_id,
-                    !chat_config.enabled,
+                    !chat_config.ai_enabled,
                 ))
                 .await,
-        )],
-        vec![InlineKeyboardButton::url(
-            "📖 Guide",
-            "https://telegra.ph/AI-Moderator-09-09".parse().unwrap(),
         )],
         vec![InlineKeyboardButton::callback(
             "⬅️ Back",
             ctx.bot()
-                .to_callback_data(&TgCommand::ChatSettings(target_chat_id.into()))
+                .to_callback_data(&TgCommand::AiModerator(target_chat_id.into()))
                 .await,
         )],
     ];
-    if add_admin_button {
-        buttons.insert(
-            0,
-            vec![InlineKeyboardButton::callback(
-                "❗️ Add Bot as Admin",
-                ctx.bot()
-                    .to_callback_data(&TgCommand::AiModeratorAddAsAdmin(target_chat_id))
-                    .await,
-            )],
-        );
+    let reply_markup = InlineKeyboardMarkup::new(buttons);
+    ctx.edit_or_send(message, reply_markup).await?;
+    Ok(())
+}
+
+pub async fn open_non_ai(
+    ctx: &mut TgCallbackContext<'_>,
+    target_chat_id: ChatId,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
+) -> Result<(), anyhow::Error> {
+    ctx.bot().remove_message_command(&ctx.user_id()).await?;
+    if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
+        return Ok(());
     }
+
+    let in_chat_name = if target_chat_id.is_user() {
+        "".to_string()
+    } else {
+        format!(
+            " in *{}*",
+            markdown::escape(
+                &get_chat_title_cached_5m(ctx.bot().bot(), target_chat_id.into())
+                    .await?
+                    .unwrap_or(DM_CHAT.to_string()),
+            )
+        )
+    };
+
+    let chat_config = if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
+        if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
+            chat_config
+        } else {
+            return Ok(());
+        }
+    } else {
+        return Ok(());
+    };
+    let message = format!("Setting up Moderator{in_chat_name}");
+    let buttons = vec![
+        vec![InlineKeyboardButton::callback(
+            if chat_config.block_mostly_emoji_messages {
+                "❌ Blocking mostly emoji"
+            } else {
+                "✅ Allowing mostly emoji"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetBlockMostlyEmojiMessages(
+                    target_chat_id,
+                    !chat_config.block_mostly_emoji_messages,
+                ))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.block_forwarded_stories {
+                "❌ Blocking forwarded stories"
+            } else {
+                "✅ Allowing forwarded stories"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetBlockForwardedStories(
+                    target_chat_id,
+                    !chat_config.block_forwarded_stories,
+                ))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            "⬅️ Back",
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModerator(target_chat_id.into()))
+                .await,
+        )],
+    ];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.edit_or_send(message, reply_markup).await?;
     Ok(())
@@ -378,7 +480,7 @@ pub async fn handle_test_message_button(
     let buttons = vec![vec![InlineKeyboardButton::callback(
         "⬅️ Cancel",
         ctx.bot()
-            .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+            .to_callback_data(&TgCommand::AiModeratorAiSettings(target_chat_id))
             .await,
     )]];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -417,7 +519,7 @@ pub async fn handle_test_message_input(
     } else {
         return Ok(());
     };
-    let message_to_send = "Please wait while AI tries to moderate this message".to_string();
+    let message_to_send = "Please wait \\.\\.\\.".to_string();
     let buttons = Vec::<Vec<_>>::new();
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     let message_sent = bot
@@ -445,7 +547,7 @@ pub async fn handle_test_message_input(
             let message = "Failed to moderate the message".to_string();
             let buttons = vec![vec![InlineKeyboardButton::callback(
                 "⬅️ Back",
-                bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                bot.to_callback_data(&TgCommand::AiModeratorAiSettings(target_chat_id))
                     .await,
             )]];
             let reply_markup = InlineKeyboardMarkup::new(buttons);
@@ -460,8 +562,15 @@ pub async fn handle_test_message_input(
             return;
         };
         let message: String = format!(
-            "🤖 *Model*: {}\n🧑‍⚖️ *Judgement:* {judgement:?}\n💬 *Reasoning:* _{}_",
-            markdown::escape(chat_config.model.name()),
+            "{}🧑‍⚖️ *Judgement:* {judgement:?}\n💬 *Reasoning:* _{}_",
+            if chat_config.ai_enabled {
+                format!(
+                    "🤖 *Model*: {}\n",
+                    markdown::escape(chat_config.model.name())
+                )
+            } else {
+                String::new()
+            },
             markdown::escape(reasoning),
         );
         let buttons = vec![vec![InlineKeyboardButton::callback(

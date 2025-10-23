@@ -510,6 +510,12 @@ impl XeonBotModule for AiModeratorModule {
             TgCommand::AiModerator(target_chat_id) => {
                 moderator::open_main(&mut ctx, target_chat_id, &self.bot_configs).await?;
             }
+            TgCommand::AiModeratorSettings(target_chat_id) => {
+                moderator::open_non_ai(&mut ctx, target_chat_id, &self.bot_configs).await?;
+            }
+            TgCommand::AiModeratorAiSettings(target_chat_id) => {
+                moderator::open_ai(&mut ctx, target_chat_id, &self.bot_configs).await?;
+            }
             TgCommand::AiModeratorFirstMessages(target_chat_id) => {
                 edit::first_messages::handle_button(&mut ctx, target_chat_id).await?;
             }
@@ -643,6 +649,15 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
+            TgCommand::AiModeratorSetAiEnabled(target_chat_id, enabled) => {
+                edit::ai_enabled::handle_button(
+                    &mut ctx,
+                    target_chat_id,
+                    enabled,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -675,6 +690,12 @@ struct AiModeratorChatConfig {
     block_mostly_emoji_messages: bool,
     #[serde(default = "default_block_forwarded_stories")]
     block_forwarded_stories: bool,
+    #[serde(default = "default_ai_enabled")]
+    ai_enabled: bool,
+}
+
+fn default_ai_enabled() -> bool {
+    true
 }
 
 fn default_deletion_message() -> String {
@@ -705,6 +726,7 @@ impl Default for AiModeratorChatConfig {
             model: Model::RecommendedBest,
             block_mostly_emoji_messages: false,
             block_forwarded_stories: true,
+            ai_enabled: false,
         }
     }
 }

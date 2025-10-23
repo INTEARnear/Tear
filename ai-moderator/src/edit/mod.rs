@@ -8,3 +8,4 @@ pub mod model;
 pub mod moderator_chat;
 pub mod prompt;
 pub mod silent;
+pub mod ai_enabled;

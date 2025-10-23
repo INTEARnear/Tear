@@ -195,7 +195,7 @@ impl XeonBotModule for HubModule {
             }
             #[cfg(feature = "ai-moderator-module")]
             if text == "/mod" || text == "/aimod" {
-                let message = "Click here to set up AI moderator".to_string();
+                let message = "Click here to set up moderation".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::url(
                     "Setup",
                     format!(
@@ -2795,7 +2795,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 {
                     if target_chat_id.thread_id().is_none() {
                         buttons.push(vec![InlineKeyboardButton::callback(
-                            "🚫 AI Moderator",
+                            "🚫 Group Moderation",
                             context
                                 .bot()
                                 .to_callback_data(&TgCommand::AiModerator(target_chat_id.chat_id()))

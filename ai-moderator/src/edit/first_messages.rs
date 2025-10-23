@@ -100,7 +100,7 @@ pub async fn handle_button(
             InlineKeyboardButton::callback(
                 "⬅️ Back",
                 ctx.bot()
-                    .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                    .to_callback_data(&TgCommand::AiModeratorAiSettings(target_chat_id))
                     .await,
             ),
         ],
@@ -134,6 +134,6 @@ pub async fn handle_confirm(
             .insert_or_update(target_chat_id, chat_config)
             .await?;
     }
-    moderator::open_main(ctx, target_chat_id, bot_configs).await?;
+    moderator::open_ai(ctx, target_chat_id, bot_configs).await?;
     Ok(())
 }

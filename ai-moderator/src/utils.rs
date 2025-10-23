@@ -109,11 +109,13 @@ pub async fn get_message_rating(
             image_jpeg: None,
         };
     }
+    
+    // Non-AI moderation
     if message.story().is_some() {
         if config.block_forwarded_stories {
             return MessageRating::Ok {
                 judgement: ModerationJudgement::Suspicious,
-                reasoning: "This message appears to be a forwarded story, and bots don't have an ability to read stories yet, due to Telegram's Bot API limitations. Some bots may spam with stories, so we're not allowing new users to forward any stories.".to_string(),
+                reasoning: "This message appears to be a forwarded story, and bots don't have an ability to read stories yet, due to Telegram's Bot API limitations. Since 'Block forwarded stories' is enabled, this message was flagged as suspicious.".to_string(),
                 message_text,
                 image_jpeg: None,
             };
@@ -135,6 +137,17 @@ pub async fn get_message_rating(
             image_jpeg: None,
         };
     }
+    
+    if !config.ai_enabled {
+        return MessageRating::Ok {
+            judgement: ModerationJudgement::Good,
+            reasoning: "This message passed all non-AI checks, and AI moderation is disabled".to_string(),
+            message_text,
+            image_jpeg: None,
+        };
+    }
+    
+    // AI moderation
     let entities = message.parse_entities().unwrap_or_default();
     let message_text = match std::panic::catch_unwind(move || {
         for entity in entities.into_iter().rev() {

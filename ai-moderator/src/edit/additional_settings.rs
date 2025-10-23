@@ -27,7 +27,7 @@ pub async fn handle_block_mostly_emoji_button(
             .insert_or_update(target_chat_id, chat_config)
             .await?;
     }
-    crate::moderator::open_main(ctx, target_chat_id, bot_configs).await?;
+    crate::moderator::open_non_ai(ctx, target_chat_id, bot_configs).await?;
     Ok(())
 }
 
@@ -49,6 +49,6 @@ pub async fn handle_block_forwarded_stories_button(
             .insert_or_update(target_chat_id, chat_config)
             .await?;
     }
-    crate::moderator::open_main(ctx, target_chat_id, bot_configs).await?;
+    crate::moderator::open_non_ai(ctx, target_chat_id, bot_configs).await?;
     Ok(())
 }

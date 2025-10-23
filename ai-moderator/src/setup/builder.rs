@@ -835,6 +835,6 @@ pub async fn handle_finish_button(
     let reply_markup = InlineKeyboardMarkup::new(buttons);
     ctx.send(message, reply_markup, Attachment::None).await?;
 
-    moderator::open_main(ctx, target_chat_id, bot_configs).await?;
+    moderator::open_ai(ctx, target_chat_id, bot_configs).await?;
     Ok(())
 }

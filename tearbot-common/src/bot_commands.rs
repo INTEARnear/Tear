@@ -1312,6 +1312,12 @@ pub enum TgCommand {
     TipBotExportWallet {
         target_chat_id: ChatId,
     },
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSettings(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorAiSettings(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetAiEnabled(ChatId, bool),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

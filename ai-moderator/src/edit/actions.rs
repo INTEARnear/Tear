@@ -32,6 +32,6 @@ pub async fn handle_button(
             .insert_or_update(target_chat_id, chat_config)
             .await?;
     }
-    moderator::open_main(ctx, target_chat_id, bot_configs).await?;
+    moderator::open_ai(ctx, target_chat_id, bot_configs).await?;
     Ok(())
 }

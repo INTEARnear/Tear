@@ -78,7 +78,7 @@ pub async fn handle_set_prompt_button(
             .to_callback_data(&if is_in_mod_chat {
                 TgCommand::AiModeratorCancelEditPrompt
             } else {
-                TgCommand::AiModerator(target_chat_id)
+                TgCommand::AiModeratorAiSettings(target_chat_id)
             })
             .await,
     )]];
@@ -144,7 +144,7 @@ pub async fn handle_set_prompt_confirm_and_return_button(
     bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
 ) -> Result<(), anyhow::Error> {
     set_prompt(ctx, target_chat_id, prompt, bot_configs).await?;
-    moderator::open_main(ctx, target_chat_id, bot_configs).await?;
+    moderator::open_ai(ctx, target_chat_id, bot_configs).await?;
     Ok(())
 }
 
@@ -237,7 +237,7 @@ pub async fn handle_edit_prompt_input(
                     )],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Cancel",
-                        bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                        bot.to_callback_data(&TgCommand::AiModeratorAiSettings(target_chat_id))
                             .await,
                     )],
                 ];
@@ -276,7 +276,7 @@ pub async fn handle_edit_prompt_input(
                 ],
                 vec![InlineKeyboardButton::callback(
                     "⬅️ Cancel",
-                    bot.to_callback_data(&TgCommand::AiModerator(target_chat_id))
+                    bot.to_callback_data(&TgCommand::AiModeratorAiSettings(target_chat_id))
                         .await,
                 )],
             ];
@@ -312,7 +312,7 @@ pub async fn handle_edit_prompt_button(
     let buttons = vec![vec![InlineKeyboardButton::callback(
         "⬅️ Cancel",
         ctx.bot()
-            .to_callback_data(&TgCommand::AiModerator(target_chat_id))
+            .to_callback_data(&TgCommand::AiModeratorAiSettings(target_chat_id))
             .await,
     )]];
     let reply_markup = InlineKeyboardMarkup::new(buttons);
