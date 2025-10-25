@@ -304,6 +304,18 @@ impl XeonBotModule for TipBotModule {
                         return Ok(());
                     };
 
+                    let Some(bot_config) = self.bot_configs.get(&bot.id()) else {
+                        return Ok(());
+                    };
+
+                    let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await else {
+                        return Ok(());
+                    };
+
+                    let Some(token_contract) = chat_config.tokens.get(ticker) else {
+                        return Ok(());
+                    };
+
                     let Some(reply_to_message) = user_message.reply_to_message() else {
                         let message = "Please reply to a message".to_string();
                         let buttons = Vec::<Vec<_>>::new();
@@ -325,18 +337,6 @@ impl XeonBotModule for TipBotModule {
                             .await?;
                         return Ok(());
                     }
-
-                    let Some(bot_config) = self.bot_configs.get(&bot.id()) else {
-                        return Ok(());
-                    };
-
-                    let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await else {
-                        return Ok(());
-                    };
-
-                    let Some(token_contract) = chat_config.tokens.get(ticker) else {
-                        return Ok(());
-                    };
 
                     let Ok(metadata) = get_ft_metadata(token_contract).await else {
                         return Ok(());

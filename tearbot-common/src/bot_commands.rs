@@ -1030,7 +1030,6 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgeSwap {
         defuse_asset_identifier: String,
-        near_poa_asset_id: AccountId,
         #[serde(with = "dec_format")]
         amount: Balance,
         destination: BridgeDestination,
@@ -1039,7 +1038,6 @@ pub enum TgCommand {
     TradingBotBridgePublishIntent {
         quotes: Vec<IntentQuote>,
         defuse_asset_identifier: String,
-        near_poa_asset_id: AccountId,
         #[serde(with = "dec_format")]
         amount: Balance,
         destination: BridgeDestination,
@@ -1318,6 +1316,34 @@ pub enum TgCommand {
     AiModeratorAiSettings(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetAiEnabled(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetDeleteJoinLeave(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetMuteImpersonators(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetBanCommand(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetDelCommand(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetMuteCommand(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetReportCommand(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetMuteFlood(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetGreeting(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetBlockLinks(ChatId, bool),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorEditWordBlocklist(ChatId, usize),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorAddWordToBlocklist(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorRemoveWordFromBlocklist(ChatId, String),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorReportDelete(ChatId, teloxide::types::MessageId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorReportBan(ChatId, UserId),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1500,6 +1526,10 @@ pub enum MessageCommand {
     AiModeratorPromptConstructorAddLinks(PromptBuilder),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetMessage(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorSetGreetingMessage(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorAddWordToBlocklist(ChatId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorTest(ChatId),
     #[cfg(feature = "ai-moderator-module")]
@@ -2181,6 +2211,8 @@ pub enum ModerationJudgement {
     Suspicious,
     #[serde(alias = "Spam")]
     Harmful,
+    SilentDelete,               // not available to AI
+    JustMute(Option<Duration>), // not available to AI
 }
 
 #[cfg(feature = "ai-moderator-module")]
@@ -2188,8 +2220,8 @@ pub enum ModerationJudgement {
 pub enum ModerationAction {
     Ban,
     Mute,
-    TempMute,
-    Delete,
+    TempMute(Duration),
+    Delete(bool), // bool: whether to send a message
     WarnMods,
     Ok,
 }
@@ -2200,8 +2232,8 @@ impl ModerationAction {
         match self {
             ModerationAction::Ban => "Ban",
             ModerationAction::Mute => "Mute",
-            ModerationAction::TempMute => "Mute 15min",
-            ModerationAction::Delete => "Delete",
+            ModerationAction::TempMute(_) => "Mute 15min",
+            ModerationAction::Delete(_) => "Delete",
             ModerationAction::WarnMods => "Warn Mods",
             ModerationAction::Ok => "Nothing",
         }
@@ -2210,9 +2242,9 @@ impl ModerationAction {
     pub fn next(&self) -> Self {
         match self {
             ModerationAction::Ban => ModerationAction::Mute,
-            ModerationAction::Mute => ModerationAction::TempMute,
-            ModerationAction::TempMute => ModerationAction::Delete,
-            ModerationAction::Delete => ModerationAction::WarnMods,
+            ModerationAction::Mute => ModerationAction::TempMute(Duration::from_secs(15 * 60)),
+            ModerationAction::TempMute(_) => ModerationAction::Delete(true),
+            ModerationAction::Delete(_) => ModerationAction::WarnMods,
             ModerationAction::WarnMods => ModerationAction::Ok,
             ModerationAction::Ok => ModerationAction::Ban,
         }

@@ -1,4 +1,6 @@
+use std::collections::HashSet;
 use std::fmt::Debug;
+use std::time::Duration;
 use std::{
     collections::HashMap,
     sync::{
@@ -7,6 +9,7 @@ use std::{
     },
 };
 
+use cached::proc_macro::cached;
 use chrono::Datelike;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
@@ -24,6 +27,7 @@ use tearbot_common::{
     utils::chat::get_chat_title_cached_5m,
     xeon::XeonState,
 };
+use unicode_security::skeleton;
 
 use crate::{utils, AiModeratorBotConfig, AiModeratorChatConfig};
 
@@ -80,13 +84,80 @@ pub enum MessageRating {
     },
 }
 
+#[cached(time = 3600, key = "ChatId", convert = "{ chat_id }", result = true)]
+async fn get_admin_names(chat_id: ChatId, bot: &BotData) -> Result<Vec<String>, anyhow::Error> {
+    let mut admin_names = bot
+        .bot()
+        .get_chat_administrators(chat_id)
+        .await?
+        .into_iter()
+        .filter(|a| !a.is_anonymous())
+        .map(|a| a.user.full_name())
+        .collect::<Vec<_>>();
+    if let Some(chat_name) = bot.bot().get_chat(chat_id).await?.title() {
+        admin_names.push(chat_name.to_string());
+    }
+    Ok(admin_names)
+}
+
 pub async fn get_message_rating(
     bot_id: UserId,
     message: Message,
     config: AiModeratorChatConfig,
     chat_id: ChatId,
     xeon: Arc<XeonState>,
+    bot_config: &AiModeratorBotConfig,
 ) -> MessageRating {
+    if config.mute_flood {
+        if let Some(user) = message.from.as_ref() {
+            let message_text = message
+                .text()
+                .or(message.caption())
+                .unwrap_or_default()
+                .to_string();
+
+            if bot_config
+                .mute_flood_data
+                .check_flood(chat_id, user.id, &message_text)
+                .await
+            {
+                return MessageRating::Ok {
+                    judgement: ModerationJudgement::JustMute(Some(Duration::from_secs(3 * 60))),
+                    reasoning: "User exceeded flood limits (too many messages too quickly, or repeated messages)".to_string(),
+                    message_text: message_text.clone(),
+                    image_jpeg: None,
+                };
+            }
+        }
+    }
+
+    if config.mute_impersonators {
+        if let Some(user) = message.from.as_ref() {
+            let mut admin_names = HashSet::new();
+            for bot in xeon.bots() {
+                if let Ok(names) = get_admin_names(chat_id, &*bot).await {
+                    admin_names.extend(names);
+                }
+            }
+            if admin_names.into_iter().any(|admin| {
+                skeleton(&admin.trim()).collect::<String>()
+                    == skeleton(&user.full_name().trim()).collect::<String>()
+                    || skeleton(&admin.trim()).collect::<String>()
+                        == skeleton(
+                            &user.full_name()[..user.full_name().len().saturating_sub(1)].trim(),
+                        )
+                        .collect::<String>()
+            }) {
+                return MessageRating::Ok {
+                    judgement: ModerationJudgement::Suspicious,
+                    reasoning: format!("This message was sent by someone named {} (similar to name of one of the administrators), and the bot was configured to mute impersonators.", user.full_name()),
+                    message_text: "[This message was sent by an admin, and the bot was configured to mute impersonators]"
+                        .to_string(),
+                    image_jpeg: None,
+                };
+            }
+        }
+    }
     let mut message_text = message
         .text()
         .or(message.caption())
@@ -97,19 +168,7 @@ pub async fn get_message_rating(
     if let Some(quote) = message.quote() {
         message_text = format!("Quote:\n{}\n\nMessage:\n{message_text}", quote.text);
     }
-    if message_text.starts_with('/') {
-        log::debug!(
-            "Skipping moderation becuse message is command: {}",
-            message.id
-        );
-        return MessageRating::Ok {
-            judgement: ModerationJudgement::Good,
-            reasoning: "This message seems to be a command, and commands are not moderated yet. If you see someone spamming with messages starting with '/', let us know in @intearchat and we'll disable this rule".to_string(),
-            message_text,
-            image_jpeg: None,
-        };
-    }
-    
+
     // Non-AI moderation
     if message.story().is_some() {
         if config.block_forwarded_stories {
@@ -137,17 +196,76 @@ pub async fn get_message_rating(
             image_jpeg: None,
         };
     }
-    
+    if config.block_links {
+        if message
+            .parse_entities()
+            .unwrap_or_default()
+            .into_iter()
+            .chain(message.parse_caption_entities().unwrap_or_default())
+            .any(|entity| match entity.kind() {
+                MessageEntityKind::Url if !entity.text().ends_with(".tg") => true,
+                MessageEntityKind::TextLink { .. } => true,
+                _ => false,
+            })
+        {
+            return MessageRating::Ok {
+                judgement: ModerationJudgement::Suspicious,
+                reasoning: "This message contains a link, which was configured to be blocked"
+                    .to_string(),
+                message_text,
+                image_jpeg: None,
+            };
+        }
+    }
+    if !config.word_blocklist.is_empty() {
+        let text_to_check = message_text.to_lowercase();
+        for blocked_word in &config.word_blocklist {
+            let blocked_word_lower = blocked_word.to_lowercase();
+            if text_to_check.contains(&blocked_word_lower) {
+                let is_whole_word = text_to_check
+                    .split(|c: char| !c.is_alphabetic())
+                    .any(|word| word == blocked_word_lower);
+                if is_whole_word {
+                    return MessageRating::Ok {
+                        judgement: ModerationJudgement::JustMute(Some(Duration::from_secs(
+                            60 * 60,
+                        ))),
+                        reasoning: format!(
+                            "This message contains a blocked word: '{}'",
+                            blocked_word
+                        ),
+                        message_text,
+                        image_jpeg: None,
+                    };
+                }
+            }
+        }
+    }
+
     if !config.ai_enabled {
         return MessageRating::Ok {
             judgement: ModerationJudgement::Good,
-            reasoning: "This message passed all non-AI checks, and AI moderation is disabled".to_string(),
+            reasoning: "This message passed all non-AI checks, and AI moderation is disabled"
+                .to_string(),
             message_text,
             image_jpeg: None,
         };
     }
-    
+
     // AI moderation
+    if message_text.starts_with('/') {
+        log::debug!(
+            "Skipping moderation becuse message is command: {}",
+            message.id
+        );
+        return MessageRating::Ok {
+            judgement: ModerationJudgement::Good,
+            reasoning: "This message seems to be a command, and commands are not moderated with AI. If you see someone spamming with messages starting with '/', let us know in @intearchat and we'll disable this rule".to_string(),
+            message_text,
+            image_jpeg: None,
+        };
+    }
+
     let entities = message.parse_entities().unwrap_or_default();
     let message_text = match std::panic::catch_unwind(move || {
         for entity in entities.into_iter().rev() {
@@ -302,4 +420,32 @@ fn is_emoji_char(ch: char) -> bool {
         || ('\u{1F004}'..='\u{1F0CF}').contains(&ch) // Playing cards
         || ('\u{1F018}'..='\u{1F270}').contains(&ch) // Various
         || ('\u{238C}'..='\u{2454}').contains(&ch) // Misc technical
+}
+
+pub fn parse_duration(input: &str) -> Option<Duration> {
+    let mut total = Duration::default();
+    let mut number = String::new();
+
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch.is_ascii_digit() {
+            number.push(ch);
+        } else {
+            let value = number.parse().ok()?;
+            number.clear();
+            total += match ch {
+                'd' => Duration::from_secs(value * 24 * 60 * 60),
+                'h' => Duration::from_secs(value * 60 * 60),
+                'm' => Duration::from_secs(value * 60),
+                's' => Duration::from_secs(value),
+                _ => return None,
+            };
+        }
+    }
+
+    if !number.is_empty() {
+        return None;
+    }
+
+    Some(total)
 }

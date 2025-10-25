@@ -124,7 +124,7 @@ impl BurrowLiquidationsModule {
 💰 *Amount*: {amount}
 💸 *Lost*: {amount_lost}
 
-[Check Burrow](https://app.burrow.finance/dashboard/) \\| [Tx](https://nearblocks.io/txns/{tx_hash})
+[Check Burrow](https://app.burrow.finance/dashboard/) \\| [Tx](https://pikespeak.ai/transaction-viewer/{tx_hash})
                         ",
                                 account_id = format_account_id(&account_id).await,
                                 liquidator = format_account_id(&liquidator_id).await,

@@ -11,7 +11,7 @@ use tearbot_common::{
         types::{InlineKeyboardButton, InlineKeyboardMarkup, ParseMode},
         utils::markdown,
     },
-    tgbot::{Attachment, BotData, TgCallbackContext},
+    tgbot::{BotData, TgCallbackContext},
     utils::chat::{
         check_admin_permission_in_chat, expandable_blockquote, get_chat_title_cached_5m, DM_CHAT,
     },
@@ -233,20 +233,7 @@ pub async fn open_ai(
     let first_messages = chat_config.first_messages;
 
     let prompt = expandable_blockquote(&chat_config.prompt);
-    let deletion_message = chat_config.deletion_message.clone()
-        + match chat_config.deletion_message_attachment {
-            Attachment::None => "",
-            Attachment::PhotoUrl(_) | Attachment::PhotoFileId(_) | Attachment::PhotoBytes(_) => {
-                "\n+ photo"
-            }
-            Attachment::AnimationUrl(_) | Attachment::AnimationFileId(_) => "\n+ gif",
-            Attachment::AudioUrl(_) | Attachment::AudioFileId(_) => "\n+ audio",
-            Attachment::VideoUrl(_) | Attachment::VideoFileId(_) => "\n+ video",
-            Attachment::DocumentUrl(_, _)
-            | Attachment::DocumentText(_, _)
-            | Attachment::DocumentFileId(_, _) => "\n\\+ file",
-        };
-    let deletion_message = expandable_blockquote(&deletion_message);
+    let deletion_message = expandable_blockquote(&chat_config.deletion_message);
     let message =
         format!("Setting up AI Moderator{in_chat_name}
 
@@ -338,7 +325,7 @@ Message that appears when a message is deleted:
                 chat_config
                     .actions
                     .get(&ModerationJudgement::Inform)
-                    .unwrap_or(&ModerationAction::Delete) // TODO add message configuration
+                    .unwrap_or(&ModerationAction::Delete(true))
                     .name()
             ),
             ctx.bot()
@@ -348,7 +335,7 @@ Message that appears when a message is deleted:
                     chat_config
                         .actions
                         .get(&ModerationJudgement::Inform)
-                        .unwrap_or(&ModerationAction::Delete)
+                        .unwrap_or(&ModerationAction::Delete(true))
                         .next(),
                 ))
                 .await,
@@ -433,7 +420,7 @@ pub async fn open_non_ai(
     let buttons = vec![
         vec![InlineKeyboardButton::callback(
             if chat_config.block_mostly_emoji_messages {
-                "❌ Blocking mostly emoji"
+                "✅ Blocking mostly emoji"
             } else {
                 "✅ Allowing mostly emoji"
             },
@@ -446,15 +433,139 @@ pub async fn open_non_ai(
         )],
         vec![InlineKeyboardButton::callback(
             if chat_config.block_forwarded_stories {
-                "❌ Blocking forwarded stories"
+                "✅ Blocking forwarded stories"
             } else {
-                "✅ Allowing forwarded stories"
+                "❌ Allowing forwarded stories"
             },
             ctx.bot()
                 .to_callback_data(&TgCommand::AiModeratorSetBlockForwardedStories(
                     target_chat_id,
                     !chat_config.block_forwarded_stories,
                 ))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.delete_join_leave_messages {
+                "✅ Deleting join/leave"
+            } else {
+                "❌ Not deleting join/leave"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetDeleteJoinLeave(
+                    target_chat_id,
+                    !chat_config.delete_join_leave_messages,
+                ))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.mute_impersonators {
+                "✅ Muting impersonators"
+            } else {
+                "❌ Not muting impersonators"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetMuteImpersonators(
+                    target_chat_id,
+                    !chat_config.mute_impersonators,
+                ))
+                .await,
+        )],
+        vec![
+            InlineKeyboardButton::callback(
+                if chat_config.ban_command {
+                    "✅ /ban"
+                } else {
+                    "❌ /ban"
+                },
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorSetBanCommand(
+                        target_chat_id,
+                        !chat_config.ban_command,
+                    ))
+                    .await,
+            ),
+            InlineKeyboardButton::callback(
+                if chat_config.del_command {
+                    "✅ /del"
+                } else {
+                    "❌ /del"
+                },
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorSetDelCommand(
+                        target_chat_id,
+                        !chat_config.del_command,
+                    ))
+                    .await,
+            ),
+        ],
+        vec![
+            InlineKeyboardButton::callback(
+                if chat_config.mute_command {
+                    "✅ /mute"
+                } else {
+                    "❌ /mute"
+                },
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorSetMuteCommand(
+                        target_chat_id,
+                        !chat_config.mute_command,
+                    ))
+                    .await,
+            ),
+            InlineKeyboardButton::callback(
+                if chat_config.report_command {
+                    "✅ /report"
+                } else {
+                    "❌ /report"
+                },
+                ctx.bot()
+                    .to_callback_data(&TgCommand::AiModeratorSetReportCommand(
+                        target_chat_id,
+                        !chat_config.report_command,
+                    ))
+                    .await,
+            ),
+        ],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.mute_flood {
+                "✅ Muting flood"
+            } else {
+                "❌ Not muting flood"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetMuteFlood(
+                    target_chat_id,
+                    !chat_config.mute_flood,
+                ))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.greeting.is_some() {
+                "✅ Welcome Message"
+            } else {
+                "❌ Welcome Message"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetGreeting(target_chat_id))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            if chat_config.block_links {
+                "✅ All Links Blocked"
+            } else {
+                "❌ Links Allowed"
+            },
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorSetBlockLinks(
+                    target_chat_id,
+                    !chat_config.block_links,
+                ))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            format!("🚫 Word blocklist: {}", chat_config.word_blocklist.len()),
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorEditWordBlocklist(target_chat_id, 0))
                 .await,
         )],
         vec![InlineKeyboardButton::callback(
@@ -510,13 +621,10 @@ pub async fn handle_test_message_input(
         return Ok(());
     }
     bot.remove_message_command(&user_id).await?;
-    let chat_config = if let Some(bot_config) = bot_configs.get(&bot.id()) {
-        if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-            chat_config
-        } else {
-            return Ok(());
-        }
-    } else {
+    let Some(bot_config) = bot_configs.get(&bot.id()) else {
+        return Ok(());
+    };
+    let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await else {
         return Ok(());
     };
     let message_to_send = "Please wait \\.\\.\\.".to_string();
@@ -526,16 +634,22 @@ pub async fn handle_test_message_input(
         .send_text_message(chat_id.into(), message_to_send, reply_markup)
         .await?;
 
-    let future = get_message_rating(
-        bot.id(),
-        message.clone(),
-        chat_config.clone(),
-        target_chat_id,
-        Arc::clone(xeon),
-    );
     let bot_id = bot.id();
     let xeon = Arc::clone(xeon);
+    let message = message.clone();
+    let bot_configs = Arc::clone(bot_configs);
     tokio::spawn(async move {
+        let Some(bot_config) = bot_configs.get(&bot_id) else {
+            return;
+        };
+        let future = get_message_rating(
+            bot_id,
+            message.clone(),
+            chat_config.clone(),
+            target_chat_id,
+            Arc::clone(&xeon),
+            bot_config,
+        );
         let bot = xeon.bot(&bot_id).unwrap();
         let rating = future.await;
         let MessageRating::Ok {

@@ -1,6 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 
 mod edit;
+mod features;
 mod moderation_actions;
 mod moderator;
 mod setup;
@@ -14,15 +15,17 @@ use std::{
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use tearbot_common::utils::SLIME_USER_ID;
+use serde::{Deserialize, Deserializer, Serialize};
 use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
     mongodb::Database,
     teloxide::{
-        payloads::RestrictChatMemberSetters,
+        payloads::{RestrictChatMemberSetters, SendMessageSetters},
         prelude::{ChatId, Message, Requester, UserId},
-        types::{ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, MessageId},
+        types::{
+            ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, MessageId, MessageKind,
+            ParseMode, ReplyParameters,
+        },
         utils::markdown,
         ApiError, RequestError,
     },
@@ -39,7 +42,7 @@ use tearbot_common::{teloxide::types::True, utils::chat::get_chat_title_cached_5
 use tearbot_common::{tgbot::NotificationDestination, utils::ai::Model};
 use tokio::sync::RwLock;
 
-use crate::utils::MessageRating;
+use crate::{features::mute_flood::MuteFloodData, utils::MessageRating};
 
 pub struct AiModeratorModule {
     bot_configs: Arc<HashMap<UserId, AiModeratorBotConfig>>,
@@ -153,9 +156,8 @@ impl XeonBotModule for AiModeratorModule {
         let bot_configs = Arc::clone(&self.bot_configs);
         let xeon = Arc::clone(&self.xeon);
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(5));
             loop {
-                interval.tick().await;
+                tokio::time::sleep(Duration::from_secs(1)).await;
                 for (bot_id, bot_config) in bot_configs.iter() {
                     let bot = xeon.bot(bot_id).expect("Bot not found");
                     for MessageToDelete {
@@ -192,92 +194,21 @@ impl XeonBotModule for AiModeratorModule {
             return Ok(());
         };
 
-        if user_id == SLIME_USER_ID
-            && chat_id.is_user()
-            && text.starts_with("/announce-ai-moderator ")
-        {
-            let announcement_text = text
-                .trim_start_matches("/announce-ai-moderator ")
-                .trim()
-                .to_string();
-            let attachment = if let Some(photo) = message.photo() {
-                Attachment::PhotoFileId(photo.last().unwrap().file.id.clone())
-            } else {
-                Attachment::None
+        if text.starts_with('/') && !chat_id.is_user() {
+            let Some(bot_config) = self.bot_configs.get(&bot.id()) else {
+                return Ok(());
             };
-            let xeon = Arc::clone(bot.xeon());
-            let bot_id = bot.id();
-            let moderator_chats = if let Some(chat_configs) = self.bot_configs.get(&bot_id) {
-                chat_configs
-                    .chat_configs
-                    .values()
-                    .await?
-                    .map(|chat_config| chat_config.moderator_chat.unwrap_or(chat_id))
-                    .collect()
-            } else {
-                Vec::new()
-            };
-            bot.send_text_message(
-                chat_id.into(),
-                "Sending announcement\\.\\.\\.".to_string(),
-                InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+            features::moderation_commands::handle_commands(
+                bot, chat_id, user_id, message, text, bot_config,
             )
             .await?;
-            tokio::spawn(async move {
-                let bot = xeon.bot(&bot_id).unwrap();
-                let mut interval = tokio::time::interval(Duration::from_millis(100));
-                for (i, moderator_chat) in moderator_chats.iter().copied().enumerate() {
-                    interval.tick().await;
-                    match bot
-                        .send(
-                            moderator_chat,
-                            announcement_text.clone(),
-                            InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
-                            attachment.clone(),
-                        )
-                        .await
-                    {
-                        Ok(_) => {
-                            let _ = bot
-                                .send_text_message(
-                                    chat_id.into(),
-                                    format!(
-                                        "Sent announcement to {}/{}",
-                                        i + 1,
-                                        moderator_chats.len()
-                                    ),
-                                    InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
-                                )
-                                .await;
-                        }
-                        Err(err) => {
-                            log::warn!("Failed to send announcement: {err:?}");
-                            let _ = bot
-                                .send_text_message(
-                                    chat_id.into(),
-                                    format!(
-                                        "Failed to send announcement to {}/{}",
-                                        i + 1,
-                                        moderator_chats.len()
-                                    ),
-                                    InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
-                                )
-                                .await;
-                        }
-                    }
-                }
-                let _ = bot
-                    .send_text_message(
-                        chat_id.into(),
-                        "Sent announcement to all moderator chats".to_string(),
-                        InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
-                    )
-                    .await;
-            });
-            return Ok(());
         }
 
         if !chat_id.is_user() {
+            if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
+                features::greeting::handle_greeting(bot, chat_id, message, bot_config).await?;
+            }
+
             log::debug!("Moderating message {}", message.id);
             self.moderate_message(bot, chat_id, user_id, message.clone())
                 .await?;
@@ -355,6 +286,28 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
+            MessageCommand::AiModeratorSetGreetingMessage(target_chat_id) => {
+                edit::greeting::handle_input(
+                    bot,
+                    user_id,
+                    chat_id,
+                    target_chat_id,
+                    message,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            MessageCommand::AiModeratorAddWordToBlocklist(target_chat_id) => {
+                edit::word_blocklist::handle_add_word_input(
+                    bot,
+                    user_id,
+                    chat_id,
+                    target_chat_id,
+                    message,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
             MessageCommand::AiModeratorTest(target_chat_id) => {
                 moderator::handle_test_message_input(
                     bot,
@@ -392,8 +345,188 @@ impl XeonBotModule for AiModeratorModule {
             return Ok(());
         }
         if !ctx.chat_id().is_user() {
-            // Commands in mod chat
             match ctx.parse_command().await? {
+                // Commands in public chat
+                TgCommand::AiModeratorReportDelete(chat_id, message_id) => {
+                    let Some(bot_message_id) = ctx.message_id() else {
+                        log::error!(
+                            "Expected message_id to be Some in AiModeratorReportDelete handler"
+                        );
+                        return Ok(());
+                    };
+                    let Some(bot_config) = self.bot_configs.get(&ctx.bot().id()) else {
+                        return Ok(());
+                    };
+                    let member = ctx
+                        .bot()
+                        .bot()
+                        .get_chat_member(chat_id, ctx.user_id())
+                        .await?;
+                    if !member.can_delete_messages() {
+                        let message = ctx
+                            .bot()
+                            .bot()
+                            .send_message(
+                                chat_id,
+                                "You don't have the permission to delete messages",
+                            )
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_parameters(ReplyParameters {
+                                message_id: bot_message_id,
+                                ..Default::default()
+                            })
+                            .await?;
+                        bot_config
+                            .schedule_message_autodeletion(
+                                chat_id,
+                                message.id,
+                                Utc::now() + Duration::from_secs(10),
+                            )
+                            .await?;
+                        return Ok(());
+                    }
+                    match ctx.bot().bot().delete_message(chat_id, message_id).await {
+                        Ok(True) => {
+                            bot_config
+                                .schedule_message_autodeletion(
+                                    chat_id,
+                                    bot_message_id,
+                                    Utc::now() + Duration::from_secs(10),
+                                )
+                                .await?;
+                            let message = ctx
+                                .bot()
+                                .bot()
+                                .send_message(chat_id, "Deleted")
+                                .parse_mode(ParseMode::MarkdownV2)
+                                .reply_parameters(ReplyParameters {
+                                    message_id: bot_message_id,
+                                    ..Default::default()
+                                })
+                                .await?;
+                            bot_config
+                                .schedule_message_autodeletion(
+                                    chat_id,
+                                    message.id,
+                                    Utc::now() + Duration::from_secs(10),
+                                )
+                                .await?;
+                        }
+                        Err(err) => {
+                            let message = ctx
+                                .bot()
+                                .bot()
+                                .send_message(chat_id, format!("Failed to delete message: {err}"))
+                                .parse_mode(ParseMode::MarkdownV2)
+                                .reply_parameters(ReplyParameters {
+                                    message_id: bot_message_id,
+                                    ..Default::default()
+                                })
+                                .await?;
+                            bot_config
+                                .schedule_message_autodeletion(
+                                    chat_id,
+                                    message.id,
+                                    Utc::now() + Duration::from_secs(10),
+                                )
+                                .await?;
+                            log::warn!("Failed to delete message: {err}");
+                        }
+                    }
+                    return Ok(());
+                }
+                TgCommand::AiModeratorReportBan(chat_id, user_id) => {
+                    let Some(bot_message_id) = ctx.message_id() else {
+                        log::error!(
+                            "Expected message_id to be Some in AiModeratorReportBan handler"
+                        );
+                        return Ok(());
+                    };
+                    let Some(bot_config) = self.bot_configs.get(&ctx.bot().id()) else {
+                        return Ok(());
+                    };
+                    let member = ctx
+                        .bot()
+                        .bot()
+                        .get_chat_member(chat_id, ctx.user_id())
+                        .await?;
+                    if !member.can_restrict_members() {
+                        let message = ctx
+                            .bot()
+                            .bot()
+                            .send_message(chat_id, "You don't have the permission to ban users")
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_parameters(ReplyParameters {
+                                message_id: bot_message_id,
+                                ..Default::default()
+                            })
+                            .await?;
+                        bot_config
+                            .schedule_message_autodeletion(
+                                chat_id,
+                                message.id,
+                                Utc::now() + Duration::from_secs(10),
+                            )
+                            .await?;
+                        return Ok(());
+                    }
+                    match ctx
+                        .bot()
+                        .bot()
+                        .ban_chat_member(chat_id, user_id)
+                        .revoke_messages(true)
+                        .await
+                    {
+                        Ok(True) => {
+                            bot_config
+                                .schedule_message_autodeletion(
+                                    chat_id,
+                                    bot_message_id,
+                                    Utc::now() + Duration::from_secs(10),
+                                )
+                                .await?;
+                            let message = ctx
+                                .bot()
+                                .bot()
+                                .send_message(chat_id, "Banned")
+                                .parse_mode(ParseMode::MarkdownV2)
+                                .reply_parameters(ReplyParameters {
+                                    message_id: bot_message_id,
+                                    ..Default::default()
+                                })
+                                .await?;
+                            bot_config
+                                .schedule_message_autodeletion(
+                                    chat_id,
+                                    message.id,
+                                    Utc::now() + Duration::from_secs(10),
+                                )
+                                .await?;
+                        }
+                        Err(err) => {
+                            let message = ctx
+                                .bot()
+                                .bot()
+                                .send_message(chat_id, format!("Failed to ban: {err}"))
+                                .parse_mode(ParseMode::MarkdownV2)
+                                .reply_parameters(ReplyParameters {
+                                    message_id: bot_message_id,
+                                    ..Default::default()
+                                })
+                                .await?;
+                            bot_config
+                                .schedule_message_autodeletion(
+                                    chat_id,
+                                    message.id,
+                                    Utc::now() + Duration::from_secs(10),
+                                )
+                                .await?;
+                            log::warn!("Failed to ban user: {err}");
+                        }
+                    }
+                    return Ok(());
+                }
+                // Commands in mod chat
                 TgCommand::AiModeratorAddException(
                     target_chat_id,
                     message_text,
@@ -632,7 +765,7 @@ impl XeonBotModule for AiModeratorModule {
                 .await?;
             }
             TgCommand::AiModeratorSetBlockMostlyEmojiMessages(target_chat_id, block) => {
-                edit::additional_settings::handle_block_mostly_emoji_button(
+                edit::block_mostly_emoji_messages::handle_button(
                     &mut ctx,
                     target_chat_id,
                     block,
@@ -641,7 +774,7 @@ impl XeonBotModule for AiModeratorModule {
                 .await?;
             }
             TgCommand::AiModeratorSetBlockForwardedStories(target_chat_id, block) => {
-                edit::additional_settings::handle_block_forwarded_stories_button(
+                edit::block_forwarded_stories::handle_button(
                     &mut ctx,
                     target_chat_id,
                     block,
@@ -658,17 +791,160 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
+            TgCommand::AiModeratorSetDeleteJoinLeave(target_chat_id, enabled) => {
+                edit::delete_join_leave_messages::handle_button(
+                    &mut ctx,
+                    target_chat_id,
+                    enabled,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSetMuteImpersonators(target_chat_id, enabled) => {
+                edit::mute_impersonators::handle_button(
+                    &mut ctx,
+                    target_chat_id,
+                    enabled,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSetBanCommand(target_chat_id, enabled) => {
+                edit::commands::handle_ban_button(
+                    &mut ctx,
+                    target_chat_id,
+                    enabled,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSetDelCommand(target_chat_id, enabled) => {
+                edit::commands::handle_del_button(
+                    &mut ctx,
+                    target_chat_id,
+                    enabled,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSetMuteCommand(target_chat_id, enabled) => {
+                edit::commands::handle_mute_button(
+                    &mut ctx,
+                    target_chat_id,
+                    enabled,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSetReportCommand(target_chat_id, enabled) => {
+                edit::commands::handle_report_button(
+                    &mut ctx,
+                    target_chat_id,
+                    enabled,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSetMuteFlood(target_chat_id, enabled) => {
+                edit::mute_flood::handle_button(
+                    &mut ctx,
+                    target_chat_id,
+                    enabled,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorSetGreeting(target_chat_id) => {
+                edit::greeting::handle_button(&mut ctx, target_chat_id, &self.bot_configs).await?;
+            }
+            TgCommand::AiModeratorSetBlockLinks(target_chat_id, block) => {
+                edit::block_links::handle_button(
+                    &mut ctx,
+                    target_chat_id,
+                    block,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorEditWordBlocklist(target_chat_id, page) => {
+                edit::word_blocklist::handle_button(
+                    &mut ctx,
+                    target_chat_id,
+                    &self.bot_configs,
+                    page,
+                )
+                .await?;
+            }
+            TgCommand::AiModeratorAddWordToBlocklist(target_chat_id) => {
+                edit::word_blocklist::handle_add_word_button(&mut ctx, target_chat_id).await?;
+            }
+            TgCommand::AiModeratorRemoveWordFromBlocklist(target_chat_id, word) => {
+                edit::word_blocklist::handle_remove_word(
+                    &mut ctx,
+                    target_chat_id,
+                    word,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
     }
 }
 
-struct AiModeratorBotConfig {
+pub struct AiModeratorBotConfig {
     chat_configs: PersistentCachedStore<ChatId, AiModeratorChatConfig>,
     message_autodeletion_scheduled: PersistentCachedStore<MessageToDelete, DateTime<Utc>>,
     message_autodeletion_queue: RwLock<VecDeque<MessageToDelete>>,
     messages_sent: PersistentCachedStore<ChatUser, usize>,
+    pub mute_flood_data: MuteFloodData,
+}
+
+fn deserialize_actions<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<ModerationJudgement, ModerationAction>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum VersionedModerationAction {
+        New(ModerationAction),
+        Old(OldModerationAction),
+    }
+    #[derive(Deserialize)]
+    enum OldModerationAction {
+        Ban,
+        Mute,
+        TempMute,
+        Delete,
+        WarnMods,
+        Ok,
+    }
+    let map: HashMap<ModerationJudgement, VersionedModerationAction> =
+        Deserialize::deserialize(deserializer)?;
+    Ok(map
+        .into_iter()
+        .map(|(judgement, action)| {
+            (
+                judgement,
+                match action {
+                    VersionedModerationAction::New(action) => action,
+                    VersionedModerationAction::Old(action) => match action {
+                        OldModerationAction::Ban => ModerationAction::Ban,
+                        OldModerationAction::Mute => ModerationAction::Mute,
+                        OldModerationAction::TempMute => {
+                            ModerationAction::TempMute(Duration::from_secs(15 * 60))
+                        }
+                        OldModerationAction::Delete => ModerationAction::Delete(true),
+                        OldModerationAction::WarnMods => ModerationAction::WarnMods,
+                        OldModerationAction::Ok => ModerationAction::Ok,
+                    },
+                },
+            )
+        })
+        .collect())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -677,33 +953,48 @@ struct AiModeratorChatConfig {
     moderator_chat: Option<ChatId>,
     prompt: String,
     debug_mode: bool,
+    #[serde(deserialize_with = "deserialize_actions")]
     actions: HashMap<ModerationJudgement, ModerationAction>,
     enabled: bool,
     silent: bool,
     #[serde(default = "default_deletion_message")]
     deletion_message: String,
     #[serde(default)]
-    deletion_message_attachment: Attachment,
-    #[serde(default)]
     model: Model,
     #[serde(default)]
     block_mostly_emoji_messages: bool,
-    #[serde(default = "default_block_forwarded_stories")]
+    #[serde(default = "default_true")]
     block_forwarded_stories: bool,
-    #[serde(default = "default_ai_enabled")]
+    #[serde(default = "default_true")]
     ai_enabled: bool,
+    #[serde(default)]
+    delete_join_leave_messages: bool,
+    #[serde(default)]
+    mute_impersonators: bool,
+    #[serde(default = "default_true")]
+    ban_command: bool,
+    #[serde(default = "default_true")]
+    del_command: bool,
+    #[serde(default = "default_true")]
+    mute_command: bool,
+    #[serde(default = "default_true")]
+    report_command: bool,
+    #[serde(default)]
+    mute_flood: bool,
+    #[serde(default)]
+    greeting: Option<(String, Attachment)>,
+    #[serde(default)]
+    block_links: bool,
+    #[serde(default)]
+    word_blocklist: Vec<String>,
 }
 
-fn default_ai_enabled() -> bool {
+fn default_true() -> bool {
     true
 }
 
 fn default_deletion_message() -> String {
     "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string()
-}
-
-fn default_block_forwarded_stories() -> bool {
-    true
 }
 
 impl Default for AiModeratorChatConfig {
@@ -715,18 +1006,27 @@ impl Default for AiModeratorChatConfig {
             debug_mode: true,
             actions: [
                 (ModerationJudgement::Good, ModerationAction::Ok),
-                (ModerationJudgement::Inform, ModerationAction::Delete),
-                (ModerationJudgement::Suspicious, ModerationAction::TempMute),
+                (ModerationJudgement::Inform, ModerationAction::Delete(true)),
+                (ModerationJudgement::Suspicious, ModerationAction::TempMute(Duration::from_secs(15 * 60))),
                 (ModerationJudgement::Harmful, ModerationAction::Ban),
             ].into_iter().collect(),
             enabled: true,
             silent: false,
             deletion_message: "{user}, your message was removed by AI Moderator. Mods have been notified and will review it shortly if it was a mistake".to_string(),
-            deletion_message_attachment: Attachment::None,
             model: Model::RecommendedBest,
             block_mostly_emoji_messages: false,
             block_forwarded_stories: true,
             ai_enabled: false,
+            delete_join_leave_messages: false,
+            mute_impersonators: false,
+            ban_command: true,
+            del_command: true,
+            mute_command: true,
+            report_command: false,
+            mute_flood: false,
+            greeting: None,
+            block_links: false,
+            word_blocklist: Vec::new(),
         }
     }
 }
@@ -738,9 +1038,9 @@ struct MessageToDelete {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
-struct ChatUser {
-    chat_id: ChatId,
-    user_id: UserId,
+pub struct ChatUser {
+    pub chat_id: ChatId,
+    pub user_id: UserId,
 }
 
 impl AiModeratorBotConfig {
@@ -767,6 +1067,7 @@ impl AiModeratorBotConfig {
             message_autodeletion_scheduled,
             message_autodeletion_queue: RwLock::new(message_autodeletion_queue),
             messages_sent,
+            mute_flood_data: MuteFloodData::new(),
         })
     }
 
@@ -873,55 +1174,72 @@ impl AiModeratorModule {
             let chat_member = bot.bot().get_chat_member(chat_id, user_id).await?;
             is_admin = chat_member.is_privileged();
         }
-        let chat_config = if let Some(bot_config) = self.bot_configs.get(&bot.id()) {
-            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
-                if bot_config
-                    .get_and_increment_messages_sent(chat_id, user_id)
-                    .await
-                    < chat_config.first_messages
-                {
-                    if !chat_config.enabled {
-                        log::debug!("Skipping moderation because chat {chat_id} is disabled");
-                        return Ok(());
-                    }
-
-                    if !chat_config.debug_mode && is_admin {
-                        log::debug!("Skipping moderation for admin message {}", message.id);
-                        return Ok(());
-                    }
-
-                    chat_config
-                } else {
-                    log::debug!(
-                        "Skipping moderation for message {} due to first_messages limit",
-                        message.id
-                    );
-                    return Ok(());
-                }
-            } else {
+        let Some(bot_config) = self.bot_configs.get(&bot.id()) else {
+            return Ok(());
+        };
+        let chat_config = if let Some(mut chat_config) = bot_config.chat_configs.get(&chat_id).await
+        {
+            if !chat_config.enabled {
+                log::debug!("Skipping moderation because chat {chat_id} is disabled");
                 return Ok(());
             }
+
+            if features::delete_join_leave_messages::check_and_delete_join_leave_message(
+                bot,
+                chat_id,
+                &message,
+                &chat_config,
+            )
+            .await
+            {
+                log::debug!("Deleted join/leave message, skipping further moderation");
+                return Ok(());
+            }
+
+            if !chat_config.debug_mode
+                && is_admin
+                && !matches!(
+                    message.kind,
+                    MessageKind::NewChatMembers(_) | MessageKind::LeftChatMember(_)
+                )
+            {
+                log::debug!("Skipping moderation for admin message {}", message.id);
+                return Ok(());
+            }
+
+            if bot_config
+                .get_and_increment_messages_sent(chat_id, user_id)
+                .await
+                >= chat_config.first_messages
+            {
+                chat_config.ai_enabled = false;
+            }
+
+            chat_config
         } else {
             return Ok(());
         };
         log::debug!("Chat config received for message {}", message.id);
-        if !chat_config.enabled {
-            return Ok(());
-        }
 
-        let rating_future = utils::get_message_rating(
-            bot.id(),
-            message.clone(),
-            chat_config.clone(),
-            chat_id,
-            Arc::clone(&self.xeon),
-        );
         let bot_configs = Arc::clone(&self.bot_configs);
         let xeon = Arc::clone(&self.xeon);
         let bot_id = bot.id();
+        let message = message.clone();
+        let chat_config = chat_config.clone();
         tokio::spawn(async move {
             let result: Result<(), anyhow::Error> = async {
                 let bot = xeon.bot(&bot_id).unwrap();
+                let Some(bot_config) = bot_configs.get(&bot_id) else {
+                    return Ok(());
+                };
+                let rating_future = utils::get_message_rating(
+                    bot_id,
+                    message.clone(),
+                    chat_config.clone(),
+                    chat_id,
+                    Arc::clone(&xeon),
+                    bot_config,
+                );
                 let MessageRating::Ok { judgement, reasoning, message_text, image_jpeg: message_image } = rating_future.await else {
                     // Skipped the check, most likely because of unsupported message type
                     return Ok(());
@@ -963,19 +1281,26 @@ impl AiModeratorModule {
                     ModerationJudgement::Good => chat_config
                         .actions
                         .get(&ModerationJudgement::Good)
-                        .unwrap_or(&ModerationAction::Ok),
+                        .cloned()
+                        .unwrap_or(ModerationAction::Ok),
                     ModerationJudgement::Inform => chat_config
                         .actions
                         .get(&ModerationJudgement::Inform)
-                        .unwrap_or(&ModerationAction::Delete),
+                        .cloned()
+                        .unwrap_or_else(|| ModerationAction::Delete(true)),
                     ModerationJudgement::Suspicious => chat_config
                         .actions
                         .get(&ModerationJudgement::Suspicious)
-                        .unwrap_or(&ModerationAction::TempMute),
+                        .cloned()
+                        .unwrap_or_else(|| ModerationAction::TempMute(Duration::from_secs(15 * 60))),
                     ModerationJudgement::Harmful => chat_config
                         .actions
                         .get(&ModerationJudgement::Harmful)
-                        .unwrap_or(&ModerationAction::Ban),
+                        .cloned()
+                        .unwrap_or(ModerationAction::Ban),
+                    ModerationJudgement::SilentDelete => ModerationAction::Delete(false),
+                    ModerationJudgement::JustMute(None) => ModerationAction::Mute,
+                    ModerationJudgement::JustMute(Some(duration)) => ModerationAction::TempMute(duration),
                 };
 
                 let moderator_chat = chat_config.moderator_chat.unwrap_or(chat_id);
@@ -1031,7 +1356,7 @@ impl AiModeratorModule {
                 let mut note = note
                     .map(|note| format!("\n{note}", note = markdown::escape(note)))
                     .unwrap_or_default();
-                if chat_config.debug_mode && *action != ModerationAction::Ok {
+                if chat_config.debug_mode && action != ModerationAction::Ok {
                     note += "\n\\(testing mode is enabled, so nothing was actually done\\)";
                 }
                 if chat_config.moderator_chat.is_none() {
@@ -1039,18 +1364,18 @@ impl AiModeratorModule {
                 }
 
                 let action = if sender_id.is_user() {
-                    *action
+                    action
                 } else {
                     match action {
                         ModerationAction::Mute => {
-                            note += "\n\nℹ️ This message was sent by a group or a channel \\(anonymously\\), so the user was banned instead of being muted\\. Telegram doesn't allow partially restricting anonymous senders, either nothing or fully ban";
+                            note += "\n\nℹ️ This message was sent by a group or a channel \\(anonymously\\), so the user was banned instead of being muted\\. Telegram doesn't allow partially restricting anonymous senders, either nothing or ban all";
                             ModerationAction::Ban
                         }
-                        ModerationAction::TempMute => {
-                            note += "\n\nℹ️ This message was sent by a group or a channel \\(anonymously\\), so it was deleted instead of being temporarily muted\\. Telegram doesn't allow partially restricting anonymous senders, either nothing or fully ban";
-                            ModerationAction::Delete
+                        ModerationAction::TempMute(_) => {
+                            note += "\n\nℹ️ This message was sent by a group or a channel \\(anonymously\\), so it was deleted instead of being temporarily muted\\. Telegram doesn't allow partially restricting anonymous senders, either nothing or ban all";
+                            ModerationAction::Delete(true)
                         }
-                        other => *other,
+                        other => other,
                     }
                 };
                 let chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id.into()).await?.unwrap_or_default());
@@ -1240,14 +1565,14 @@ impl AiModeratorModule {
                         bot.send(moderator_chat, message_to_send, reply_markup, attachment)
                             .await?;
                     }
-                    ModerationAction::TempMute => {
+                    ModerationAction::TempMute(d) => {
                         if !chat_config.debug_mode {
                             let _ = bot.bot().delete_message(chat_id, message.id).await;
                             let result = if let Some(user_id) = sender_id.as_user() {
                                 if let Err(err) = bot
                                     .bot()
                                     .restrict_chat_member(chat_id, user_id, ChatPermissions::empty())
-                                    .until_date(chrono::Utc::now() + chrono::Duration::minutes(15))
+                                    .until_date(chrono::Utc::now() + d)
                                     .await
                                 {
                                     log::warn!("Failed to temp mute user: {err}");
@@ -1327,7 +1652,7 @@ impl AiModeratorModule {
                         bot.send(moderator_chat, message_to_send, reply_markup, attachment)
                             .await?;
                     }
-                    ModerationAction::Delete => {
+                    ModerationAction::Delete(send_message) => {
                         if !chat_config.debug_mode {
                             if let Err(RequestError::Api(err)) =
                                 bot.bot().delete_message(chat_id, message.id).await
@@ -1347,47 +1672,49 @@ impl AiModeratorModule {
                                 }
                             }
                         }
-                        let message_to_send = format!(
-                            "{sender_link} sent a message in {chat_name} and it was flagged, was deleted:\n\n{original_message_text}{note}"
-                        );
-                        let buttons = vec![
-                            vec![InlineKeyboardButton::callback(
-                                "➕ Add Exception",
-                                bot.to_callback_data(&TgCommand::AiModeratorAddException(
-                                    chat_id,
-                                    message_text.clone(),
-                                    message_image,
-                                    reasoning.clone(),
-                                ))
-                                .await,
-                            )],
-                            vec![InlineKeyboardButton::callback(
-                                "🔨 Ban User",
-                                bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, sender_id))
+                        if send_message {
+                            let message_to_send = format!(
+                                "{sender_link} sent a message in {chat_name} and it was flagged, was deleted:\n\n{original_message_text}{note}"
+                            );
+                            let buttons = vec![
+                                vec![InlineKeyboardButton::callback(
+                                    "➕ Add Exception",
+                                    bot.to_callback_data(&TgCommand::AiModeratorAddException(
+                                        chat_id,
+                                        message_text.clone(),
+                                        message_image,
+                                        reasoning.clone(),
+                                    ))
                                     .await,
-                            )],
-                            vec![InlineKeyboardButton::callback(
-                                "↩️ Undelete Message",
-                                bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
-                                    moderator_chat,
-                                    chat_id,
-                                    sender_id,
-                                    message_text,
-                                    attachment.clone(),
-                                ))
-                                .await,
-                            )],
-                            vec![InlineKeyboardButton::callback(
-                                "💭 See Reason",
-                                bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
-                                    reasoning,
-                                ))
-                                .await,
-                            )],
-                        ];
-                        let reply_markup = InlineKeyboardMarkup::new(buttons);
-                        bot.send(moderator_chat, message_to_send, reply_markup, attachment)
-                            .await?;
+                                )],
+                                vec![InlineKeyboardButton::callback(
+                                    "🔨 Ban User",
+                                    bot.to_callback_data(&TgCommand::AiModeratorBan(chat_id, sender_id))
+                                        .await,
+                                )],
+                                vec![InlineKeyboardButton::callback(
+                                    "↩️ Undelete Message",
+                                    bot.to_callback_data(&TgCommand::AiModeratorUndeleteMessage(
+                                        moderator_chat,
+                                        chat_id,
+                                        sender_id,
+                                        message_text,
+                                        attachment.clone(),
+                                    ))
+                                    .await,
+                                )],
+                                vec![InlineKeyboardButton::callback(
+                                    "💭 See Reason",
+                                    bot.to_callback_data(&TgCommand::AiModeratorSeeReason(
+                                        reasoning,
+                                    ))
+                                    .await,
+                                )],
+                            ];
+                            let reply_markup = InlineKeyboardMarkup::new(buttons);
+                            bot.send(moderator_chat, message_to_send, reply_markup, attachment)
+                                .await?;
+                        }
                     }
                     ModerationAction::WarnMods => {
                         let message_to_send = format!(
@@ -1465,26 +1792,25 @@ impl AiModeratorModule {
                     }
                 }
                 if !chat_config.silent
-                    && !matches!(action, ModerationAction::Ok | ModerationAction::WarnMods)
+                    && !matches!(action, ModerationAction::Ok | ModerationAction::WarnMods | ModerationAction::Delete(false))
                 {
                     let message = markdown::escape(&chat_config.deletion_message).replace("\\{user\\}", &sender_link);
-                    let attachment = chat_config.deletion_message_attachment;
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     let message = bot
-                        .send(chat_id, message, reply_markup, attachment)
+                        .bot()
+                        .send_message(chat_id, message)
+                        .reply_markup(reply_markup)
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .disable_notification(true)
                         .await?;
-                    if let Some(bot_config) =
-                        bot_configs.get(&bot.id())
-                    {
-                        bot_config
-                            .schedule_message_autodeletion(
-                                chat_id,
-                                message.id,
-                                Utc::now() + Duration::from_secs(60),
-                            )
-                            .await?;
-                    }
+                    bot_config
+                        .schedule_message_autodeletion(
+                            chat_id,
+                            message.id,
+                            Utc::now() + Duration::from_secs(10),
+                        )
+                        .await?;
                 }
                 Ok(())
             }.await;

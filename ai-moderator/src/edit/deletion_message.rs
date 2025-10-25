@@ -7,7 +7,7 @@ use tearbot_common::{
         prelude::{ChatId, Message, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
     },
-    tgbot::{Attachment, BotData, TgCallbackContext, DONT_CARE},
+    tgbot::{BotData, TgCallbackContext, DONT_CARE},
     utils::chat::check_admin_permission_in_chat,
 };
 
@@ -53,21 +53,9 @@ pub async fn handle_input(
         return Ok(());
     }
     let message_text = message.text().map(|s| s.to_owned()).unwrap_or_default();
-    let message_attachment = if let Some(photo) = message.photo() {
-        Attachment::PhotoFileId(photo.last().unwrap().file.id.clone())
-    } else if let Some(video) = message.video() {
-        Attachment::VideoFileId(video.file.id.clone())
-    } else if let Some(audio) = message.audio() {
-        Attachment::AudioFileId(audio.file.id.clone())
-    } else if let Some(document) = message.document() {
-        Attachment::DocumentFileId(document.file.id.clone(), "file".to_string())
-    } else {
-        Attachment::None
-    };
     if let Some(bot_config) = bot_configs.get(&bot.id()) {
         if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
             chat_config.deletion_message = message_text;
-            chat_config.deletion_message_attachment = message_attachment;
             bot_config
                 .chat_configs
                 .insert_or_update(target_chat_id, chat_config)

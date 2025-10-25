@@ -1074,7 +1074,7 @@ Send a text message to use the agent
                             _ => {
                                 log::warn!("Unknown transaction status: {:?}", tx.status);
                                 let message = format!(
-                                    "Unknown transaction status, please check on explorer: [Tx](https://nearblocks.io/txns/{})",
+                                    "Unknown transaction status, please check on explorer: [Tx](https://pikespeak.ai/transaction-viewer/{})",
                                     tx.transaction.hash
                                 );
                                 let buttons = Vec::<Vec<_>>::new();
