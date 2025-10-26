@@ -10,9 +10,10 @@ Tear is an open-source edition of [Xeon](https://t.me/Intear_Xeon_bot), that cur
 - Account Info
 - Token Holders
 - Near TGI
-- AI Moderator
+- Moderator
 - Burrow Liquidations
 - Price Commands
+- Tip Bot
 
 ### Running
 

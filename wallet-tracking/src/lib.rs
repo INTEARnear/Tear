@@ -2,12 +2,16 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use itertools::Itertools;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
     bot_commands::TgCommand,
     intear_events::events::{
-        ft::ft_transfer::FtTransferEvent, nft::nft_transfer::NftTransferEvent,
-        trade::trade_swap::TradeSwapEvent, transactions::tx_transaction::TxTransactionEvent,
+        ft::ft_transfer::FtTransferEvent,
+        log::log_text::LogTextEvent,
+        nft::nft_transfer::NftTransferEvent,
+        trade::trade_swap::TradeSwapEvent,
+        transactions::tx_transaction::TxTransactionEvent,
     },
     mongodb::Database,
     near_primitives::types::AccountId,
@@ -44,6 +48,7 @@ impl IndexerEventHandler for WalletTrackingModule {
             IndexerEvent::NftTransfer(event) => self.on_nft_transfer(event).await?,
             IndexerEvent::TradeSwap(event) => self.on_trade_swap(event).await?,
             IndexerEvent::TxTransaction(event) => self.on_transaction(event).await?,
+            IndexerEvent::LogText(event) => self.on_log_text(event).await?,
             _ => {}
         }
         Ok(())
@@ -354,6 +359,87 @@ impl WalletTrackingModule {
                             bot.send_text_message(chat_id, message, reply_markup).await
                         {
                             log::warn!("Failed to send wallet tracking transaction alert: {err:?}");
+                        }
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn on_log_text(&self, event: &LogTextEvent) -> Result<(), anyhow::Error> {
+        let contract_id = event.account_id.as_str();
+        if !contract_id.ends_with(".pool.near") && !contract_id.ends_with(".poolv1.near") {
+            return Ok(());
+        }
+
+        let staking_event = if let Some(event) = parse_staking_event(&event.log_text) {
+            event
+        } else {
+            return Ok(());
+        };
+
+        for (bot_id, config) in self.bot_configs.iter() {
+            for subscriber in config.subscribers.values().await? {
+                if !subscriber.enabled {
+                    continue;
+                }
+                let chat_id = *subscriber.key();
+                let subscriber = subscriber.value();
+                if subscriber
+                    .accounts
+                    .get(&staking_event.account_id)
+                    .map(|tracked_wallet| tracked_wallet.staking)
+                    .unwrap_or_default()
+                {
+                    let xeon = Arc::clone(&self.xeon);
+                    let bot_id = *bot_id;
+                    let tx_hash = event.transaction_id;
+                    let pool_id = event.account_id.clone();
+                    let account_id = staking_event.account_id.clone();
+                    let action = staking_event.action.clone();
+                    let amount = staking_event.amount;
+
+                    tokio::spawn(async move {
+                        let Some(bot) = xeon.bot(&bot_id) else {
+                            return;
+                        };
+                        if bot.reached_notification_limit(chat_id.chat_id()).await {
+                            return;
+                        }
+
+                        let action_text = match action {
+                            StakingAction::Deposit => "staked NEAR with",
+                            StakingAction::Unstake => "started unstaking NEAR from",
+                            StakingAction::Withdraw => "withdrew staked NEAR from",
+                        };
+
+                        let message = format!(
+                            "
+*Staking*
+*`{account_id}` {action_text} `{pool_id}`*: {}
+
+[Tx](https://pikespeak.ai/transaction-viewer/{tx_hash})
+                            ",
+                            markdown::escape(
+                                &format_tokens(amount, &"near".parse().unwrap(), Some(&xeon)).await
+                            ),
+                        );
+
+                        let buttons = if chat_id.is_user() {
+                            vec![vec![InlineKeyboardButton::callback(
+                                "✏️ Edit accounts",
+                                bot.to_callback_data(&TgCommand::WalletTrackingSettings(chat_id))
+                                    .await,
+                            )]]
+                        } else {
+                            Vec::new()
+                        };
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        if let Err(err) =
+                            bot.send_text_message(chat_id, message, reply_markup).await
+                        {
+                            log::warn!("Failed to send wallet tracking staking alert: {err:?}");
                         }
                     });
                 }
@@ -798,6 +884,24 @@ impl XeonBotModule for WalletTrackingModule {
                         ),
                     ],
                     vec![InlineKeyboardButton::callback(
+                        format!(
+                            "{} Staking",
+                            if tracked_wallet.staking {
+                                "🟢"
+                            } else {
+                                "🔴"
+                            }
+                        ),
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::WalletTrackingAccountToggleStaking(
+                                target_chat_id,
+                                account_id.clone(),
+                                !tracked_wallet.staking,
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
                         "🗑 Remove",
                         context
                             .bot()
@@ -966,6 +1070,42 @@ impl XeonBotModule for WalletTrackingModule {
                 )
                 .await?;
             }
+            TgCommand::WalletTrackingAccountToggleStaking(target_chat_id, account_id, value) => {
+                if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
+                    .await
+                {
+                    return Ok(());
+                }
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
+                    if let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
+                    {
+                        if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
+                            tracked_wallet.staking = value;
+                        }
+                        bot_config
+                            .subscribers
+                            .insert_or_update(target_chat_id, subscriber)
+                            .await?;
+                    }
+                }
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        context.bot(),
+                        context.user_id(),
+                        context.chat_id(),
+                        context.message_id(),
+                        &context
+                            .bot()
+                            .to_callback_data(&TgCommand::WalletTrackingAccount(
+                                target_chat_id,
+                                account_id,
+                            ))
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -1012,6 +1152,8 @@ struct TrackedWallet {
     swaps: bool,
     #[serde(default)]
     transactions: bool,
+    #[serde(default)]
+    staking: bool,
 }
 
 impl Default for TrackedWallet {
@@ -1021,6 +1163,73 @@ impl Default for TrackedWallet {
             nft: true,
             swaps: true,
             transactions: true,
+            staking: false,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+enum StakingAction {
+    Deposit,
+    Unstake,
+    Withdraw,
+}
+
+#[derive(Debug, Clone)]
+struct StakingEvent {
+    account_id: AccountId,
+    action: StakingAction,
+    amount: u128,
+}
+
+fn parse_staking_event(log_text: &str) -> Option<StakingEvent> {
+    // Deposit: "@account.near deposited 27500000000000000000000000000. New unstaked balance is 27500000000000000000000000000"
+    static DEPOSIT_RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let deposit_re = DEPOSIT_RE.get_or_init(|| {
+        Regex::new(r"^@([a-z0-9\-_\.]+) deposited (\d+)\. New unstaked balance is \d+$").unwrap()
+    });
+    
+    if let Some(caps) = deposit_re.captures(log_text) {
+        let account_id: AccountId = caps[1].parse().ok()?;
+        let amount: u128 = caps[2].parse().ok()?;
+        return Some(StakingEvent {
+            account_id,
+            action: StakingAction::Deposit,
+            amount,
+        });
+    }
+
+    // Unstake: "@account.near unstaking 6005684868004746845768383. Spent 5669773941280018586749277 staking shares. Total 6005684868004746845768384 unstaked balance and 479062020408705263941 staking shares"
+    static UNSTAKE_RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let unstake_re = UNSTAKE_RE.get_or_init(|| {
+        Regex::new(r"^@([a-z0-9\-_\.]+) unstaking (\d+)\. Spent \d+ staking shares\. Total \d+ unstaked balance and \d+ staking shares$").unwrap()
+    });
+    
+    if let Some(caps) = unstake_re.captures(log_text) {
+        let account_id: AccountId = caps[1].parse().ok()?;
+        let amount: u128 = caps[2].parse().ok()?;
+        return Some(StakingEvent {
+            account_id,
+            action: StakingAction::Unstake,
+            amount,
+        });
+    }
+
+    // Withdraw: "@account.near withdrawing 6005684868004746845768384. New unstaked balance is 0"
+    static WITHDRAW_RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let withdraw_re = WITHDRAW_RE.get_or_init(|| {
+        Regex::new(r"^@([a-z0-9\-_\.]+) withdrawing (\d+)\. New unstaked balance is \d+$").unwrap()
+    });
+    
+    if let Some(caps) = withdraw_re.captures(log_text) {
+        let account_id: AccountId = caps[1].parse().ok()?;
+        let amount: u128 = caps[2].parse().ok()?;
+        return Some(StakingEvent {
+            account_id,
+            action: StakingAction::Withdraw,
+            amount,
+        });
+    }
+
+    None
 }

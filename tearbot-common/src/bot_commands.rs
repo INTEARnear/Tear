@@ -1172,6 +1172,8 @@ pub enum TgCommand {
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAccountToggleTransaction(NotificationDestination, AccountId, bool),
     #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountToggleStaking(NotificationDestination, AccountId, bool),
+    #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAccountRemove(NotificationDestination, AccountId),
     #[cfg(feature = "agents-module")]
     Agents,
