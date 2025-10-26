@@ -4,7 +4,7 @@ A bot that makes you cry.
 
 ---
 
-Tear is an open-source edition of [Xeon](https://t.me/Intear_Xeon_bot), that currently has 7 features:
+Tear is an open-source edition of [Xeon](https://t.me/Intear_Xeon_bot), that currently has 9 features:
 
 - Contract Logs (Text & NEP-297)
 - Account Info
@@ -12,6 +12,7 @@ Tear is an open-source edition of [Xeon](https://t.me/Intear_Xeon_bot), that cur
 - Near TGI
 - Moderator
 - Burrow Liquidations
+- House of Stake Notifications
 - Price Commands
 - Tip Bot
 
@@ -74,6 +75,10 @@ You need to have these environment variables:
 - `CEREBRAS_API_KEY`: Cerebras API key (if you plan to use Llama 70B). It will fall back to GPT-4o if the message contains an image, as this version of Llama is not multimodal.
 
 #### Burrow Liquidations
+
+No additional setup is required.
+
+#### House of Stake Notifications
 
 No additional setup is required.
 

@@ -19,6 +19,7 @@ utilities = { path = "../utilities", optional = true }
 near-tgi = { path = "../near-tgi", optional = true }
 ai-moderator = { path = "../ai-moderator", optional = true }
 burrow-liquidations = { path = "../burrow-liquidations", optional = true }
+house-of-stake = { path = "../house-of-stake", optional = true }
 price-commands = { path = "../price-commands", optional = true }
 trading-bot = { path = "../xeon-private-modules/trading-bot", optional = true }
 wallet-tracking = { path = "../wallet-tracking", optional = true }
@@ -56,6 +57,7 @@ tear = [
     "ai-moderator/near",
     "websocket-events",
     "burrow-liquidations-module",
+    "house-of-stake-module",
     "price-commands-module",
     "wallet-tracking-module",
     "agents-module",
@@ -78,6 +80,7 @@ xeon = [
     "redis-events",
     "configure-channels",
     "burrow-liquidations-module",
+    "house-of-stake-module",
     "price-commands-module",
     "trading-bot-module",
     "wallet-tracking-module",
@@ -113,6 +116,10 @@ ai-moderator-module = ["tearbot-common/ai-moderator-module", "ai-moderator"]
 burrow-liquidations-module = [
     "tearbot-common/burrow-liquidations-module",
     "burrow-liquidations",
+]
+house-of-stake-module = [
+    "tearbot-common/house-of-stake-module",
+    "house-of-stake",
 ]
 price-commands-module = ["tearbot-common/price-commands-module", "price-commands"]
 trading-bot-module = ["tearbot-common/trading-bot-module", "trading-bot", "utilities/trading-bot"]

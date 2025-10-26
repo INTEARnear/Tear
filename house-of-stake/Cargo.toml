@@ -1,0 +1,18 @@
+[package]
+name = "house-of-stake"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+tearbot-common = { path = "../tearbot-common", features = [ "house-of-stake-module" ] }
+async-trait = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+anyhow = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+near-primitives = { workspace = true }
+bigdecimal = { workspace = true }
+cached = { workspace = true }
+chrono = { workspace = true }

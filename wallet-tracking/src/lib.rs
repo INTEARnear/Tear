@@ -7,10 +7,8 @@ use serde::{Deserialize, Serialize};
 use tearbot_common::{
     bot_commands::TgCommand,
     intear_events::events::{
-        ft::ft_transfer::FtTransferEvent,
-        log::log_text::LogTextEvent,
-        nft::nft_transfer::NftTransferEvent,
-        trade::trade_swap::TradeSwapEvent,
+        ft::ft_transfer::FtTransferEvent, log::log_text::LogTextEvent,
+        nft::nft_transfer::NftTransferEvent, trade::trade_swap::TradeSwapEvent,
         transactions::tx_transaction::TxTransactionEvent,
     },
     mongodb::Database,
@@ -1188,7 +1186,7 @@ fn parse_staking_event(log_text: &str) -> Option<StakingEvent> {
     let deposit_re = DEPOSIT_RE.get_or_init(|| {
         Regex::new(r"^@([a-z0-9\-_\.]+) deposited (\d+)\. New unstaked balance is \d+$").unwrap()
     });
-    
+
     if let Some(caps) = deposit_re.captures(log_text) {
         let account_id: AccountId = caps[1].parse().ok()?;
         let amount: u128 = caps[2].parse().ok()?;
@@ -1204,7 +1202,7 @@ fn parse_staking_event(log_text: &str) -> Option<StakingEvent> {
     let unstake_re = UNSTAKE_RE.get_or_init(|| {
         Regex::new(r"^@([a-z0-9\-_\.]+) unstaking (\d+)\. Spent \d+ staking shares\. Total \d+ unstaked balance and \d+ staking shares$").unwrap()
     });
-    
+
     if let Some(caps) = unstake_re.captures(log_text) {
         let account_id: AccountId = caps[1].parse().ok()?;
         let amount: u128 = caps[2].parse().ok()?;
@@ -1220,7 +1218,7 @@ fn parse_staking_event(log_text: &str) -> Option<StakingEvent> {
     let withdraw_re = WITHDRAW_RE.get_or_init(|| {
         Regex::new(r"^@([a-z0-9\-_\.]+) withdrawing (\d+)\. New unstaked balance is \d+$").unwrap()
     });
-    
+
     if let Some(caps) = withdraw_re.captures(log_text) {
         let account_id: AccountId = caps[1].parse().ok()?;
         let amount: u128 = caps[2].parse().ok()?;

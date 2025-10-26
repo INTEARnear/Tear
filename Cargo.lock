@@ -3737,6 +3737,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "house-of-stake"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bigdecimal",
+ "cached",
+ "chrono",
+ "log",
+ "near-primitives 0.30.3",
+ "serde",
+ "serde_json",
+ "tearbot-common",
+ "tokio",
+]
+
+[[package]]
 name = "http"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11959,6 +11976,7 @@ dependencies = [
  "explorer",
  "ft-buybot",
  "futures-util",
+ "house-of-stake",
  "itertools 0.14.0",
  "log",
  "near-jsonrpc-primitives 0.30.3",

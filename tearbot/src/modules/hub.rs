@@ -2970,6 +2970,12 @@ async fn create_notificatons_buttons(
         bot.to_callback_data(&TgCommand::WalletTrackingSettings(target_chat_id))
             .await,
     ));
+    #[cfg(feature = "house-of-stake")]
+    buttons.push(InlineKeyboardButton::callback(
+        "🏦 House of Stake",
+        bot.to_callback_data(&TgCommand::HouseOfStakeSettings(target_chat_id))
+            .await,
+    ));
     let mut buttons = buttons
         .into_iter()
         .chunks(2)

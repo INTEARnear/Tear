@@ -26,11 +26,7 @@ pub async fn check_and_delete_join_leave_message(
             chat_id
         );
 
-        if let Err(err) = bot
-            .bot()
-            .delete_message(chat_id, message.id)
-            .await
-        {
+        if let Err(err) = bot.bot().delete_message(chat_id, message.id).await {
             log::warn!("Failed to delete join/leave message: {err:?}");
         }
 
@@ -39,4 +35,3 @@ pub async fn check_and_delete_join_leave_message(
 
     false
 }
-

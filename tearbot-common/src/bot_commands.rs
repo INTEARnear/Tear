@@ -530,6 +530,16 @@ pub enum TgCommand {
     BurrowLiquidationsAddAccount(NotificationDestination),
     #[cfg(feature = "burrow-liquidations-module")]
     BurrowLiquidationsAddAccountConfirm(NotificationDestination, AccountId),
+    #[cfg(feature = "house-of-stake-module")]
+    HouseOfStakeSettings(NotificationDestination),
+    #[cfg(feature = "house-of-stake-module")]
+    HouseOfStakeTogglePreScreening(NotificationDestination),
+    #[cfg(feature = "house-of-stake-module")]
+    HouseOfStakeToggleApprovedProposals(NotificationDestination),
+    #[cfg(feature = "house-of-stake-module")]
+    HouseOfStakeSetVoteAmount(NotificationDestination),
+    #[cfg(feature = "house-of-stake-module")]
+    HouseOfStakeSetVoteAmountConfirm(NotificationDestination, Balance),
     MigrateToNewBot(NotificationDestination),
     MigrateConfirm(MigrationData),
     ReferralDashboard,
@@ -1538,6 +1548,8 @@ pub enum MessageCommand {
     AiModeratorPromptConstructorAddOther(PromptBuilder),
     #[cfg(feature = "burrow-liquidations-module")]
     BurrowLiquidationsAddAccount(NotificationDestination),
+    #[cfg(feature = "house-of-stake-module")]
+    HouseOfStakeSetVoteAmount(NotificationDestination),
     ConnectAccountAnonymously,
     #[cfg(feature = "price-commands-module")]
     PriceCommandsSetToken(NotificationDestination),

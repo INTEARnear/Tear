@@ -10,6 +10,8 @@ use agents::AgentsModule;
 use ai_moderator::AiModeratorModule;
 #[cfg(feature = "burrow-liquidations")]
 use burrow_liquidations::BurrowLiquidationsModule;
+#[cfg(feature = "house-of-stake-module")]
+use house_of_stake::HouseOfStakeModule;
 // #[cfg(feature = "airdrops")]
 // use airdrops::AirdropsModule;
 #[cfg(feature = "contract-logs-module")]
@@ -275,6 +277,19 @@ fn main() -> Result<(), anyhow::Error> {
                     xeon.state()
                         .add_indexer_event_handler::<BurrowLiquidationsModule>(Arc::clone(
                             &burrow_liquidations_module,
+                        ))
+                        .await;
+                }
+                #[cfg(feature = "house-of-stake-module")]
+                {
+                    let house_of_stake_module =
+                        Arc::new(HouseOfStakeModule::new(xeon.arc_clone_state()).await?);
+                    xeon.state()
+                        .add_bot_module::<HouseOfStakeModule>(Arc::clone(&house_of_stake_module))
+                        .await;
+                    xeon.state()
+                        .add_indexer_event_handler::<HouseOfStakeModule>(Arc::clone(
+                            &house_of_stake_module,
                         ))
                         .await;
                 }
