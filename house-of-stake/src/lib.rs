@@ -63,7 +63,7 @@ struct AddVoteData {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct ProposalTotalVotes {
+struct Votes {
     #[serde(with = "dec_format")]
     total_venear: Balance,
     total_votes: u64,
@@ -72,43 +72,46 @@ struct ProposalTotalVotes {
 #[derive(Debug, Clone, Deserialize)]
 struct ProposalInfo {
     #[serde(with = "dec_format")]
-    voting_start_time_ns: u64,
+    voting_start_time_ns: Option<u64>,
     #[serde(with = "dec_format")]
     voting_duration_ns: u64,
-    total_votes: ProposalTotalVotes,
+    total_votes: Votes,
     title: String,
     voting_options: Vec<String>,
+    votes: Vec<Votes>,
     link: String,
 }
 
 #[cached(result = true)]
 async fn get_proposal_cached(proposal_id: u64) -> Result<ProposalInfo, anyhow::Error> {
-    let result: Option<ProposalInfo> = view_not_cached(
-        HOUSE_OF_STAKE_CONTRACT_ID,
-        "get_proposal",
-        serde_json::json!({
-            "proposal_id": proposal_id
-        }),
-    )
-    .await?;
+    let result: Option<ProposalInfo> = dbg!(
+        view_not_cached(
+            HOUSE_OF_STAKE_CONTRACT_ID,
+            "get_proposal",
+            serde_json::json!({
+                "proposal_id": proposal_id
+            }),
+        )
+        .await
+    )?;
     Ok(result.ok_or(anyhow::anyhow!("Proposal {} not found", proposal_id))?)
 }
 
 async fn get_proposal(proposal_id: u64) -> Result<ProposalInfo, anyhow::Error> {
-    for attempt in 0..10 {
+    for attempt in 0..100 {
         if let Ok(proposal) = get_proposal_cached(proposal_id).await {
             return Ok(proposal);
         }
         if attempt < 9 {
             log::debug!(
-                "Proposal {} not found, retrying in 1 second (attempt {}/10)",
+                "Proposal {} not found, retrying in 5 seconds (attempt {}/100)",
                 proposal_id,
                 attempt + 1
             );
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
-    anyhow::bail!("Proposal {} not found after 10 attempts", proposal_id)
+    anyhow::bail!("Proposal {} not found after 100 attempts", proposal_id)
 }
 
 fn format_time_remaining(voting_end_ns: u64) -> String {
@@ -216,7 +219,8 @@ impl HouseOfStakeModule {
                     }
 
                     let message = format!(
-                        "🏛 *House of Stake: Proposal Created* \\(pre\\-screening\\)\n\n
+                        "🏛 *House of Stake: Proposal Created* \\(pre\\-screening\\)
+
 📋 *Proposal*: {title}
 👤 *Proposed by*: {proposer}
 
@@ -275,7 +279,8 @@ impl HouseOfStakeModule {
                     }
 
                     let message = format!(
-                        "✅ *House of Stake: Proposal Ready For Voting*\n\n
+                        "✅ *House of Stake: Proposal Ready For Voting*
+
 📋 *Proposal*: {title}
 👤 *Approved by*: {account}
 
@@ -332,10 +337,11 @@ impl HouseOfStakeModule {
                 let title = proposal_info.title.clone();
                 let link = proposal_info.link.clone();
                 let voting_options = proposal_info.voting_options.clone();
+                let votes = proposal_info.votes.clone();
                 let total_voters = proposal_info.total_votes.total_votes;
                 let total_venear = proposal_info.total_votes.total_venear;
-                let voting_end_ns =
-                    proposal_info.voting_start_time_ns + proposal_info.voting_duration_ns;
+                let voting_end_ns = proposal_info.voting_start_time_ns.unwrap_or_default()
+                    + proposal_info.voting_duration_ns;
 
                 tokio::spawn(async move {
                     let Some(bot) = xeon.bot(&bot_id) else {
@@ -352,8 +358,21 @@ impl HouseOfStakeModule {
 
                     let time_remaining = format_time_remaining(voting_end_ns);
 
+                    let mut vote_breakdown = String::new();
+                    for (option, vote_data) in voting_options.iter().zip(votes.iter()) {
+                        let percentage = if total_venear > 0 {
+                            (vote_data.total_venear as f64 / total_venear as f64) * 100.0
+                        } else {
+                            0.0
+                        };
+                        vote_breakdown.push_str(&markdown::escape(&format!(
+                            "• {option}: {percentage:.1}%\n"
+                        )));
+                    }
+
                     let message = format!(
-                        "🗳 *House of Stake: New Vote*\n\n
+                        "🗳 *House of Stake: New Vote*
+
 👤 *Voter*: {account}
 
 📋 *Proposal*: {title}
@@ -365,6 +384,8 @@ impl HouseOfStakeModule {
 • {total_venear} participated
 • ⏰ {time_remaining} remaining
 
+🗳 *Vote Breakdown*:
+{vote_breakdown}
 [Vote](https://gov.houseofstake.org/proposals/{proposal_id}) \\| [View on Forum]({link})",
                         title = markdown::escape(&title),
                         account = format_account_id(&account_id).await,
@@ -671,7 +692,8 @@ impl XeonBotModule for HouseOfStakeModule {
                 };
 
                 let message = format!(
-                    "House of Stake notifications{for_chat_name}\n\n
+                    "House of Stake notifications{for_chat_name}
+
 Configure which types of notifications you want to receive:"
                 );
 
