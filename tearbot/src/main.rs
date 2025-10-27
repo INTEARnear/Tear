@@ -41,6 +41,8 @@ use potlock::PotlockModule;
 use price_alerts::PriceAlertsModule;
 #[cfg(feature = "price-commands-module")]
 use price_commands::PriceCommandsModule;
+#[cfg(feature = "raid-bot-module")]
+use raid_bot::RaidBotModule;
 use reqwest::Url;
 #[cfg(feature = "socialdb-module")]
 use socialdb::SocialDBModule;
@@ -335,6 +337,12 @@ fn main() -> Result<(), anyhow::Error> {
                 {
                     xeon.state()
                         .add_bot_module(TipBotModule::new(xeon.arc_clone_state()).await?)
+                        .await;
+                }
+                #[cfg(feature = "raid-bot-module")]
+                {
+                    xeon.state()
+                        .add_bot_module(RaidBotModule::new(xeon.arc_clone_state()).await?)
                         .await;
                 }
             }

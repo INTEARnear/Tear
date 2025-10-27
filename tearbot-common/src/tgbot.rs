@@ -229,11 +229,10 @@ impl BotData {
         &self,
         user_id: UserId,
         referrer: UserId,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<bool, anyhow::Error> {
         self.referred_by
             .insert_if_not_exists(user_id, referrer)
-            .await?;
-        Ok(())
+            .await
     }
 
     pub async fn get_referrer(&self, user_id: UserId) -> Option<UserId> {

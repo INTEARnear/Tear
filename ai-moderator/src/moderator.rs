@@ -157,12 +157,6 @@ pub async fn open_main(
             "https://telegra.ph/AI-Moderator-09-09".parse().unwrap(),
         )],
         vec![InlineKeyboardButton::callback(
-            "⬅️ Back",
-            ctx.bot()
-                .to_callback_data(&TgCommand::ChatSettings(target_chat_id.into()))
-                .await,
-        )],
-        vec![InlineKeyboardButton::callback(
             if chat_config.enabled {
                 "✅ Enabled"
             } else {
@@ -179,6 +173,12 @@ pub async fn open_main(
             "🍥 Test",
             ctx.bot()
                 .to_callback_data(&TgCommand::AiModeratorTest(target_chat_id))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
+            "⬅️ Back",
+            ctx.bot()
+                .to_callback_data(&TgCommand::ChatSettings(target_chat_id.into()))
                 .await,
         )],
     ];
@@ -422,7 +422,7 @@ pub async fn open_non_ai(
             if chat_config.block_mostly_emoji_messages {
                 "✅ Blocking mostly emoji"
             } else {
-                "✅ Allowing mostly emoji"
+                "❌ Allowing mostly emoji"
             },
             ctx.bot()
                 .to_callback_data(&TgCommand::AiModeratorSetBlockMostlyEmojiMessages(

@@ -421,31 +421,3 @@ fn is_emoji_char(ch: char) -> bool {
         || ('\u{1F018}'..='\u{1F270}').contains(&ch) // Various
         || ('\u{238C}'..='\u{2454}').contains(&ch) // Misc technical
 }
-
-pub fn parse_duration(input: &str) -> Option<Duration> {
-    let mut total = Duration::default();
-    let mut number = String::new();
-
-    let mut chars = input.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch.is_ascii_digit() {
-            number.push(ch);
-        } else {
-            let value = number.parse().ok()?;
-            number.clear();
-            total += match ch {
-                'd' => Duration::from_secs(value * 24 * 60 * 60),
-                'h' => Duration::from_secs(value * 60 * 60),
-                'm' => Duration::from_secs(value * 60),
-                's' => Duration::from_secs(value),
-                _ => return None,
-            };
-        }
-    }
-
-    if !number.is_empty() {
-        return None;
-    }
-
-    Some(total)
-}

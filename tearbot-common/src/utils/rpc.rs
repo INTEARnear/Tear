@@ -131,7 +131,7 @@ async fn _internal_view(
         "method": "query",
         "params": {
             "request_type": "call_function",
-            "finality": "final",
+            "finality": "optimistic",
             "account_id": contract_id,
             "method_name": method_name,
             "args_base64": BASE64_STANDARD.encode(args.as_bytes()),

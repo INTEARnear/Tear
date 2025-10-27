@@ -105,7 +105,7 @@ impl WalletTrackingModule {
                             "
 *`{old_account_id}` ➡️ `{new_account_id}`*: {amount}
 
-[Tx](https://pikespeak.ai/transaction-viewer{tx_hash})
+[Tx](https://pikespeak.ai/transaction-viewer/{tx_hash})
                                 ",
                             old_account_id = old_owner_id,
                             new_account_id = new_owner_id,

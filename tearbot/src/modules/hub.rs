@@ -893,18 +893,20 @@ impl XeonBotModule for HubModule {
                         bot.send_text_message(chat_id.into(), message, reply_markup)
                             .await?;
                         if let Ok(referrer_id) = referrer.parse() {
-                            bot.set_referrer(user_id, UserId(referrer_id)).await?;
-                            if let Some(bot_config) = self.referral_notifications.get(&bot.id()) {
-                                if let Some(true) = bot_config.get(&UserId(referrer_id)).await {
-                                    let message = "🎉 You have a new referral\\! Someone joined the bot using your referral link\\!";
-                                    let buttons = Vec::<Vec<_>>::new();
-                                    let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                    bot.send_text_message(
-                                        ChatId(referrer_id as i64).into(),
-                                        message.to_string(),
-                                        reply_markup,
-                                    )
-                                    .await?;
+                            if bot.set_referrer(user_id, UserId(referrer_id)).await? {
+                                if let Some(bot_config) = self.referral_notifications.get(&bot.id())
+                                {
+                                    if let Some(true) = bot_config.get(&UserId(referrer_id)).await {
+                                        let message = "🎉 You have a new referral\\! Someone joined the bot using your referral link\\!";
+                                        let buttons = Vec::<Vec<_>>::new();
+                                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                        bot.send_text_message(
+                                            ChatId(referrer_id as i64).into(),
+                                            message.to_string(),
+                                            reply_markup,
+                                        )
+                                        .await?;
+                                    }
                                 }
                             }
                         }
@@ -938,18 +940,20 @@ impl XeonBotModule for HubModule {
                             let reply_markup = InlineKeyboardMarkup::new(buttons);
                             bot.send_text_message(chat_id.into(), message, reply_markup)
                                 .await?;
-                            bot.set_referrer(user_id, *referrer_id).await?;
-                            if let Some(bot_config) = self.referral_notifications.get(&bot.id()) {
-                                if let Some(true) = bot_config.get(referrer_id).await {
-                                    let message = "🎉 You have a new referral\\! Someone joined the bot using your referral link\\!";
-                                    let buttons = Vec::<Vec<_>>::new();
-                                    let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                    bot.send_text_message(
-                                        ChatId(referrer_id.0 as i64).into(),
-                                        message.to_string(),
-                                        reply_markup,
-                                    )
-                                    .await?;
+                            if bot.set_referrer(user_id, *referrer_id).await? {
+                                if let Some(bot_config) = self.referral_notifications.get(&bot.id())
+                                {
+                                    if let Some(true) = bot_config.get(referrer_id).await {
+                                        let message = "🎉 You have a new referral\\! Someone joined the bot using your referral link\\!";
+                                        let buttons = Vec::<Vec<_>>::new();
+                                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                                        bot.send_text_message(
+                                            ChatId(referrer_id.0 as i64).into(),
+                                            message.to_string(),
+                                            reply_markup,
+                                        )
+                                        .await?;
+                                    }
                                 }
                             }
                         }
@@ -1690,6 +1694,28 @@ Sign up on [Imminent\\.build](https://imminent.build) to start collecting badges
             return Ok(());
         }
         if !context.chat_id().is_user() {
+            match context.parse_command().await? {
+                TgCommand::GenericDeleteCurrentMessage { allowed_user } => {
+                    if let Some(allowed) = allowed_user {
+                        if allowed != context.user_id() {
+                            return Ok(());
+                        }
+                    }
+
+                    context
+                        .bot()
+                        .remove_message_command(&context.user_id())
+                        .await?;
+                    if let Some(message_id) = context.message_id() {
+                        let _ = context
+                            .bot()
+                            .bot()
+                            .delete_message(context.chat_id().chat_id(), message_id)
+                            .await;
+                    }
+                }
+                _ => {}
+            }
             return Ok(());
         }
         match context.parse_command().await? {
@@ -2369,7 +2395,6 @@ Your withdrawable balance: {}, connected account: {}
                 )
                 .await?;
             }
-            #[allow(unreachable_patterns)]
             _ => {}
         }
         Ok(())
@@ -2518,17 +2543,6 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 .to_callback_data(&TgCommand::ReferralDashboard)
                 .await,
         )]);
-        #[cfg(feature = "agents-module")]
-        buttons.extend(vec![
-            vec![InlineKeyboardButton::callback(
-                "🤖 Agents",
-                context.bot().to_callback_data(&TgCommand::Agents).await,
-            )],
-            vec![InlineKeyboardButton::url(
-                "🗯 Join our telegram group 🤖",
-                "tg://resolve?domain=intearchat".parse().unwrap(),
-            )],
-        ]);
         let reply_markup = InlineKeyboardMarkup::new(buttons);
         context.edit_or_send(message, reply_markup).await?;
         Ok(())
@@ -2830,10 +2844,22 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 }
             }
         }
-        #[cfg(any(feature = "agents-module", feature = "tip-bot-module"))]
+        #[cfg(any(feature = "tip-bot-module", feature = "raid-bot-module"))]
         {
             let mut row = Vec::new();
-            #[cfg(feature = "agents-module")]
+            #[cfg(feature = "tip-bot-module")]
+            {
+                row.push(InlineKeyboardButton::callback(
+                    "💁 Tip Bot",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::TipBotChatSettings {
+                            target_chat_id: target_chat_id.chat_id(),
+                        })
+                        .await,
+                ));
+            }
+            #[cfg(feature = "raid-bot-module")]
             {
                 let chat = context
                     .bot()
@@ -2846,10 +2872,10 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     {
                         if target_chat_id.thread_id().is_none() {
                             row.push(InlineKeyboardButton::callback(
-                                "🤖 AI Agents",
+                                "💬 Raid Bot",
                                 context
                                     .bot()
-                                    .to_callback_data(&TgCommand::AgentsChatSettings {
+                                    .to_callback_data(&TgCommand::RaidBotChatSettings {
                                         target_chat_id: target_chat_id.chat_id(),
                                     })
                                     .await,
@@ -2857,18 +2883,6 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                         }
                     }
                 }
-            }
-            #[cfg(feature = "tip-bot-module")]
-            {
-                row.push(InlineKeyboardButton::callback(
-                    "💁 Tip Bot",
-                    context
-                        .bot()
-                        .to_callback_data(&TgCommand::TipBotChatSettings {
-                            target_chat_id: target_chat_id.chat_id(),
-                        })
-                        .await,
-                ));
             }
             buttons.push(row);
         }

@@ -25,6 +25,7 @@ trading-bot = { path = "../xeon-private-modules/trading-bot", optional = true }
 wallet-tracking = { path = "../wallet-tracking", optional = true }
 agents = { path = "../agents", optional = true }
 tip-bot = { path = "../tip-bot", optional = true }
+raid-bot = { path = "../raid-bot", optional = true }
 
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
@@ -63,6 +64,7 @@ tear = [
     "agents-module",
     "explorer-module",
     "tip-bot-module",
+    "raid-bot-module",
 ]
 xeon = [
     "contract-logs-module",
@@ -87,6 +89,7 @@ xeon = [
     "agents-module",
     "explorer-module",
     "tip-bot-module",
+    "raid-bot-module",
 ]
 int = [
     "ai-moderator-module",
@@ -130,3 +133,4 @@ wallet-tracking-module = [
 agents-module = ["tearbot-common/agents-module", "agents"]
 explorer-module = ["tearbot-common/explorer-module", "explorer"]
 tip-bot-module = ["tearbot-common/tip-bot-module", "tip-bot"]
+raid-bot-module = ["tearbot-common/raid-bot-module", "raid-bot"]

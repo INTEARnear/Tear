@@ -1356,6 +1356,84 @@ pub enum TgCommand {
     AiModeratorReportDelete(ChatId, teloxide::types::MessageId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorReportBan(ChatId, UserId),
+    #[cfg(feature = "raid-bot-module")]
+    RaidBotChatSettings {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidBotToggleEnabled {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidConfigFrequency {
+        tweet_url: String,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidConfigSetRepostFrequency {
+        tweet_url: String,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+        repost_interval: Option<Duration>,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidConfigDeadline {
+        tweet_url: String,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+        repost_interval: Option<Duration>,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidConfigReview {
+        tweet_url: String,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+        repost_interval: Option<Duration>,
+        deadline: Option<Duration>,
+        pinned: bool,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidConfigSavePreset {
+        tweet_url: String,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+        repost_interval: Option<Duration>,
+        deadline: Option<Duration>,
+        pinned: bool,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidConfigConfirm {
+        tweet_url: String,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+        repost_interval: Option<Duration>,
+        pinned: bool,
+        deadline: Option<DateTime<Utc>>,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidBotManagePresets {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidBotDeletePreset {
+        target_chat_id: ChatId,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+        repost_interval: Option<Duration>,
+        deadline: Option<Duration>,
+        pinned: bool,
+    },
+    GenericDeleteCurrentMessage {
+        allowed_user: Option<UserId>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1811,6 +1889,11 @@ pub enum MessageCommand {
     #[cfg(feature = "tip-bot-module")]
     TipBotAddToken {
         target_chat_id: ChatId,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidConfigureTargets {
+        tweet_url: String,
+        setup_message_id: teloxide::types::MessageId,
     },
 }
 

@@ -4,7 +4,7 @@ A bot that makes you cry.
 
 ---
 
-Tear is an open-source edition of [Xeon](https://t.me/Intear_Xeon_bot), that currently has 9 features:
+Tear is an open-source edition of [Xeon](https://t.me/Intear_Xeon_bot), that currently has 10 features:
 
 - Contract Logs (Text & NEP-297)
 - Account Info
@@ -12,9 +12,10 @@ Tear is an open-source edition of [Xeon](https://t.me/Intear_Xeon_bot), that cur
 - Near TGI
 - Moderator
 - Burrow Liquidations
-- House of Stake Notifications
 - Price Commands
 - Tip Bot
+- House of Stake Notifications
+- Raid Bot
 
 ### Running
 

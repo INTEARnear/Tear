@@ -13,7 +13,8 @@ use tearbot_common::{
     utils::{chat::get_chat_cached_5m, format_duration},
 };
 
-use crate::{utils::parse_duration, AiModeratorBotConfig};
+use crate::AiModeratorBotConfig;
+use tearbot_common::utils::parse_duration;
 
 pub async fn handle_commands(
     bot: &BotData,
