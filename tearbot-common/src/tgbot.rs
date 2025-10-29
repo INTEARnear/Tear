@@ -90,7 +90,6 @@ pub struct BotData {
     audio_file_id_cache: PersistentCachedStore<String, String>,
     callback_data_cache: PersistentCachedStore<String, String>,
     global_callback_data_storage: PersistentUncachedStore<String, String>,
-    connected_accounts: PersistentCachedStore<UserId, ConnectedAccount>,
     message_commands: PersistentCachedStore<UserId, MessageCommand>, // TODO make this per-(chat,user), not per-user
     messages_sent_in_5m: Arc<DashMap<ChatId, AtomicUsize>>,
     messages_sent_in_1h: Arc<DashMap<ChatId, AtomicUsize>>,
@@ -185,11 +184,6 @@ impl BotData {
             global_callback_data_storage: PersistentUncachedStore::new(
                 db.clone(),
                 "global_callback_data_storage",
-            )
-            .await?,
-            connected_accounts: PersistentCachedStore::new(
-                db.clone(),
-                &format!("bot{bot_id}_connected_accounts"),
             )
             .await?,
             message_commands: PersistentCachedStore::new(
@@ -1006,30 +1000,6 @@ impl BotData {
             .await
             .ok_or_else(|| anyhow::anyhow!("Migration data cannot be restored"))?;
         Ok(serde_json::from_str(&data)?)
-    }
-
-    pub async fn get_connected_account(&self, user_id: UserId) -> Option<ConnectedAccount> {
-        self.connected_accounts.get(&user_id).await
-    }
-
-    pub async fn connect_account(
-        &self,
-        user_id: UserId,
-        account_id: AccountId,
-    ) -> Result<(), anyhow::Error> {
-        let account = ConnectedAccount {
-            account_id,
-            is_verified: false,
-        };
-        self.connected_accounts
-            .insert_or_update(user_id, account)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn disconnect_account(&self, user_id: UserId) -> Result<(), anyhow::Error> {
-        self.connected_accounts.remove(&user_id).await?;
-        Ok(())
     }
 
     pub async fn get_message_command(&self, user_id: &UserId) -> Option<MessageCommand> {

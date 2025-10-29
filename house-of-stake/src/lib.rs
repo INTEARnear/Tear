@@ -84,16 +84,14 @@ struct ProposalInfo {
 
 #[cached(result = true)]
 async fn get_proposal_cached(proposal_id: u64) -> Result<ProposalInfo, anyhow::Error> {
-    let result: Option<ProposalInfo> = dbg!(
-        view_not_cached(
-            HOUSE_OF_STAKE_CONTRACT_ID,
-            "get_proposal",
-            serde_json::json!({
-                "proposal_id": proposal_id
-            }),
-        )
-        .await
-    )?;
+    let result: Option<ProposalInfo> = view_not_cached(
+        HOUSE_OF_STAKE_CONTRACT_ID,
+        "get_proposal",
+        serde_json::json!({
+            "proposal_id": proposal_id
+        }),
+    )
+    .await?;
     Ok(result.ok_or(anyhow::anyhow!("Proposal {} not found", proposal_id))?)
 }
 

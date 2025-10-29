@@ -7,15 +7,21 @@ use std::{
 };
 
 use async_trait::async_trait;
+use base64::{
+    prelude::{BASE64_STANDARD, BASE64_URL_SAFE},
+    Engine,
+};
+use cached::proc_macro::cached;
 use itertools::Itertools;
+use near_crypto::SecretKey;
+use serde::{Deserialize, Serialize};
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
-use tearbot_common::utils::{
-    apis::parse_meme_cooking_link, badges::get_all_badges, rpc::account_exists,
-};
-use tearbot_common::utils::{tokens::MEME_COOKING_CONTRACT_ID, SLIME_USER_ID};
 use tearbot_common::{
-    bot_commands::{MessageCommand, TgCommand},
+    bot_commands::{
+        ConnectedAccounts, ConnectedNearAccount, MessageCommand, TgCommand, UsersByNearAccount,
+        UsersByXAccount, XId,
+    },
     mongodb::bson::DateTime,
     teloxide::{
         prelude::{ChatId, Message, Requester, UserId},
@@ -40,19 +46,33 @@ use tearbot_common::{
     teloxide::types::{MessageId, ThreadId},
     utils::tokens::get_ft_metadata,
 };
+use tearbot_common::{
+    tgbot::ConnectedAccount,
+    utils::{
+        apis::parse_meme_cooking_link, badges::get_all_badges, requests::get_reqwest_client,
+        rpc::account_exists,
+    },
+};
 use tearbot_common::{tgbot::NotificationDestination, utils::tokens::format_tokens};
 use tearbot_common::{tgbot::BASE_REFERRAL_SHARE, utils::tokens::format_account_id};
+use tearbot_common::{
+    utils::{tokens::MEME_COOKING_CONTRACT_ID, SLIME_USER_ID},
+    xeon::Resource,
+};
 
 const CANCEL_TEXT: &str = "Cancel";
 
 pub struct HubModule {
+    xeon: Arc<XeonState>,
     users_first_interaction: PersistentCachedStore<UserId, DateTime>,
     referral_notifications: Arc<HashMap<UserId, PersistentCachedStore<UserId, bool>>>,
+    connected_accounts: Arc<PersistentCachedStore<UserId, ConnectedAccounts>>,
 }
 
 impl HubModule {
     pub async fn new(xeon: Arc<XeonState>) -> Self {
         Self {
+            xeon: Arc::clone(&xeon),
             users_first_interaction: PersistentCachedStore::new(
                 xeon.db(),
                 "users_first_interaction",
@@ -74,6 +94,11 @@ impl HubModule {
                 }
                 bot_configs
             }),
+            connected_accounts: Arc::new(
+                PersistentCachedStore::new(xeon.db(), "connected_accounts")
+                    .await
+                    .expect("Failed to create connected_accounts store"),
+            ),
         }
     }
 }
@@ -90,6 +115,79 @@ impl XeonBotModule for HubModule {
 
     fn supports_pause(&self) -> bool {
         false
+    }
+
+    async fn start(&self) -> Result<(), anyhow::Error> {
+        let connected_accounts_clone = Arc::clone(&self.connected_accounts);
+        self.xeon
+            .provide_resource(move |user_id| {
+                let connected_accounts = Arc::clone(&connected_accounts_clone);
+                Box::pin(async move {
+                    if let Some(connected_accounts) =
+                        tokio::spawn(async move { connected_accounts.get(&user_id).await })
+                            .await
+                            .expect("Panicked while waiting for connected accounts")
+                    {
+                        Some(Box::new(connected_accounts))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .await;
+
+        let connected_accounts_clone = Arc::clone(&self.connected_accounts);
+        self.xeon
+            .provide_resource(move |x_id: XId| {
+                let connected_accounts = Arc::clone(&connected_accounts_clone);
+                Box::pin(async move {
+                    let mut accounts = Vec::new();
+                    for (user_id, connected_accounts) in tokio::spawn(async move {
+                        connected_accounts
+                            .values()
+                            .await
+                            .expect("Failed to get connected accounts")
+                            .map(|entry| (*entry.key(), entry.value().clone()))
+                            .collect::<Vec<_>>()
+                    })
+                    .await
+                    .expect("Failed to get connected accounts")
+                    {
+                        if connected_accounts.x == Some(x_id.clone()) {
+                            accounts.push(user_id);
+                        }
+                    }
+                    Some(Box::new(UsersByXAccount(accounts)))
+                })
+            })
+            .await;
+
+        let connected_accounts_clone = Arc::clone(&self.connected_accounts);
+        self.xeon
+            .provide_resource(move |near_account: ConnectedNearAccount| {
+                let connected_accounts = Arc::clone(&connected_accounts_clone);
+                Box::pin(async move {
+                    let mut accounts = Vec::new();
+                    for (user_id, connected_accounts) in tokio::spawn(async move {
+                        connected_accounts
+                            .values()
+                            .await
+                            .expect("Failed to get connected accounts")
+                            .map(|entry| (*entry.key(), entry.value().clone()))
+                            .collect::<Vec<_>>()
+                    })
+                    .await
+                    .expect("Failed to get connected accounts")
+                    {
+                        if connected_accounts.near == Some(near_account.clone()) {
+                            accounts.push(user_id);
+                        }
+                    }
+                    Some(Box::new(UsersByNearAccount(accounts)))
+                })
+            })
+            .await;
+        Ok(())
     }
 
     async fn handle_message(
@@ -1074,6 +1172,12 @@ impl XeonBotModule for HubModule {
                         .await?;
                     }
                 }
+                if data == "connect-accounts" {
+                    self.open_connection_menu(TgCallbackContext::new(
+                        bot, user_id, chat_id, None, DONT_CARE,
+                    ))
+                    .await?;
+                }
                 #[cfg(feature = "ft-buybot-module")]
                 if let Some(target_chat_id) = data.strip_prefix("buybot-") {
                     if let Ok(target_chat_id) = target_chat_id.parse::<i64>() {
@@ -1555,23 +1659,6 @@ Sign up on [Imminent\\.build](https://imminent.build) to start collecting badges
                     }
                 }
             }
-            MessageCommand::ConnectAccountAnonymously => {
-                if let Ok(account_id) = text.parse::<AccountId>() {
-                    self.connect_account_anonymously(bot, user_id, chat_id, account_id)
-                        .await?;
-                } else {
-                    let message = format!("Invalid NEAR account ID: {}", markdown::escape(text));
-                    let reply_markup =
-                        InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
-                            "⬅️ Back",
-                            bot.to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-                                .await,
-                        )]]);
-                    bot.remove_message_command(&user_id).await?;
-                    bot.send_text_message(chat_id.into(), message, reply_markup)
-                        .await?;
-                }
-            }
             MessageCommand::ChooseChat => {
                 if let Some(ChatShared {
                     chat_id: target_chat_id,
@@ -1725,8 +1812,8 @@ Sign up on [Imminent\\.build](https://imminent.build) to start collecting badges
             TgCommand::OpenAccountConnectionMenu => {
                 self.open_connection_menu(context).await?;
             }
-            TgCommand::DisconnectAccount => {
-                self.disconnect_account(context).await?;
+            TgCommand::RefreshConnections => {
+                self.refresh_connections(context).await?;
             }
             TgCommand::ChooseChat => {
                 self.open_chat_selector(context).await?;
@@ -2262,10 +2349,13 @@ Your withdrawable balance: {}, connected account: {}
                         }
                         tokens.into_iter().join(", ")
                     },
-                    if let Some(account_id) =
-                        context.bot().get_connected_account(context.user_id()).await
+                    if let Some(connected) = self
+                        .connected_accounts
+                        .get(&context.user_id())
+                        .await
+                        .and_then(|c| c.near)
                     {
-                        format_account_id(&account_id.account_id).await
+                        format_account_id(&connected.0).await
                     } else {
                         "None".to_string()
                     }
@@ -2315,12 +2405,15 @@ Your withdrawable balance: {}, connected account: {}
                 context.edit_or_send(message, reply_markup).await?;
             }
             TgCommand::ReferralWithdraw => {
-                if let Some(connected_account) =
-                    context.bot().get_connected_account(context.user_id()).await
+                if let Some(account_id) = self
+                    .connected_accounts
+                    .get(&context.user_id())
+                    .await
+                    .and_then(|c| c.near)
                 {
                     match context
                         .bot()
-                        .withdraw_referral_balance(context.user_id(), &connected_account.account_id)
+                        .withdraw_referral_balance(context.user_id(), &account_id.0)
                         .await
                     {
                         Ok(()) => {
@@ -2558,90 +2651,83 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         if !context.chat_id().is_user() {
             return Ok(());
         }
-        context
-            .bot()
-            .set_message_command(context.user_id(), MessageCommand::ConnectAccountAnonymously)
-            .await?;
-        let message = "Enter your NEAR account to connect it to Bettear".to_string();
-        let reply_markup = InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
-            "⬅️ Cancel",
-            context
-                .bot()
-                .to_callback_data(&TgCommand::OpenMainMenu)
-                .await,
-        )]]);
+        let x_username = self
+            .connected_accounts
+            .get(&context.user_id())
+            .await
+            .and_then(|c| c.x);
+        let mut message =
+            "Click the button below to connect your X and NEAR accounts\\.\n".to_string();
+        if let Some(x_username) = x_username {
+            message += &format!(
+                "\nConnected X account: x\\.com/{}",
+                markdown::escape(&x_username.0)
+            );
+        }
+        if let Some(near_account_id) = self
+            .connected_accounts
+            .get(&context.user_id())
+            .await
+            .and_then(|c| c.near)
+        {
+            message += &format!(
+                "\nConnected NEAR account: {}",
+                format_account_id(&near_account_id.0).await
+            );
+        }
+        let reply_markup = InlineKeyboardMarkup::new(vec![
+            vec![InlineKeyboardButton::url(
+                "Connect Accounts",
+                format!(
+                    "https://connect.intea.rs/?token={}",
+                    BASE64_URL_SAFE.encode(
+                        [
+                            std::env::var("CONNECTION_KEY")
+                                .unwrap()
+                                .parse::<SecretKey>()
+                                .unwrap()
+                                .sign(context.user_id().to_string().as_bytes())
+                                .to_string()
+                                .into_bytes(),
+                            b",".to_vec(),
+                            context.user_id().to_string().into_bytes(),
+                            b",".to_vec(),
+                            context
+                                .bot()
+                                .bot()
+                                .get_chat(context.chat_id().chat_id())
+                                .await?
+                                .first_name()
+                                .unwrap_or_default()
+                                .as_bytes()
+                                .to_vec(),
+                        ]
+                        .concat()
+                    )
+                )
+                .parse()
+                .unwrap(),
+            )],
+            vec![InlineKeyboardButton::callback(
+                "🔄 Refresh",
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::RefreshConnections)
+                    .await,
+            )],
+            vec![InlineKeyboardButton::callback(
+                "⬅️ Cancel",
+                context
+                    .bot()
+                    .to_callback_data(&TgCommand::OpenMainMenu)
+                    .await,
+            )],
+        ]);
         context.edit_or_send(message, reply_markup).await?;
         Ok(())
     }
 
-    async fn connect_account_anonymously(
-        &self,
-        bot: &BotData,
-        user_id: UserId,
-        chat_id: ChatId,
-        account_id: AccountId,
-    ) -> Result<(), anyhow::Error> {
-        if bot.bot_type() != BotType::Main {
-            return Ok(());
-        }
-        if !chat_id.is_user() {
-            return Ok(());
-        }
-        if let Some(account) = bot.get_connected_account(user_id).await {
-            let message = format!(
-                "You already have an account connected: {}",
-                markdown::escape(account.account_id.as_str())
-            );
-            let reply_markup = InlineKeyboardMarkup::new(vec![
-                vec![InlineKeyboardButton::callback(
-                    "🗑 Disconnect",
-                    bot.to_callback_data(&TgCommand::DisconnectAccount).await,
-                )],
-                vec![InlineKeyboardButton::callback(
-                    "⬅️ Back",
-                    bot.to_callback_data(&TgCommand::OpenMainMenu).await,
-                )],
-            ]);
-            bot.send_text_message(chat_id.into(), message, reply_markup)
-                .await?;
-            bot.remove_message_command(&user_id).await?;
-            return Ok(());
-        }
-
-        if !account_exists(&account_id).await {
-            let message = "This NEAR account doesn't exist\\.".to_string();
-            let buttons = vec![vec![InlineKeyboardButton::callback(
-                "🗑 Cancel",
-                bot.to_callback_data(&TgCommand::OpenMainMenu).await,
-            )]];
-            let reply_markup = InlineKeyboardMarkup::new(buttons);
-            bot.send_text_message(chat_id.into(), message, reply_markup)
-                .await?;
-            return Ok(());
-        }
-
-        bot.remove_message_command(&user_id).await?;
-        bot.connect_account(user_id, account_id.clone()).await?;
-        let message = format!(
-            "Connected account: {}",
-            markdown::escape(account_id.as_str())
-        );
-        let reply_markup = InlineKeyboardMarkup::new(vec![
-            vec![InlineKeyboardButton::callback(
-                "🗑 Disconnect",
-                bot.to_callback_data(&TgCommand::DisconnectAccount).await,
-            )],
-            vec![InlineKeyboardButton::callback(
-                "⬅️ Back",
-                bot.to_callback_data(&TgCommand::OpenMainMenu).await,
-            )],
-        ]);
-        bot.send_text_message(chat_id.into(), message, reply_markup)
-            .await?;
-        Ok(())
-    }
-
-    async fn disconnect_account(
+    async fn refresh_connections(
         &self,
         mut context: TgCallbackContext<'_>,
     ) -> Result<(), anyhow::Error> {
@@ -2651,49 +2737,170 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         if !context.chat_id().is_user() {
             return Ok(());
         }
-        if let Some(account) = context.bot().get_connected_account(context.user_id()).await {
-            context.bot().disconnect_account(context.user_id()).await?;
-            let message = format!(
-                "Disconnected account: {}",
-                markdown::escape(account.account_id.as_str())
-            );
-            let reply_markup = InlineKeyboardMarkup::new(vec![
-                vec![InlineKeyboardButton::callback(
-                    "🖇 Connect",
-                    context
-                        .bot()
-                        .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-                        .await,
-                )],
-                vec![InlineKeyboardButton::callback(
-                    "⬅️ Back",
-                    context
-                        .bot()
-                        .to_callback_data(&TgCommand::OpenMainMenu)
-                        .await,
-                )],
-            ]);
-            context.edit_or_send(message, reply_markup).await?;
-        } else {
-            let message = "You don't have any account connected".to_string();
-            let reply_markup = InlineKeyboardMarkup::new(vec![
-                vec![InlineKeyboardButton::callback(
-                    "🖇 Connect",
-                    context
-                        .bot()
-                        .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-                        .await,
-                )],
-                vec![InlineKeyboardButton::callback(
-                    "⬅️ Back",
-                    context
-                        .bot()
-                        .to_callback_data(&TgCommand::OpenMainMenu)
-                        .await,
-                )],
-            ]);
-            context.edit_or_send(message, reply_markup).await?;
+
+        let connection_host = std::env::var("CONNECTION_HOST").unwrap();
+        let connection_key = std::env::var("CONNECTION_KEY")
+            .unwrap()
+            .parse::<SecretKey>()
+            .unwrap();
+        let user_id_str = context.user_id().to_string();
+        let signature = connection_key.sign(user_id_str.as_bytes());
+        let url = format!(
+            "{}/api/user?id={}&signature={}",
+            connection_host.trim_end_matches('/'),
+            user_id_str,
+            signature
+        );
+
+        #[derive(Deserialize)]
+        struct BridgeUserResponse {
+            x: Option<String>,
+            near: Option<AccountId>,
         }
+
+        match get_reqwest_client().get(url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<BridgeUserResponse>().await {
+                        Ok(bridge_response) => {
+                            let mut connected = self
+                                .connected_accounts
+                                .get(&context.user_id())
+                                .await
+                                .unwrap_or_default();
+
+                            let mut updates = Vec::new();
+                            let mut errors = Vec::new();
+
+                            if let Some(x_user_id) = bridge_response.x {
+                                match get_x_username(x_user_id.clone()).await {
+                                    Ok(x_username) => {
+                                        connected.x = Some(XId(x_user_id));
+                                        updates.push(format!(
+                                            "x\\.com/{}",
+                                            markdown::escape(&x_username)
+                                        ));
+                                    }
+                                    Err(e) => {
+                                        log::warn!("Failed to fetch X username: {e:?}");
+                                        errors.push(format!(
+                                            "X: {}",
+                                            markdown::escape(&e.to_string())
+                                        ));
+                                    }
+                                }
+                            } else {
+                                connected.x = None;
+                                updates.push("X: Not connected".to_string());
+                            }
+
+                            if let Some(near_account_id) = bridge_response.near {
+                                connected.near =
+                                    Some(ConnectedNearAccount(near_account_id.clone()));
+                                updates.push(format_account_id(&near_account_id).await);
+                            } else {
+                                connected.near = None;
+                                updates.push("NEAR: Not connected".to_string());
+                            }
+
+                            self.connected_accounts
+                                .insert_or_update(context.user_id(), connected)
+                                .await?;
+
+                            let message = if !updates.is_empty() {
+                                let mut msg = "Successfully connected accounts:\n".to_string();
+                                for update in updates {
+                                    msg.push_str(&format!("• {}\n", update));
+                                }
+                                if !errors.is_empty() {
+                                    msg.push_str("\n⚠️ Errors:\n");
+                                    for error in errors {
+                                        msg.push_str(&format!("• {}\n", error));
+                                    }
+                                }
+                                msg
+                            } else if !errors.is_empty() {
+                                let mut msg = "Failed to update connections:\n".to_string();
+                                for error in errors {
+                                    msg.push_str(&format!("• {}\n", error));
+                                }
+                                msg
+                            } else {
+                                "Nothing changed\\.".to_string()
+                            };
+
+                            let reply_markup = InlineKeyboardMarkup::new(vec![vec![
+                                InlineKeyboardButton::callback(
+                                    "⬅️ Back",
+                                    context
+                                        .bot()
+                                        .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                                        .await,
+                                ),
+                            ]]);
+                            context.edit_or_send(message, reply_markup).await?;
+                        }
+                        Err(e) => {
+                            let message = format!(
+                                "Error getting response from auth service: {}",
+                                markdown::escape(&e.to_string())
+                            );
+                            let reply_markup = InlineKeyboardMarkup::new(vec![vec![
+                                InlineKeyboardButton::callback(
+                                    "⬅️ Back",
+                                    context
+                                        .bot()
+                                        .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                                        .await,
+                                ),
+                            ]]);
+                            context.edit_or_send(message, reply_markup).await?;
+                        }
+                    }
+                } else if response.status() == 404 {
+                    let message = "Nothing changed\\.".to_string();
+                    let reply_markup =
+                        InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
+                            "⬅️ Back",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                                .await,
+                        )]]);
+                    context.edit_or_send(message, reply_markup).await?;
+                } else {
+                    let message = format!(
+                        "Error getting response from auth service: HTTP {}",
+                        markdown::escape(&response.status().to_string())
+                    );
+                    let reply_markup =
+                        InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
+                            "⬅️ Back",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                                .await,
+                        )]]);
+                    context.edit_or_send(message, reply_markup).await?;
+                }
+            }
+            Err(e) => {
+                let message = format!(
+                    "Error getting response from auth service: {}",
+                    markdown::escape(&e.to_string())
+                );
+                let reply_markup =
+                    InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                            .await,
+                    )]]);
+                context.edit_or_send(message, reply_markup).await?;
+            }
+        }
+
         Ok(())
     }
 
@@ -3058,4 +3265,34 @@ async fn start_migration(
         log::warn!("MIGRATION_NEW_BOT_USERNAME is not set");
     }
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct TweetApiUserResponse {
+    data: TweetApiUser,
+}
+
+#[derive(Deserialize)]
+struct TweetApiUser {
+    username: String,
+}
+
+#[cached(time = 86400, result = true)]
+async fn get_x_username(x_user_id: String) -> Result<String, anyhow::Error> {
+    let api_key = std::env::var("TWEETAPI_KEY")
+        .map_err(|_| anyhow::anyhow!("TWEETAPI_KEY environment variable not set"))?;
+
+    let url = format!("https://api.tweetapi.com/tw-v2/user/by-id?userId={x_user_id}");
+
+    let client = get_reqwest_client();
+    let response: TweetApiUserResponse = client
+        .get(&url)
+        .header("X-API-Key", api_key)
+        .timeout(Duration::from_secs(60))
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    Ok(response.data.username)
 }

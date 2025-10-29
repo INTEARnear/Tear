@@ -2,3 +2,7 @@ target
 .env
 .vscode
 tear_keypairs.txt
+node_modules
+.next
+connections.db
+connections.db-journal

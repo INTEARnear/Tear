@@ -545,7 +545,7 @@ pub enum TgCommand {
     ReferralDashboard,
     ReferralWithdraw,
     OpenAccountConnectionMenu,
-    DisconnectAccount,
+    RefreshConnections,
     SetReferralNotifications(bool),
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsEnableSubscriptionLpAdd(NotificationDestination, Token),
@@ -1285,8 +1285,6 @@ pub enum TgCommand {
     AiModeratorSetBlockMostlyEmojiMessages(ChatId, bool),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetBlockForwardedStories(ChatId, bool),
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotContestJoin,
     #[cfg(feature = "tip-bot-module")]
     TipBotChatSettings {
         target_chat_id: ChatId,
@@ -1380,12 +1378,22 @@ pub enum TgCommand {
         repost_interval: Option<Duration>,
     },
     #[cfg(feature = "raid-bot-module")]
+    RaidConfigPoints {
+        tweet_url: String,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+        repost_interval: Option<Duration>,
+    },
+    #[cfg(feature = "raid-bot-module")]
     RaidConfigDeadline {
         tweet_url: String,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,
         repost_interval: Option<Duration>,
+        points_per_repost: Option<usize>,
+        points_per_comment: Option<usize>,
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigReview {
@@ -1396,6 +1404,8 @@ pub enum TgCommand {
         repost_interval: Option<Duration>,
         deadline: Option<Duration>,
         pinned: bool,
+        points_per_repost: Option<usize>,
+        points_per_comment: Option<usize>,
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigSavePreset {
@@ -1406,6 +1416,8 @@ pub enum TgCommand {
         repost_interval: Option<Duration>,
         deadline: Option<Duration>,
         pinned: bool,
+        points_per_repost: Option<usize>,
+        points_per_comment: Option<usize>,
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigConfirm {
@@ -1416,6 +1428,8 @@ pub enum TgCommand {
         repost_interval: Option<Duration>,
         pinned: bool,
         deadline: Option<DateTime<Utc>>,
+        points_per_repost: Option<usize>,
+        points_per_comment: Option<usize>,
     },
     #[cfg(feature = "raid-bot-module")]
     RaidBotManagePresets {
@@ -1430,6 +1444,17 @@ pub enum TgCommand {
         repost_interval: Option<Duration>,
         deadline: Option<Duration>,
         pinned: bool,
+        points_per_repost: Option<usize>,
+        points_per_comment: Option<usize>,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidBotLeaderboardResetSettings {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidBotSetLeaderboardReset {
+        target_chat_id: ChatId,
+        reset_interval: Option<Duration>,
     },
     GenericDeleteCurrentMessage {
         allowed_user: Option<UserId>,
@@ -1628,7 +1653,6 @@ pub enum MessageCommand {
     BurrowLiquidationsAddAccount(NotificationDestination),
     #[cfg(feature = "house-of-stake-module")]
     HouseOfStakeSetVoteAmount(NotificationDestination),
-    ConnectAccountAnonymously,
     #[cfg(feature = "price-commands-module")]
     PriceCommandsSetToken(NotificationDestination),
     #[cfg(feature = "price-commands-module")]
@@ -1893,6 +1917,15 @@ pub enum MessageCommand {
     #[cfg(feature = "raid-bot-module")]
     RaidConfigureTargets {
         tweet_url: String,
+        setup_message_id: teloxide::types::MessageId,
+    },
+    #[cfg(feature = "raid-bot-module")]
+    RaidConfigurePoints {
+        tweet_url: String,
+        target_likes: Option<usize>,
+        target_reposts: Option<usize>,
+        target_comments: Option<usize>,
+        repost_interval: Option<Duration>,
         setup_message_id: teloxide::types::MessageId,
     },
 }
@@ -2520,4 +2553,34 @@ pub struct NetworkConfigResource(pub Arc<NetworkConfig>);
 
 impl Resource for NetworkConfigResource {
     type Key = ();
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ConnectedAccounts {
+    pub near: Option<ConnectedNearAccount>,
+    pub x: Option<XId>,
+}
+
+impl Resource for ConnectedAccounts {
+    type Key = UserId;
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct XId(pub String);
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UsersByXAccount(pub Vec<UserId>);
+
+impl Resource for UsersByXAccount {
+    type Key = XId;
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct ConnectedNearAccount(pub AccountId);
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UsersByNearAccount(pub Vec<UserId>);
+
+impl Resource for UsersByNearAccount {
+    type Key = ConnectedNearAccount;
 }

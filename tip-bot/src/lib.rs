@@ -38,9 +38,11 @@ use tearbot_common::utils::chat::{
 };
 use tearbot_common::utils::rpc::account_exists;
 use tearbot_common::utils::store::PersistentCachedStore;
+use tearbot_common::utils::tokens::format_near_amount;
 use tearbot_common::utils::tokens::format_tokens;
 use tearbot_common::utils::tokens::get_ft_metadata;
 use tearbot_common::utils::tokens::StringifiedBalance;
+use tearbot_common::utils::UserInChat;
 use tearbot_common::xeon::{TokenScore, XeonBotModule, XeonState};
 
 pub struct TipBotModule {
@@ -192,7 +194,7 @@ impl TipBotModule {
 
         if Contract(token_contract.clone())
             .call_function(
-                "storage_deposit_of",
+                "storage_balance_of",
                 serde_json::json!({
                     "account_id": recipient_account,
                 }),
@@ -299,6 +301,31 @@ impl XeonBotModule for TipBotModule {
 
                 // If command starts with /, try to parse it as a tip command
                 if let Some(command_text) = text.strip_prefix('/') {
+                    if command_text.to_lowercase() == "unlink" {
+                        let Some(bot_config) = self.bot_configs.get(&bot.id()) else {
+                            return Ok(());
+                        };
+
+                        let user_in_chat = UserInChat { chat_id, user_id };
+                        bot_config.connected_accounts.remove(&user_in_chat).await?;
+
+                        let message = "Account unlinked successfully".to_string();
+                        let buttons = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        bot.send_text_message(chat_id.into(), message, reply_markup)
+                            .await?;
+                        return Ok(());
+                    }
+
+                    if command_text.to_lowercase() == "tip" {
+                        let message = "Usage: /tip \\<ticker\\> \\<amount\\>".to_string();
+                        let buttons = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        bot.send_text_message(chat_id.into(), message, reply_markup)
+                            .await?;
+                        return Ok(());
+                    }
+
                     let parts: Vec<&str> = command_text.split_whitespace().collect();
                     let Ok([ticker, amount]) = <[&str; 2]>::try_from(parts) else {
                         return Ok(());
@@ -312,9 +339,29 @@ impl XeonBotModule for TipBotModule {
                         return Ok(());
                     };
 
-                    let Some(token_contract) = chat_config.tokens.get(ticker) else {
-                        return Ok(());
+                    let token_contract = if let Some(token_contract) =
+                        chat_config.tokens.get(&ticker.to_lowercase())
+                    {
+                        token_contract.clone()
+                    } else {
+                        if let Some(token_contract) = chat_config
+                            .tokens
+                            .get(ticker.to_lowercase().trim_start_matches('$'))
+                        {
+                            token_contract.clone()
+                        } else {
+                            return Ok(());
+                        }
                     };
+
+                    if !check_admin_permission_in_chat(bot, chat_id, user_id).await {
+                        let message = "Only admins can tip".to_string();
+                        let buttons = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        bot.send_text_message(chat_id.into(), message, reply_markup)
+                            .await?;
+                        return Ok(());
+                    }
 
                     let Some(reply_to_message) = user_message.reply_to_message() else {
                         let message = "Please reply to a message".to_string();
@@ -329,29 +376,41 @@ impl XeonBotModule for TipBotModule {
                         return Ok(());
                     };
 
-                    if !check_admin_permission_in_chat(bot, chat_id, user_id).await {
-                        let message = "Only admins can tip".to_string();
-                        let buttons = Vec::<Vec<_>>::new();
-                        let reply_markup = InlineKeyboardMarkup::new(buttons);
-                        bot.send_text_message(chat_id.into(), message, reply_markup)
-                            .await?;
-                        return Ok(());
-                    }
-
-                    let Ok(metadata) = get_ft_metadata(token_contract).await else {
-                        return Ok(());
-                    };
-
-                    let amount_str = amount.replace(",", "");
-                    let Ok(amount_bd) = amount_str.parse::<BigDecimal>() else {
+                    let Ok(metadata) = get_ft_metadata(&token_contract).await else {
                         return Ok(());
                     };
 
                     let decimals = metadata.decimals;
-                    let Some(amount_balance) =
-                        ToPrimitive::to_u128(&(amount_bd * BigDecimal::from(10u128.pow(decimals))))
-                    else {
-                        return Ok(());
+                    let amount_balance = if let Some(dollar_amount) =
+                        amount.strip_prefix('$').and_then(|s| s.parse::<f64>().ok())
+                    {
+                        let token_price_raw = bot.xeon().get_price_raw(&token_contract).await;
+
+                        if token_price_raw == 0.0 {
+                            let message = format!(
+                                "Token {} has no price",
+                                markdown::escape(&metadata.symbol)
+                            );
+                            let buttons = Vec::<Vec<_>>::new();
+                            let reply_markup = InlineKeyboardMarkup::new(buttons);
+                            bot.send_text_message(chat_id.into(), message, reply_markup)
+                                .await?;
+                            return Ok(());
+                        }
+
+                        (dollar_amount / token_price_raw) as u128
+                    } else {
+                        let amount_str = amount.replace(",", "");
+                        let Ok(amount_bd) = amount_str.parse::<BigDecimal>() else {
+                            return Ok(());
+                        };
+
+                        let Some(raw_amount) = ToPrimitive::to_u128(
+                            &(amount_bd * BigDecimal::from(10u128.pow(decimals))),
+                        ) else {
+                            return Ok(());
+                        };
+                        raw_amount
                     };
 
                     let user_in_chat = UserInChat {
@@ -392,7 +451,7 @@ impl XeonBotModule for TipBotModule {
                         if let Err(err_msg) = self
                             .check_treasury_token_balance(
                                 tip_treasury_wallet,
-                                token_contract,
+                                &token_contract,
                                 amount_balance,
                             )
                             .await
@@ -413,7 +472,7 @@ impl XeonBotModule for TipBotModule {
                         let message = format!(
                             "🔄 Sending {} to `{}`\\.\\.\\.",
                             markdown::escape(
-                                &format_tokens(amount_balance, token_contract, Some(bot.xeon()),)
+                                &format_tokens(amount_balance, &token_contract, Some(bot.xeon()),)
                                     .await
                             ),
                             recipient_account_id
@@ -426,7 +485,7 @@ impl XeonBotModule for TipBotModule {
 
                         if let Ok(false) = self
                             .ensure_storage_deposit(
-                                token_contract,
+                                &token_contract,
                                 &recipient_account_id,
                                 tip_treasury_wallet,
                             )
@@ -437,7 +496,7 @@ impl XeonBotModule for TipBotModule {
                                 markdown::escape(
                                     &format_tokens(
                                         amount_balance,
-                                        token_contract,
+                                        &token_contract,
                                         Some(bot.xeon()),
                                     )
                                     .await
@@ -452,7 +511,7 @@ impl XeonBotModule for TipBotModule {
 
                         let tx_result = self
                             .transfer_tokens(
-                                token_contract,
+                                &token_contract,
                                 &recipient_account_id,
                                 amount_balance,
                                 tip_treasury_wallet,
@@ -466,7 +525,7 @@ impl XeonBotModule for TipBotModule {
                                     markdown::escape(
                                         &format_tokens(
                                             amount_balance,
-                                            token_contract,
+                                            &token_contract,
                                             Some(bot.xeon()),
                                         )
                                         .await
@@ -485,7 +544,7 @@ impl XeonBotModule for TipBotModule {
                                     markdown::escape(
                                         &format_tokens(
                                             amount_balance,
-                                            token_contract,
+                                            &token_contract,
                                             Some(bot.xeon()),
                                         )
                                         .await
@@ -504,7 +563,7 @@ impl XeonBotModule for TipBotModule {
                                     markdown::escape(
                                         &format_tokens(
                                             amount_balance,
-                                            token_contract,
+                                            &token_contract,
                                             Some(bot.xeon()),
                                         )
                                         .await
@@ -538,7 +597,7 @@ impl XeonBotModule for TipBotModule {
                             "[{}](tg://user?id={}), you received {}, reply to this message with your \\.near or \\.tg address to connect and claim",
                             markdown::escape(&reply_to_user.full_name()),
                             reply_to_user.id.0,
-                            markdown::escape(&format_tokens(amount_balance, token_contract, Some(bot.xeon())).await),
+                            markdown::escape(&format_tokens(amount_balance, &token_contract, Some(bot.xeon())).await),
                         );
 
                         let buttons = Vec::<Vec<_>>::new();
@@ -932,7 +991,9 @@ impl XeonBotModule for TipBotModule {
                     };
 
                 let message = format!(
-                    "💁 Tip Bot configuration for {for_chat_name}{}",
+                    "Tip Bot configuration for {for_chat_name}{}
+
+Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\. Users can unlink their account with `/unlink`",
                     if let Some(wallet) = &chat_config.wallet {
                         format!("\n\n💰 Tip treasury wallet: `{wallet}`")
                     } else {
@@ -1002,7 +1063,7 @@ impl XeonBotModule for TipBotModule {
                     };
 
                 if chat_config.wallet.is_some() {
-                    let message = "Wallet has already been set and cannot be changed\\. If you want to change it, you can ask @slimytentacles in DM, it will cost 50 USDC".to_string();
+                    let message = "Wallet has already been set and cannot be changed\\. If you want to change it for security reasons, you can ask @slimytentacles in DM, but might take a while, as it's done manually".to_string();
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "⬅️ Back",
                         context
@@ -1162,7 +1223,69 @@ impl XeonBotModule for TipBotModule {
                         return Ok(());
                     };
 
-                let message = "🔗 Manage Tokens".to_string();
+                let mut message = "Manage Tokens".to_string();
+
+                if let Some(treasury_wallet) = &chat_config.wallet {
+                    if !chat_config.tokens.is_empty() {
+                        message.push_str("\n\n💰 *Balances:*");
+
+                        for (ticker, token_contract) in &chat_config.tokens {
+                            let balance = if token_contract == "near" {
+                                match Account(treasury_wallet.clone())
+                                    .view()
+                                    .fetch_from(&self.network)
+                                    .await
+                                {
+                                    Ok(account_view) => Some(
+                                        format_near_amount(
+                                            account_view.data.amount,
+                                            context.bot().xeon(),
+                                        )
+                                        .await,
+                                    ),
+                                    Err(_) => None,
+                                }
+                            } else {
+                                match Contract(token_contract.clone())
+                                    .call_function(
+                                        "ft_balance_of",
+                                        serde_json::json!({
+                                            "account_id": treasury_wallet,
+                                        }),
+                                    )
+                                    .unwrap()
+                                    .read_only::<StringifiedBalance>()
+                                    .fetch_from(&self.network)
+                                    .await
+                                {
+                                    Ok(result) => Some(
+                                        format_tokens(
+                                            result.data.0,
+                                            token_contract,
+                                            Some(context.bot().xeon()),
+                                        )
+                                        .await,
+                                    ),
+                                    Err(_) => None,
+                                }
+                            };
+
+                            if let Some(formatted_balance) = balance {
+                                message.push_str(&format!(
+                                    "\n• {}: {}",
+                                    markdown::escape(&ticker.to_uppercase()),
+                                    markdown::escape(&formatted_balance)
+                                ));
+                            } else {
+                                message.push_str(&format!(
+                                    "\n• {}: ⚠️ Error fetching balance",
+                                    markdown::escape(&ticker.to_uppercase())
+                                ));
+                            }
+                        }
+                    }
+                }
+
                 let mut buttons = Vec::new();
 
                 buttons.push(vec![InlineKeyboardButton::callback(
@@ -1175,7 +1298,7 @@ impl XeonBotModule for TipBotModule {
 
                 for ticker in chat_config.tokens.keys() {
                     buttons.push(vec![InlineKeyboardButton::callback(
-                        format!("🗑️ {}", ticker),
+                        format!("🗑️ {}", ticker.to_uppercase()),
                         context
                             .bot()
                             .to_callback_data(&TgCommand::TipBotRemoveToken {
@@ -1464,12 +1587,6 @@ impl XeonBotModule for TipBotModule {
         }
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-struct UserInChat {
-    pub chat_id: ChatId,
-    pub user_id: UserId,
 }
 
 struct TipBotConfig {

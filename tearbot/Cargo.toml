@@ -48,6 +48,9 @@ near-jsonrpc-primitives = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
 futures-util = { workspace = true }
+near-crypto = { workspace = true }
+base64 = { workspace = true }
+cached = { workspace = true }
 
 [features]
 tear = [

@@ -12,8 +12,8 @@ pub mod tokens;
 use std::time::Duration;
 
 use near_primitives::{hash::CryptoHash, types::AccountId};
-use serde::Deserialize;
-use teloxide::prelude::UserId;
+use serde::{Deserialize, Serialize};
+use teloxide::{prelude::UserId, types::ChatId};
 
 pub const SLIME_USER_ID: UserId = if cfg!(debug_assertions) {
     UserId(5000853605)
@@ -112,4 +112,10 @@ pub struct NftTokenMetadata {
 pub struct Media {
     pub media: String,
     pub media_hash: Option<CryptoHash>, // Most tokens don't follow the NEP
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct UserInChat {
+    pub chat_id: ChatId,
+    pub user_id: UserId,
 }
