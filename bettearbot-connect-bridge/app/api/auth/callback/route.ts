@@ -25,7 +25,22 @@ export async function GET(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
 
   if (!code || !state || !codeVerifier || !savedState || !token) {
-    return new NextResponse('Missing required parameters', { status: 400 });
+    if (!code) {
+      console.error('Missing code parameter');
+    }
+    if (!state) {
+      console.error('Missing state parameter');
+    }
+    if (!codeVerifier) {
+      console.error('Missing code_verifier parameter');
+    }
+    if (!savedState) {
+      console.error('Missing oauth_state parameter');
+    }
+    if (!token) {
+      console.error('Missing token parameter');
+    }
+    return new NextResponse('An error occurred. If you opened this page in Telegram browser, it might not work. Try in a regular browser.', { status: 400 });
   }
 
   if (state !== savedState) {
@@ -40,8 +55,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Server misconfiguration', { status: 500 });
   }
 
-  const origin = request.nextUrl.origin;
-  const callbackUrl = `${origin}/api/auth/callback`;
+  const callbackUrl = `https://connect.intea.rs/api/auth/callback`;
 
   try {
     const tokenResponse = await fetch('https://api.x.com/2/oauth2/token', {
@@ -95,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     saveXConnection(userId, userData.data.id);
 
-    const homeUrl = new URL('/', request.url);
+    const homeUrl = new URL('https://connect.intea.rs/');
     homeUrl.searchParams.set('token', token);
 
     const response = NextResponse.redirect(homeUrl);

@@ -2,7 +2,7 @@
 
 import { NearWalletBase } from '@hot-labs/near-connect';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 
 interface VerifyResponse {
   valid: boolean;
@@ -17,7 +17,7 @@ interface ConnectionResponse {
   error?: string;
 }
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const [state, setState] = useState<
@@ -227,46 +227,46 @@ export default function Home() {
 
   if (state === 'loading') {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-24">
-        <div className="text-2xl font-semibold">Loading...</div>
+      <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24">
+        <div className="text-xl md:text-2xl font-semibold">Loading...</div>
       </main>
     );
   }
 
   if (state === 'error') {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-linear-to-b from-gray-50 to-gray-100">
-        <div className="bg-white rounded-lg shadow-lg p-12 max-w-md text-center">
-          <div className="text-red-500 text-5xl mb-6">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error 67</h1>
-          <p className="text-gray-600">Go back to the bot and use the button directly.</p>
+      <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24 bg-linear-to-b from-gray-50 to-gray-100">
+        <div className="bg-white rounded-lg shadow-lg p-6 md:p-12 max-w-md w-full mx-4 text-center">
+          <div className="text-red-500 text-4xl md:text-5xl mb-4 md:mb-6">⚠️</div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 md:mb-4">Error 67</h1>
+          <p className="text-sm md:text-base text-gray-600">Go back to the bot and use the button directly.</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-linear-to-b from-blue-50 to-blue-100">
-      <div className="bg-white rounded-lg shadow-xl p-12 max-w-2xl w-full">
-        <h1 className="text-5xl font-bold text-gray-900 mb-4 text-center">Hello, {data?.name}</h1>
-        <p className="text-gray-600 mb-8 text-center">Connect your accounts to BettearBot</p>
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24 bg-linear-to-b from-blue-50 to-blue-100">
+      <div className="bg-white rounded-lg shadow-xl p-6 md:p-12 max-w-2xl w-full mx-4">
+        <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-3 md:mb-4 text-center">Hello, {data?.name}</h1>
+        <p className="text-sm md:text-base text-gray-600 mb-6 md:mb-8 text-center">Connect your accounts to BettearBot</p>
 
         {/* X Connection */}
-        <div className="mb-6 p-6 border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">X</h2>
-            {xUserId && <div className="text-green-500 text-2xl">✓</div>}
+        <div className="mb-4 md:mb-6 p-4 md:p-6 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="text-xl md:text-2xl font-semibold text-gray-900">X</h2>
+            {xUserId && <div className="text-green-500 text-xl md:text-2xl">✓</div>}
           </div>
           {xUserId ? (
             <>
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <p className="text-gray-600 text-sm mb-1">X User ID</p>
-                <p className="text-lg font-mono text-gray-900">{xUserId}</p>
+              <div className="bg-gray-50 rounded-lg p-3 md:p-4 mb-3 md:mb-4">
+                <p className="text-gray-600 text-xs md:text-sm mb-1">X User ID</p>
+                <p className="text-sm md:text-lg font-mono text-gray-900 break-all">{xUserId}</p>
               </div>
               <button
                 onClick={handleDisconnectX}
                 disabled={state === 'disconnecting-x'}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold px-4 md:px-6 py-2.5 md:py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-sm md:text-base"
               >
                 {state === 'disconnecting-x' ? 'Disconnecting...' : 'Disconnect X'}
               </button>
@@ -274,7 +274,7 @@ export default function Home() {
           ) : (
             <a
               href={`/api/auth?token=${encodeURIComponent(token!)}`}
-              className="block w-full text-center bg-black hover:bg-gray-800 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+              className="block w-full text-center bg-black hover:bg-gray-800 text-white font-semibold px-4 md:px-6 py-2.5 md:py-3 rounded-lg transition-colors text-sm md:text-base"
             >
               Connect X
             </a>
@@ -282,18 +282,18 @@ export default function Home() {
         </div>
 
         {/* NEAR Connection */}
-        <div className="p-6 border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">NEAR Account</h2>
+        <div className="p-4 md:p-6 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="text-xl md:text-2xl font-semibold text-gray-900">NEAR Account</h2>
             {nearAccountId && state === 'verified' && (
-              <div className="text-green-500 text-2xl">✓</div>
+              <div className="text-green-500 text-xl md:text-2xl">✓</div>
             )}
           </div>
           {state === 'near-signed-in' || state === 'verifying-near' ? (
             <>
-              <div className="bg-blue-50 rounded-lg p-4 mb-4">
-                <p className="text-blue-600 text-sm mb-1">Wallet Connected</p>
-                <p className="text-lg font-mono text-gray-900">{nearAccountId}</p>
+              <div className="bg-blue-50 rounded-lg p-3 md:p-4 mb-3 md:mb-4">
+                <p className="text-blue-600 text-xs md:text-sm mb-1">Wallet Connected</p>
+                <p className="text-sm md:text-lg font-mono text-gray-900 break-all">{nearAccountId}</p>
                 <p className="text-xs text-gray-500 mt-2">
                   Click Verify to complete the connection
                 </p>
@@ -301,21 +301,21 @@ export default function Home() {
               <button
                 onClick={handleVerifyNear}
                 disabled={state === 'verifying-near'}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold px-4 md:px-6 py-2.5 md:py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-sm md:text-base"
               >
                 {state === 'verifying-near' ? 'Verifying...' : 'Verify Wallet'}
               </button>
             </>
           ) : nearAccountId ? (
             <>
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <p className="text-gray-600 text-sm mb-1">NEAR Account ID</p>
-                <p className="text-lg font-mono text-gray-900">{nearAccountId}</p>
+              <div className="bg-gray-50 rounded-lg p-3 md:p-4 mb-3 md:mb-4">
+                <p className="text-gray-600 text-xs md:text-sm mb-1">NEAR Account ID</p>
+                <p className="text-sm md:text-lg font-mono text-gray-900 break-all">{nearAccountId}</p>
               </div>
               <button
                 onClick={handleDisconnectNear}
                 disabled={state === 'disconnecting-near'}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold px-4 md:px-6 py-2.5 md:py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-sm md:text-base"
               >
                 {state === 'disconnecting-near' ? 'Disconnecting...' : 'Disconnect NEAR'}
               </button>
@@ -324,7 +324,7 @@ export default function Home() {
             <button
               onClick={handleConnectNear}
               disabled={state === 'connecting-near'}
-              className="w-full bg-black hover:bg-gray-800 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+              className="w-full bg-black hover:bg-gray-800 disabled:bg-gray-400 text-white font-semibold px-4 md:px-6 py-2.5 md:py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-sm md:text-base"
             >
               {state === 'connecting-near' ? 'Connecting...' : 'Connect NEAR'}
             </button>
@@ -332,5 +332,19 @@ export default function Home() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24">
+          <div className="text-xl md:text-2xl font-semibold">Loading...</div>
+        </main>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

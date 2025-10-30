@@ -23,8 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
   }
 
-  const origin = request.nextUrl.origin;
-  const callbackUrl = `${origin}/api/auth/callback`;
+  const callbackUrl = `https://connect.intea.rs/api/auth/callback`;
 
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
