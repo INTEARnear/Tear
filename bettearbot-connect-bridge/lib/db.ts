@@ -50,3 +50,16 @@ export function deleteNearConnection(telegramUserId: string): void {
   );
   stmt.run(telegramUserId);
 }
+
+export function getAllConnections(): Array<{
+  telegram_user_id: string;
+  x_user_id: string | null;
+  near_account_id: string | null;
+}> {
+  const stmt = db.prepare('SELECT telegram_user_id, x_user_id, near_account_id FROM connections');
+  return stmt.all() as Array<{
+    telegram_user_id: string;
+    x_user_id: string | null;
+    near_account_id: string | null;
+  }>;
+}

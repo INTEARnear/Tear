@@ -23,6 +23,7 @@ use tearbot_common::{
         UsersByXAccount, XId,
     },
     mongodb::bson::DateTime,
+    near_utils::dec_format,
     teloxide::{
         prelude::{ChatId, Message, Requester, UserId},
         types::{
@@ -187,6 +188,219 @@ impl XeonBotModule for HubModule {
                 })
             })
             .await;
+
+        let connected_accounts_clone = Arc::clone(&self.connected_accounts);
+        let xeon_clone = Arc::clone(&self.xeon);
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                let connection_host = match std::env::var("CONNECTION_HOST") {
+                    Ok(host) => host,
+                    Err(_) => {
+                        log::warn!("CONNECTION_HOST not set, skipping connection refresh");
+                        continue;
+                    }
+                };
+                let connection_key = match std::env::var("CONNECTION_KEY")
+                    .ok()
+                    .and_then(|key| key.parse::<SecretKey>().ok())
+                {
+                    Some(key) => key,
+                    None => {
+                        log::warn!(
+                            "CONNECTION_KEY not set or invalid, skipping connection refresh"
+                        );
+                        continue;
+                    }
+                };
+                let signature = connection_key.sign(b"get_all");
+                let url = format!(
+                    "{}/api/get-all?signature={}",
+                    connection_host.trim_end_matches('/'),
+                    signature
+                );
+
+                #[derive(Deserialize)]
+                struct BridgeAllUserResponse {
+                    #[serde(with = "dec_format")]
+                    user_id: u64,
+                    x: Option<String>,
+                    near: Option<AccountId>,
+                }
+
+                match get_reqwest_client().get(&url).send().await {
+                    Ok(response) => {
+                        if response.status().is_success() {
+                            match response.json::<Vec<BridgeAllUserResponse>>().await {
+                                Ok(bridge_responses) => {
+                                    let main_bot_id = xeon_clone
+                                        .bots()
+                                        .iter()
+                                        .find(|bot| bot.bot_type() == BotType::Main)
+                                        .map(|bot| bot.id());
+
+                                    for bridge_response in bridge_responses {
+                                        let user_id = UserId(bridge_response.user_id);
+
+                                        let mut connected = connected_accounts_clone
+                                            .get(&user_id)
+                                            .await
+                                            .unwrap_or_default();
+
+                                        let mut x_changed = false;
+                                        let mut near_changed = false;
+
+                                        if let Some(x_user_id) = bridge_response.x {
+                                            let new_x = Some(XId(x_user_id.clone()));
+                                            if connected.x != new_x {
+                                                x_changed = true;
+                                                connected.x = new_x;
+                                            }
+                                        } else {
+                                            if connected.x.is_some() {
+                                                x_changed = true;
+                                                connected.x = None;
+                                            }
+                                        }
+
+                                        if let Some(near_account_id) = bridge_response.near {
+                                            let new_near =
+                                                Some(ConnectedNearAccount(near_account_id.clone()));
+                                            if connected.near != new_near {
+                                                near_changed = true;
+                                                connected.near = new_near;
+                                            }
+                                        } else {
+                                            if connected.near.is_some() {
+                                                near_changed = true;
+                                                connected.near = None;
+                                            }
+                                        }
+
+                                        if x_changed || near_changed {
+                                            if let Err(e) = connected_accounts_clone
+                                                .insert_or_update(user_id, connected.clone())
+                                                .await
+                                            {
+                                                log::warn!(
+                                                    "Failed to update connections for user {}: {e:?}",
+                                                    user_id
+                                                );
+                                                continue;
+                                            }
+
+                                            if let Some(bot_id) = main_bot_id {
+                                                if let Some(bot) = xeon_clone.bot(&bot_id) {
+                                                    let mut changes = Vec::new();
+                                                    let mut errors = Vec::new();
+
+                                                    if x_changed {
+                                                        if let Some(x_id) = &connected.x {
+                                                            match get_x_username(x_id.0.clone())
+                                                                .await
+                                                            {
+                                                                Ok(x_username) => {
+                                                                    changes.push(format!(
+                                                                        "X: x\\.com/{}",
+                                                                        markdown::escape(
+                                                                            &x_username
+                                                                        )
+                                                                    ));
+                                                                }
+                                                                Err(e) => {
+                                                                    log::warn!(
+                                                                        "Failed to fetch X username: {e:?}"
+                                                                    );
+                                                                    errors.push(format!(
+                                                                        "X: {}",
+                                                                        markdown::escape(
+                                                                            &e.to_string()
+                                                                        )
+                                                                    ));
+                                                                }
+                                                            }
+                                                        } else {
+                                                            changes.push(
+                                                                "X: Disconnected".to_string(),
+                                                            );
+                                                        }
+                                                    }
+
+                                                    if near_changed {
+                                                        if let Some(near_account) = &connected.near
+                                                        {
+                                                            changes.push(
+                                                                format_account_id(&near_account.0)
+                                                                    .await,
+                                                            );
+                                                        } else {
+                                                            changes.push(
+                                                                "NEAR: Disconnected".to_string(),
+                                                            );
+                                                        }
+                                                    }
+
+                                                    if !changes.is_empty() || !errors.is_empty() {
+                                                        let mut message =
+                                                            "Your connected accounts have been updated:\n"
+                                                                .to_string();
+                                                        for change in changes {
+                                                            message.push_str(&format!(
+                                                                "• {}\n",
+                                                                change
+                                                            ));
+                                                        }
+                                                        if !errors.is_empty() {
+                                                            message.push_str("\n⚠️ Errors:\n");
+                                                            for error in errors {
+                                                                message.push_str(&format!(
+                                                                    "• {}\n",
+                                                                    error
+                                                                ));
+                                                            }
+                                                        }
+
+                                                        let reply_markup =
+                                                            InlineKeyboardMarkup::new(
+                                                                Vec::<Vec<_>>::new(),
+                                                            );
+                                                        if let Err(e) = bot
+                                                            .send_text_message(
+                                                                ChatId(user_id.0 as i64).into(),
+                                                                message,
+                                                                reply_markup,
+                                                            )
+                                                            .await
+                                                        {
+                                                            log::warn!(
+                                                                "Failed to send connection update notification to user {}: {e:?}",
+                                                                user_id
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    log::warn!("Error parsing response from auth service: {e:?}");
+                                }
+                            }
+                        } else {
+                            log::warn!(
+                                "Error getting response from auth service: HTTP {}",
+                                response.status()
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Error requesting connection refresh: {e:?}");
+                    }
+                }
+            }
+        });
+
         Ok(())
     }
 
@@ -1812,9 +2026,6 @@ Sign up on [Imminent\\.build](https://imminent.build) to start collecting badges
             TgCommand::OpenAccountConnectionMenu => {
                 self.open_connection_menu(context).await?;
             }
-            TgCommand::RefreshConnections => {
-                self.refresh_connections(context).await?;
-            }
             TgCommand::ChooseChat => {
                 self.open_chat_selector(context).await?;
             }
@@ -2651,18 +2862,20 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         if !context.chat_id().is_user() {
             return Ok(());
         }
-        let x_username = self
+        let x_id = self
             .connected_accounts
             .get(&context.user_id())
             .await
             .and_then(|c| c.x);
         let mut message =
-            "Click the button below to connect your X and NEAR accounts\\.\n".to_string();
-        if let Some(x_username) = x_username {
-            message += &format!(
-                "\nConnected X account: x\\.com/{}",
-                markdown::escape(&x_username.0)
-            );
+            "Click the button below to connect your X and NEAR accounts\\. *Make sure to use a real browser and not Telegram's built\\-in browser\\.*\n".to_string();
+        if let Some(x_id) = x_id {
+            if let Ok(x_username) = get_x_username(x_id.0).await {
+                message += &format!(
+                    "\nConnected X account: x\\.com/{}",
+                    markdown::escape(&x_username)
+                );
+            }
         }
         if let Some(near_account_id) = self
             .connected_accounts
@@ -2709,13 +2922,6 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 .unwrap(),
             )],
             vec![InlineKeyboardButton::callback(
-                "🔄 Refresh",
-                context
-                    .bot()
-                    .to_callback_data(&TgCommand::RefreshConnections)
-                    .await,
-            )],
-            vec![InlineKeyboardButton::callback(
                 "⬅️ Cancel",
                 context
                     .bot()
@@ -2724,183 +2930,6 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             )],
         ]);
         context.edit_or_send(message, reply_markup).await?;
-        Ok(())
-    }
-
-    async fn refresh_connections(
-        &self,
-        mut context: TgCallbackContext<'_>,
-    ) -> Result<(), anyhow::Error> {
-        if context.bot().bot_type() != BotType::Main {
-            return Ok(());
-        }
-        if !context.chat_id().is_user() {
-            return Ok(());
-        }
-
-        let connection_host = std::env::var("CONNECTION_HOST").unwrap();
-        let connection_key = std::env::var("CONNECTION_KEY")
-            .unwrap()
-            .parse::<SecretKey>()
-            .unwrap();
-        let user_id_str = context.user_id().to_string();
-        let signature = connection_key.sign(user_id_str.as_bytes());
-        let url = format!(
-            "{}/api/user?id={}&signature={}",
-            connection_host.trim_end_matches('/'),
-            user_id_str,
-            signature
-        );
-
-        #[derive(Deserialize)]
-        struct BridgeUserResponse {
-            x: Option<String>,
-            near: Option<AccountId>,
-        }
-
-        match get_reqwest_client().get(url).send().await {
-            Ok(response) => {
-                if response.status().is_success() {
-                    match response.json::<BridgeUserResponse>().await {
-                        Ok(bridge_response) => {
-                            let mut connected = self
-                                .connected_accounts
-                                .get(&context.user_id())
-                                .await
-                                .unwrap_or_default();
-
-                            let mut updates = Vec::new();
-                            let mut errors = Vec::new();
-
-                            if let Some(x_user_id) = bridge_response.x {
-                                match get_x_username(x_user_id.clone()).await {
-                                    Ok(x_username) => {
-                                        connected.x = Some(XId(x_user_id));
-                                        updates.push(format!(
-                                            "x\\.com/{}",
-                                            markdown::escape(&x_username)
-                                        ));
-                                    }
-                                    Err(e) => {
-                                        log::warn!("Failed to fetch X username: {e:?}");
-                                        errors.push(format!(
-                                            "X: {}",
-                                            markdown::escape(&e.to_string())
-                                        ));
-                                    }
-                                }
-                            } else {
-                                connected.x = None;
-                                updates.push("X: Not connected".to_string());
-                            }
-
-                            if let Some(near_account_id) = bridge_response.near {
-                                connected.near =
-                                    Some(ConnectedNearAccount(near_account_id.clone()));
-                                updates.push(format_account_id(&near_account_id).await);
-                            } else {
-                                connected.near = None;
-                                updates.push("NEAR: Not connected".to_string());
-                            }
-
-                            self.connected_accounts
-                                .insert_or_update(context.user_id(), connected)
-                                .await?;
-
-                            let message = if !updates.is_empty() {
-                                let mut msg = "Successfully connected accounts:\n".to_string();
-                                for update in updates {
-                                    msg.push_str(&format!("• {}\n", update));
-                                }
-                                if !errors.is_empty() {
-                                    msg.push_str("\n⚠️ Errors:\n");
-                                    for error in errors {
-                                        msg.push_str(&format!("• {}\n", error));
-                                    }
-                                }
-                                msg
-                            } else if !errors.is_empty() {
-                                let mut msg = "Failed to update connections:\n".to_string();
-                                for error in errors {
-                                    msg.push_str(&format!("• {}\n", error));
-                                }
-                                msg
-                            } else {
-                                "Nothing changed\\.".to_string()
-                            };
-
-                            let reply_markup = InlineKeyboardMarkup::new(vec![vec![
-                                InlineKeyboardButton::callback(
-                                    "⬅️ Back",
-                                    context
-                                        .bot()
-                                        .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-                                        .await,
-                                ),
-                            ]]);
-                            context.edit_or_send(message, reply_markup).await?;
-                        }
-                        Err(e) => {
-                            let message = format!(
-                                "Error getting response from auth service: {}",
-                                markdown::escape(&e.to_string())
-                            );
-                            let reply_markup = InlineKeyboardMarkup::new(vec![vec![
-                                InlineKeyboardButton::callback(
-                                    "⬅️ Back",
-                                    context
-                                        .bot()
-                                        .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-                                        .await,
-                                ),
-                            ]]);
-                            context.edit_or_send(message, reply_markup).await?;
-                        }
-                    }
-                } else if response.status() == 404 {
-                    let message = "Nothing changed\\.".to_string();
-                    let reply_markup =
-                        InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
-                            "⬅️ Back",
-                            context
-                                .bot()
-                                .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-                                .await,
-                        )]]);
-                    context.edit_or_send(message, reply_markup).await?;
-                } else {
-                    let message = format!(
-                        "Error getting response from auth service: HTTP {}",
-                        markdown::escape(&response.status().to_string())
-                    );
-                    let reply_markup =
-                        InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
-                            "⬅️ Back",
-                            context
-                                .bot()
-                                .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-                                .await,
-                        )]]);
-                    context.edit_or_send(message, reply_markup).await?;
-                }
-            }
-            Err(e) => {
-                let message = format!(
-                    "Error getting response from auth service: {}",
-                    markdown::escape(&e.to_string())
-                );
-                let reply_markup =
-                    InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
-                        "⬅️ Back",
-                        context
-                            .bot()
-                            .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
-                            .await,
-                    )]]);
-                context.edit_or_send(message, reply_markup).await?;
-            }
-        }
-
         Ok(())
     }
 

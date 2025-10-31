@@ -18,7 +18,7 @@ use tearbot_common::teloxide::prelude::*;
 use tearbot_common::teloxide::types::Message;
 use tearbot_common::teloxide::types::ParseMode;
 use tearbot_common::teloxide::types::{
-    InlineKeyboardButton, InlineKeyboardMarkup, MessageId, UserId,
+    ChatMemberKind, InlineKeyboardButton, InlineKeyboardMarkup, MessageId, UserId,
 };
 use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::tgbot::{BotData, NotificationDestination};
@@ -730,17 +730,6 @@ impl RaidBotModule {
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
 
                     if deadline_hit || all_goals_reached || state.updated_times >= 1000 {
-                        let _ = bot
-                            .bot()
-                            .edit_message_text(
-                                key.chat_id.chat_id(),
-                                state.message_id,
-                                message_text.clone(),
-                            )
-                            .parse_mode(ParseMode::MarkdownV2)
-                            .reply_markup(reply_markup.clone())
-                            .await;
-
                         if state.pinned {
                             let _ = bot
                                 .bot()
@@ -748,6 +737,13 @@ impl RaidBotModule {
                                 .message_id(state.message_id)
                                 .await;
                         }
+
+                        let _ = bot
+                            .bot()
+                            .send_message(key.chat_id.chat_id(), message_text.clone())
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_markup(reply_markup.clone())
+                            .await;
 
                         let _ = distribute_raid_points(bot_config, &*bot, &key, &state).await;
 
@@ -1076,7 +1072,7 @@ impl XeonBotModule for RaidBotModule {
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
                     let _ = bot
                         .bot()
-                        .edit_message_text(chat_id, state.message_id, stopped_message)
+                        .send_message(chat_id, stopped_message)
                         .parse_mode(ParseMode::MarkdownV2)
                         .reply_markup(reply_markup)
                         .await;
@@ -2374,9 +2370,7 @@ Or skip this step\\."
                 let message_text = "
 *Step 4/5: Set Deadline \\(optional\\)*
 
-When should this raid end?
-
-Or skip this step\\."
+When should this raid end?"
                     .to_string();
 
                 let buttons = vec![
@@ -2591,6 +2585,29 @@ Or skip this step\\."
                     "*Pinned:* {}\n",
                     if pinned { "Yes" } else { "No" }
                 ));
+
+                if pinned {
+                    let bot_id = context.bot().id();
+                    let chat_id = context.chat_id();
+                    let bot_can_pin = if let Ok(bot_member) = context
+                        .bot()
+                        .bot()
+                        .get_chat_member(chat_id.chat_id(), bot_id)
+                        .await
+                    {
+                        match &bot_member.kind {
+                            ChatMemberKind::Owner(_) => true,
+                            ChatMemberKind::Administrator(admin) => admin.can_pin_messages,
+                            _ => false,
+                        }
+                    } else {
+                        false
+                    };
+
+                    if !bot_can_pin {
+                        message.push_str("\n⚠️ *Warning:* The bot needs to be an admin with pin permissions to pin messages\\. If the bot is not an admin, the message will not be pinned\\.\n");
+                    }
+                }
 
                 if points_per_repost.is_some() || points_per_comment.is_some() {
                     message.push_str("\n*Points:*\n");

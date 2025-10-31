@@ -398,7 +398,7 @@ pub fn is_mostly_emoji(message: &str) -> bool {
     }
     let emoji_count = chars.iter().filter(|c| is_emoji_char(**c)).count();
     let emoji_ratio = (emoji_count as f32) / (len as f32);
-    if emoji_count > 10 {
+    if emoji_count > 25 {
         return true;
     }
     if message.contains('@') && emoji_count > 5 {

@@ -260,8 +260,7 @@ function HomeContent() {
           {xUserId ? (
             <>
               <div className="bg-gray-50 rounded-lg p-3 md:p-4 mb-3 md:mb-4">
-                <p className="text-gray-600 text-xs md:text-sm mb-1">X User ID</p>
-                <p className="text-sm md:text-lg font-mono text-gray-900 break-all">{xUserId}</p>
+                <p className="text-gray-600 text-xs md:text-sm mb-1">X Connected</p>
               </div>
               <button
                 onClick={handleDisconnectX}
