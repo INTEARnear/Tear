@@ -1451,6 +1451,10 @@ pub enum TgCommand {
         target_chat_id: ChatId,
     },
     #[cfg(feature = "raid-bot-module")]
+    RaidBotDownloadLeaderboard {
+        target_chat_id: ChatId,
+    },
+    #[cfg(feature = "raid-bot-module")]
     RaidBotSetLeaderboardReset {
         target_chat_id: ChatId,
         reset_interval: Option<Duration>,

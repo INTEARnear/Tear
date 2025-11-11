@@ -57,7 +57,7 @@ use tearbot_common::{
 use tearbot_common::{tgbot::NotificationDestination, utils::tokens::format_tokens};
 use tearbot_common::{tgbot::BASE_REFERRAL_SHARE, utils::tokens::format_account_id};
 use tearbot_common::{
-    utils::{tokens::MEME_COOKING_CONTRACT_ID, SLIME_USER_ID},
+    utils::{apis::get_x_username, tokens::MEME_COOKING_CONTRACT_ID, SLIME_USER_ID},
     xeon::Resource,
 };
 
@@ -3294,34 +3294,4 @@ async fn start_migration(
         log::warn!("MIGRATION_NEW_BOT_USERNAME is not set");
     }
     Ok(())
-}
-
-#[derive(Deserialize)]
-struct TweetApiUserResponse {
-    data: TweetApiUser,
-}
-
-#[derive(Deserialize)]
-struct TweetApiUser {
-    username: String,
-}
-
-#[cached(time = 86400, result = true)]
-async fn get_x_username(x_user_id: String) -> Result<String, anyhow::Error> {
-    let api_key = std::env::var("TWEETAPI_KEY")
-        .map_err(|_| anyhow::anyhow!("TWEETAPI_KEY environment variable not set"))?;
-
-    let url = format!("https://api.tweetapi.com/tw-v2/user/by-id?userId={x_user_id}");
-
-    let client = get_reqwest_client();
-    let response: TweetApiUserResponse = client
-        .get(&url)
-        .header("X-API-Key", api_key)
-        .timeout(Duration::from_secs(60))
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    Ok(response.data.username)
 }

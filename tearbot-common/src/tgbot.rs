@@ -1,12 +1,13 @@
 use std::ops::Deref;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{
-    collections::HashMap,
-    sync::atomic::{AtomicUsize, Ordering},
+    collections::{BTreeSet, HashMap},
+    sync::atomic::AtomicUsize,
 };
 
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use log::warn;
 use mongodb::bson::Bson;
@@ -40,6 +41,7 @@ use teloxide::{adaptors::CacheMe, payloads::SendVideoSetters};
 use teloxide::{dispatching::UpdateFilterExt, types::ReplyParameters};
 use teloxide::{payloads::SendAnimationSetters, prelude::PreCheckoutQuery};
 use teloxide::{ApiError, Bot, RequestError};
+use tokio::sync::RwLock;
 
 use crate::utils::chat::ChatPermissionLevel;
 use crate::utils::format_duration;
@@ -80,6 +82,37 @@ pub fn usd_to_stars(usd: f64) -> u32 {
     (usd * STARS_PER_USD as f64).round() as u32
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+struct MessageToDeleteKey {
+    chat_id: ChatId,
+    message_id: MessageId,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MessageToDelete {
+    pub chat_id: ChatId,
+    pub message_id: MessageId,
+    pub datetime: DateTime<Utc>,
+}
+
+impl PartialOrd for MessageToDelete {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for MessageToDelete {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.datetime.cmp(&other.datetime) {
+            std::cmp::Ordering::Equal => self
+                .chat_id
+                .cmp(&other.chat_id)
+                .then_with(|| self.message_id.0.cmp(&other.message_id.0)),
+            other => other,
+        }
+    }
+}
+
 pub struct BotData {
     bot: TgBot,
     bot_type: BotType,
@@ -98,6 +131,8 @@ pub struct BotData {
     chat_permission_levels: PersistentCachedStore<ChatId, ChatPermissionLevel>,
     referred_by: PersistentCachedStore<UserId, UserId>,
     referral_balance: PersistentCachedStore<UserId, HashMap<AccountId, StringifiedBalance>>,
+    message_autodeletion_scheduled: PersistentCachedStore<MessageToDeleteKey, DateTime<Utc>>,
+    message_autodeletion_queue: RwLock<BTreeSet<MessageToDelete>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
@@ -153,6 +188,46 @@ impl BotData {
             loop {
                 interval.tick().await;
                 messages_sent_in_1d_clone.clear();
+            }
+        });
+
+        let message_autodeletion_scheduled: PersistentCachedStore<
+            MessageToDeleteKey,
+            DateTime<Utc>,
+        > = PersistentCachedStore::new(
+            db.clone(),
+            &format!("bot{bot_id}_message_autodeletion_scheduled"),
+        )
+        .await?;
+        let mut message_autodeletion_queue = BTreeSet::new();
+        for val in message_autodeletion_scheduled.values().await? {
+            let key = *val.key();
+            let datetime = *val.value();
+            message_autodeletion_queue.insert(MessageToDelete {
+                chat_id: key.chat_id,
+                message_id: key.message_id,
+                datetime,
+            });
+        }
+
+        let xeon_clone = Arc::clone(&xeon);
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                if let Some(bot) = xeon_clone.bot(&bot_id) {
+                    for MessageToDelete {
+                        chat_id,
+                        message_id,
+                        datetime: _,
+                    } in bot.get_pending_autodelete_messages().await
+                    {
+                        if let Err(err) = bot.bot().delete_message(chat_id, message_id).await {
+                            log::warn!(
+                                "Failed to delete message {message_id} in {chat_id}: {err:?}"
+                            );
+                        }
+                    }
+                }
             }
         });
 
@@ -212,11 +287,73 @@ impl BotData {
             )
             .await
             .expect("Failed to create referral_balance store"),
+            message_autodeletion_scheduled,
+            message_autodeletion_queue: RwLock::new(message_autodeletion_queue),
         })
     }
 
     pub fn bot_type(&self) -> BotType {
         self.bot_type
+    }
+
+    pub async fn schedule_message_autodeletion(
+        &self,
+        chat_id: ChatId,
+        message_id: MessageId,
+        datetime: DateTime<Utc>,
+    ) -> Result<(), anyhow::Error> {
+        let message = MessageToDelete {
+            chat_id,
+            message_id,
+            datetime,
+        };
+        self.message_autodeletion_queue
+            .write()
+            .await
+            .insert(message);
+        self.message_autodeletion_scheduled
+            .insert_or_update(
+                MessageToDeleteKey {
+                    chat_id,
+                    message_id,
+                },
+                datetime,
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn get_pending_autodelete_messages(&self) -> Vec<MessageToDelete> {
+        let now = Utc::now();
+        let mut to_delete = Vec::new();
+        {
+            let mut queue = self.message_autodeletion_queue.write().await;
+            // Get all entries with datetime <= now
+            let entries_to_remove: Vec<_> = queue
+                .iter()
+                .take_while(|entry| entry.datetime <= now)
+                .copied()
+                .collect();
+            for entry in &entries_to_remove {
+                to_delete.push(*entry);
+                queue.remove(entry);
+            }
+        }
+        let keys_to_delete: Vec<_> = to_delete
+            .iter()
+            .map(|msg| MessageToDeleteKey {
+                chat_id: msg.chat_id,
+                message_id: msg.message_id,
+            })
+            .collect();
+        if let Err(err) = self
+            .message_autodeletion_scheduled
+            .delete_many(keys_to_delete)
+            .await
+        {
+            log::error!("Failed to delete autodelete messages: {err}");
+        }
+        to_delete
     }
 
     pub async fn set_referrer(

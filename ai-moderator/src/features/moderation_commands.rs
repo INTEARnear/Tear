@@ -73,11 +73,10 @@ async fn handle_ban_command(
     bot: &BotData,
     chat_id: ChatId,
     message: &Message,
-    bot_config: &AiModeratorBotConfig,
+    _bot_config: &AiModeratorBotConfig,
     can_restrict: bool,
 ) -> Result<(), anyhow::Error> {
-    bot_config
-        .schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(10))
+    bot.schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(10))
         .await?;
 
     if !can_restrict {
@@ -90,13 +89,12 @@ async fn handle_ban_command(
                 ..Default::default()
             })
             .await?;
-        bot_config
-            .schedule_message_autodeletion(
-                chat_id,
-                response.id,
-                Utc::now() + Duration::from_secs(10),
-            )
-            .await?;
+        bot.schedule_message_autodeletion(
+            chat_id,
+            response.id,
+            Utc::now() + Duration::from_secs(10),
+        )
+        .await?;
         return Ok(());
     }
 
@@ -116,13 +114,12 @@ async fn handle_ban_command(
                 ..Default::default()
             })
             .await?;
-        bot_config
-            .schedule_message_autodeletion(
-                chat_id,
-                response.id,
-                Utc::now() + Duration::from_secs(10),
-            )
-            .await?;
+        bot.schedule_message_autodeletion(
+            chat_id,
+            response.id,
+            Utc::now() + Duration::from_secs(10),
+        )
+        .await?;
         return Ok(());
     };
 
@@ -155,8 +152,7 @@ async fn handle_ban_command(
             ..Default::default()
         })
         .await?;
-    bot_config
-        .schedule_message_autodeletion(chat_id, response.id, Utc::now() + Duration::from_secs(10))
+    bot.schedule_message_autodeletion(chat_id, response.id, Utc::now() + Duration::from_secs(10))
         .await?;
 
     Ok(())
@@ -167,11 +163,10 @@ async fn handle_mute_command(
     chat_id: ChatId,
     message: &Message,
     text: &str,
-    bot_config: &AiModeratorBotConfig,
+    _bot_config: &AiModeratorBotConfig,
     can_restrict: bool,
 ) -> Result<(), anyhow::Error> {
-    bot_config
-        .schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(10))
+    bot.schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(10))
         .await?;
 
     if !can_restrict {
@@ -184,13 +179,12 @@ async fn handle_mute_command(
                 ..Default::default()
             })
             .await?;
-        bot_config
-            .schedule_message_autodeletion(
-                chat_id,
-                response.id,
-                Utc::now() + Duration::from_secs(10),
-            )
-            .await?;
+        bot.schedule_message_autodeletion(
+            chat_id,
+            response.id,
+            Utc::now() + Duration::from_secs(10),
+        )
+        .await?;
         return Ok(());
     }
 
@@ -210,13 +204,12 @@ async fn handle_mute_command(
                 ..Default::default()
             })
             .await?;
-        bot_config
-            .schedule_message_autodeletion(
-                chat_id,
-                response.id,
-                Utc::now() + Duration::from_secs(10),
-            )
-            .await?;
+        bot.schedule_message_autodeletion(
+            chat_id,
+            response.id,
+            Utc::now() + Duration::from_secs(10),
+        )
+        .await?;
         return Ok(());
     };
 
@@ -279,8 +272,7 @@ async fn handle_mute_command(
             ..Default::default()
         })
         .await?;
-    bot_config
-        .schedule_message_autodeletion(chat_id, response.id, Utc::now() + Duration::from_secs(10))
+    bot.schedule_message_autodeletion(chat_id, response.id, Utc::now() + Duration::from_secs(10))
         .await?;
 
     Ok(())
@@ -290,11 +282,10 @@ async fn handle_del_command(
     bot: &BotData,
     chat_id: ChatId,
     message: &Message,
-    bot_config: &AiModeratorBotConfig,
+    _bot_config: &AiModeratorBotConfig,
     can_delete: bool,
 ) -> Result<(), anyhow::Error> {
-    bot_config
-        .schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(10))
+    bot.schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(10))
         .await?;
 
     if !can_delete {
@@ -307,13 +298,12 @@ async fn handle_del_command(
                 ..Default::default()
             })
             .await?;
-        bot_config
-            .schedule_message_autodeletion(
-                chat_id,
-                response.id,
-                Utc::now() + Duration::from_secs(10),
-            )
-            .await?;
+        bot.schedule_message_autodeletion(
+            chat_id,
+            response.id,
+            Utc::now() + Duration::from_secs(10),
+        )
+        .await?;
         return Ok(());
     }
 
@@ -329,13 +319,12 @@ async fn handle_del_command(
                 ..Default::default()
             })
             .await?;
-        bot_config
-            .schedule_message_autodeletion(
-                chat_id,
-                response.id,
-                Utc::now() + Duration::from_secs(10),
-            )
-            .await?;
+        bot.schedule_message_autodeletion(
+            chat_id,
+            response.id,
+            Utc::now() + Duration::from_secs(10),
+        )
+        .await?;
         return Ok(());
     };
 
@@ -355,8 +344,7 @@ async fn handle_del_command(
             ..Default::default()
         })
         .await?;
-    bot_config
-        .schedule_message_autodeletion(chat_id, response.id, Utc::now() + Duration::from_secs(10))
+    bot.schedule_message_autodeletion(chat_id, response.id, Utc::now() + Duration::from_secs(10))
         .await?;
 
     Ok(())
@@ -367,10 +355,9 @@ async fn handle_report_command(
     chat_id: ChatId,
     _user_id: UserId,
     message: &Message,
-    bot_config: &AiModeratorBotConfig,
+    _bot_config: &AiModeratorBotConfig,
 ) -> Result<(), anyhow::Error> {
-    bot_config
-        .schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(60))
+    bot.schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(60))
         .await?;
 
     let (message_id, user_id) = if let Some(reply_to) = message.reply_to_message() {
@@ -392,13 +379,12 @@ async fn handle_report_command(
                 ..Default::default()
             })
             .await?;
-        bot_config
-            .schedule_message_autodeletion(
-                chat_id,
-                response.id,
-                Utc::now() + Duration::from_secs(10),
-            )
-            .await?;
+        bot.schedule_message_autodeletion(
+            chat_id,
+            response.id,
+            Utc::now() + Duration::from_secs(10),
+        )
+        .await?;
         return Ok(());
     };
 

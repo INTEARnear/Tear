@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Server misconfiguration', { status: 500 });
   }
 
-  const callbackUrl = `https://connect.intea.rs/api/auth/callback`;
+  const callbackUrl = process.env.ENV === 'production' ? `https://connect.intea.rs/api/auth/callback` : `http://localhost:3000/api/auth/callback`;
 
   try {
     const tokenResponse = await fetch('https://api.x.com/2/oauth2/token', {
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     saveXConnection(userId, userData.data.id);
 
-    const homeUrl = new URL('https://connect.intea.rs/');
+    const homeUrl = new URL(process.env.ENV === 'production' ? 'https://connect.intea.rs/' : 'http://localhost:3000/');
     homeUrl.searchParams.set('token', token);
 
     const response = NextResponse.redirect(homeUrl);

@@ -10,8 +10,12 @@ use crate::{
     xeon::{TokenInfo, TokenPartialMetadata, TokenScore},
 };
 
+use std::time::Duration;
+
+use cached::proc_macro::cached;
+
 use super::{
-    requests::get_cached_1h,
+    requests::{get_cached_1h, get_reqwest_client},
     rpc::view_cached_1h,
     tokens::{
         get_memecooking_finalized_info, get_memecooking_prelaunch_info, MemeCookingInfo,
@@ -304,4 +308,34 @@ pub async fn parse_meme_cooking_link(url: &str) -> Option<(AccountId, bool, Meme
     } else {
         None
     }
+}
+
+#[derive(Deserialize)]
+struct TweetApiUserResponse {
+    data: TweetApiUser,
+}
+
+#[derive(Deserialize)]
+struct TweetApiUser {
+    username: String,
+}
+
+#[cached(time = 86400, result = true)]
+pub async fn get_x_username(x_user_id: String) -> Result<String, anyhow::Error> {
+    let api_key = std::env::var("TWEETAPI_KEY")
+        .map_err(|_| anyhow::anyhow!("TWEETAPI_KEY environment variable not set"))?;
+
+    let url = format!("https://api.tweetapi.com/tw-v2/user/by-id?userId={x_user_id}");
+
+    let client = get_reqwest_client();
+    let response: TweetApiUserResponse = client
+        .get(&url)
+        .header("X-API-Key", api_key)
+        .timeout(Duration::from_secs(60))
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    Ok(response.data.username)
 }

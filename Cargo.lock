@@ -7308,11 +7308,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum 0.8.6",
  "cached",
  "chrono",
  "log",
  "regex",
  "serde",
+ "serde_json",
  "tearbot-common",
  "tokio",
 ]

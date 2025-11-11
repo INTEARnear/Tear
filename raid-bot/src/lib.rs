@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
 use cached::proc_macro::cached;
 use chrono::Timelike;
 use chrono::{DateTime, Utc};
@@ -12,8 +13,9 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tearbot_common::bot_commands::UsersByXAccount;
 use tearbot_common::bot_commands::XId;
-use tearbot_common::bot_commands::{MessageCommand, TgCommand};
+use tearbot_common::bot_commands::{ConnectedAccounts, MessageCommand, TgCommand};
 use tearbot_common::mongodb::Database;
+use tearbot_common::near_primitives::types::AccountId;
 use tearbot_common::teloxide::prelude::*;
 use tearbot_common::teloxide::types::Message;
 use tearbot_common::teloxide::types::ParseMode;
@@ -23,13 +25,17 @@ use tearbot_common::teloxide::types::{
 use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::tgbot::{BotData, NotificationDestination};
 use tearbot_common::tgbot::{BotType, MustAnswerCallbackQuery, TgCallbackContext};
+use tearbot_common::utils::apis::get_x_username;
 use tearbot_common::utils::chat::{check_admin_permission_in_chat, get_chat_title_cached_5m};
 use tearbot_common::utils::format_duration;
 use tearbot_common::utils::requests::get_reqwest_client;
+use tearbot_common::utils::rpc::view_cached_5m;
 use tearbot_common::utils::store::PersistentCachedStore;
 use tearbot_common::utils::UserInChat;
 use tearbot_common::xeon::{XeonBotModule, XeonState};
 use tokio::sync::RwLock;
+
+const LEADERBOARD_COMMAND_AUTODELETE_SECONDS: Duration = Duration::from_secs(40);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct RaidKey {
@@ -88,6 +94,7 @@ impl PartialOrd for ScheduledUpdate {
 pub struct RaidBotModule {
     update_heap: Arc<RwLock<BinaryHeap<ScheduledUpdate>>>,
     bot_configs: Arc<HashMap<UserId, RaidBotConfig>>,
+    raid_participation: Arc<PersistentCachedStore<AccountId, u64>>,
 }
 
 struct RaidBotConfig {
@@ -219,16 +226,8 @@ async fn distribute_raid_points(
     bot: &BotData,
     raid_key: &RaidKey,
     raid_state: &RaidState,
+    raid_participation: &PersistentCachedStore<AccountId, u64>,
 ) -> Result<(), anyhow::Error> {
-    let has_points = (raid_state.points_per_repost.is_some()
-        && raid_state.points_per_repost.unwrap_or(0) > 0)
-        || (raid_state.points_per_comment.is_some()
-            && raid_state.points_per_comment.unwrap_or(0) > 0);
-
-    if !has_points {
-        return Ok(());
-    }
-
     let tweet_id = extract_tweet_id(&raid_state.tweet_url)
         .ok_or_else(|| anyhow::anyhow!("Invalid tweet URL format"))?;
 
@@ -239,6 +238,39 @@ async fn distribute_raid_points(
 
     let reposters = reposters.unwrap_or_default();
     let repliers = repliers.unwrap_or_default();
+
+    let mut all_participants = HashSet::new();
+    all_participants.extend(reposters.iter());
+    all_participants.extend(repliers.iter());
+
+    // Legion
+    if raid_key.chat_id.chat_id().0 == -1002742182312 {
+        for user_id in &all_participants {
+            if let Some(connected_accounts) =
+                bot.xeon().get_resource::<ConnectedAccounts>(*user_id).await
+            {
+                if let Some(near_account) = &connected_accounts.near {
+                    if is_ascendant(&near_account.0).await.unwrap_or(false) {
+                        let account_id = &near_account.0;
+                        let current_count =
+                            raid_participation.get(account_id).await.unwrap_or_default();
+                        let _ = raid_participation
+                            .insert_or_update(account_id.clone(), current_count + 1)
+                            .await;
+                    }
+                }
+            }
+        }
+    }
+
+    let has_points = (raid_state.points_per_repost.is_some()
+        && raid_state.points_per_repost.unwrap_or(0) > 0)
+        || (raid_state.points_per_comment.is_some()
+            && raid_state.points_per_comment.unwrap_or(0) > 0);
+
+    if !has_points {
+        return Ok(());
+    }
 
     let mut points_summary = String::new();
     let mut user_points_earned: HashMap<UserId, usize> = HashMap::new();
@@ -603,14 +635,19 @@ impl RaidBotModule {
             update_heap.read().await.len()
         );
 
+        let raid_participation =
+            Arc::new(PersistentCachedStore::new(xeon.db().clone(), "raidbot_participation").await?);
+
         let bot_configs_arc = Arc::new(bot_configs);
         let module = Self {
             update_heap: Arc::clone(&update_heap),
             bot_configs: Arc::clone(&bot_configs_arc),
+            raid_participation,
         };
 
         let bot_configs = Arc::clone(&bot_configs_arc);
         let xeon_updates_clone = Arc::clone(&xeon);
+        let raid_participation_clone = Arc::clone(&module.raid_participation);
         tokio::spawn(async move {
             loop {
                 let next_update_time = {
@@ -745,7 +782,14 @@ impl RaidBotModule {
                             .reply_markup(reply_markup.clone())
                             .await;
 
-                        let _ = distribute_raid_points(bot_config, &*bot, &key, &state).await;
+                        let _ = distribute_raid_points(
+                            bot_config,
+                            &*bot,
+                            &key,
+                            &state,
+                            &raid_participation_clone,
+                        )
+                        .await;
 
                         let _ = bot_config.raid_data.remove(&key).await;
                     } else if needs_repost {
@@ -977,6 +1021,40 @@ impl XeonBotModule for RaidBotModule {
     }
 
     async fn start(&self) -> Result<(), anyhow::Error> {
+        let raid_participation = Arc::clone(&self.raid_participation);
+
+        async fn get_raiders(
+            State(raid_participation): State<Arc<PersistentCachedStore<AccountId, u64>>>,
+        ) -> Result<Json<HashMap<String, u64>>, StatusCode> {
+            let values = raid_participation
+                .values()
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+            let mut raiders = HashMap::new();
+            for entry in values {
+                let account_id = entry.key();
+                let count = entry.value();
+                raiders.insert(account_id.to_string(), (*count).clamp(0, 50));
+            }
+
+            Ok(Json(raiders))
+        }
+
+        let app = Router::new()
+            .route("/raiders", get(get_raiders))
+            .with_state(raid_participation);
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:6769")
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to bind to 127.0.0.1:6769: {}", e))?;
+
+        tokio::spawn(async move {
+            axum::serve(listener, app)
+                .await
+                .map_err(|e| anyhow::anyhow!("Server error: {}", e))
+        });
+
         Ok(())
     }
 
@@ -1077,7 +1155,14 @@ impl XeonBotModule for RaidBotModule {
                         .reply_markup(reply_markup)
                         .await;
 
-                    let _ = distribute_raid_points(bot_config, bot, &raid_key, &state).await;
+                    let _ = distribute_raid_points(
+                        bot_config,
+                        bot,
+                        &raid_key,
+                        &state,
+                        &self.raid_participation,
+                    )
+                    .await;
 
                     let _ = bot_config.raid_data.remove(&raid_key).await;
 
@@ -1121,7 +1206,7 @@ impl XeonBotModule for RaidBotModule {
                         .position(|(uid, _)| *uid == user_id)
                         .map(|pos| pos + 1);
 
-                    let message = if let Some(rank) = rank {
+                    let message_text = if let Some(rank) = rank {
                         format!(
                             "🪙 *Your Raid Points*\n\nRank: *\\#{}*\nPoints: *{}*\n\nTotal participants: {}",
                             rank,
@@ -1137,7 +1222,14 @@ impl XeonBotModule for RaidBotModule {
 
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id.into(), message, reply_markup)
+                    let response = bot
+                        .send_text_message(chat_id.into(), message_text, reply_markup)
+                        .await?;
+
+                    let deletion_time = Utc::now() + LEADERBOARD_COMMAND_AUTODELETE_SECONDS;
+                    bot.schedule_message_autodeletion(chat_id, message.id, deletion_time)
+                        .await?;
+                    bot.schedule_message_autodeletion(chat_id, response.id, deletion_time)
                         .await?;
 
                     return Ok(());
@@ -1168,12 +1260,20 @@ impl XeonBotModule for RaidBotModule {
                     }
 
                     if user_points.is_empty() {
-                        let message = "🏆 *Raid Leaderboard*\n\nNo participants yet\\! Start a raid to earn points\\."
+                        let message_text = "🏆 *Raid Leaderboard*\n\nNo participants yet\\! Start a raid to earn points\\."
                             .to_string();
                         let buttons = Vec::<Vec<_>>::new();
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
-                        bot.send_text_message(chat_id.into(), message, reply_markup)
+                        let response = bot
+                            .send_text_message(chat_id.into(), message_text, reply_markup)
                             .await?;
+
+                        let deletion_time = Utc::now() + LEADERBOARD_COMMAND_AUTODELETE_SECONDS;
+                        bot.schedule_message_autodeletion(chat_id, message.id, deletion_time)
+                            .await?;
+                        bot.schedule_message_autodeletion(chat_id, response.id, deletion_time)
+                            .await?;
+
                         return Ok(());
                     }
 
@@ -1186,7 +1286,7 @@ impl XeonBotModule for RaidBotModule {
 
                     let top_users = user_points.iter().take(10).collect::<Vec<_>>();
 
-                    let mut message = "🏆 *Raid Leaderboard*\n\n".to_string();
+                    let mut message_text = "🏆 *Raid Leaderboard*\n\n".to_string();
 
                     for (rank, (user_id_ref, points)) in top_users.iter().enumerate() {
                         let emoji = match rank {
@@ -1204,7 +1304,7 @@ impl XeonBotModule for RaidBotModule {
                             format!("User {}", user_id_ref)
                         };
 
-                        message.push_str(&format!(
+                        message_text.push_str(&format!(
                             "{}  *{}\\.*  {}  \\-  *{} pts*\n",
                             emoji,
                             rank + 1,
@@ -1226,7 +1326,7 @@ impl XeonBotModule for RaidBotModule {
                                     "You".to_string()
                                 };
 
-                                message.push_str(&format!(
+                                message_text.push_str(&format!(
                                     "\n\\.\\.\\.\\.\\.\\.\n\n  *{}\\.*  {}  \\-  *{} pts*",
                                     rank, user_name, user_points_value
                                 ));
@@ -1236,7 +1336,14 @@ impl XeonBotModule for RaidBotModule {
 
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id.into(), message, reply_markup)
+                    let response = bot
+                        .send_text_message(chat_id.into(), message_text, reply_markup)
+                        .await?;
+
+                    let deletion_time = Utc::now() + LEADERBOARD_COMMAND_AUTODELETE_SECONDS;
+                    bot.schedule_message_autodeletion(chat_id, message.id, deletion_time)
+                        .await?;
+                    bot.schedule_message_autodeletion(chat_id, response.id, deletion_time)
                         .await?;
 
                     return Ok(());
@@ -1702,6 +1809,15 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
                             .await,
                     )],
                     vec![InlineKeyboardButton::callback(
+                        "📥 Download Leaderboard",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::RaidBotDownloadLeaderboard {
+                                target_chat_id,
+                            })
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
                         "⬅️ Back",
                         context
                             .bot()
@@ -2056,6 +2172,136 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
                     )
                     .await?;
                 }
+            }
+            TgCommand::RaidBotDownloadLeaderboard { target_chat_id } => {
+                if !context.chat_id().is_user() {
+                    return Ok(());
+                }
+                if target_chat_id.is_user() {
+                    return Ok(());
+                }
+                if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
+                    .await
+                {
+                    return Ok(());
+                }
+
+                let Some(bot_config) = self.bot_configs.get(&context.bot().id()) else {
+                    return Ok(());
+                };
+
+                let mut user_points = Vec::new();
+                for entry in bot_config.user_points.values().await? {
+                    let user_in_chat = entry.key();
+                    let points = entry.value();
+
+                    if user_in_chat.chat_id == target_chat_id && *points > 0 {
+                        user_points.push((user_in_chat.user_id, *points));
+                    }
+                }
+
+                if user_points.is_empty() {
+                    let message = "No participants in the leaderboard yet\\.".to_string();
+                    let buttons = vec![vec![InlineKeyboardButton::callback(
+                        "⬅️ Back",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::RaidBotChatSettings { target_chat_id })
+                            .await,
+                    )]];
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    context.edit_or_send(message, reply_markup).await?;
+                    return Ok(());
+                }
+
+                user_points.sort_by(|a, b| b.1.cmp(&a.1));
+
+                let mut csv_content =
+                    String::from("Rank,Telegram ID,Username,X Username,NEAR Account,Points\n");
+                for (rank, (user_id, points)) in user_points.iter().enumerate() {
+                    let user_name = if let Ok(member) = context
+                        .bot()
+                        .bot()
+                        .get_chat_member(target_chat_id, *user_id)
+                        .await
+                    {
+                        member.user.full_name()
+                    } else {
+                        format!("User {}", user_id)
+                    };
+
+                    let escaped_name = user_name
+                        .replace('"', "\"\"")
+                        .replace('\n', " ")
+                        .replace('\r', " ");
+
+                    let connected_accounts = context
+                        .bot()
+                        .xeon()
+                        .get_resource::<ConnectedAccounts>(*user_id)
+                        .await;
+
+                    let x_username = if let Some(accounts) = &connected_accounts {
+                        if let Some(x_id) = &accounts.x {
+                            get_x_username(x_id.0.clone()).await.unwrap_or_default()
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    };
+
+                    let near_account = if let Some(accounts) = &connected_accounts {
+                        accounts
+                            .near
+                            .as_ref()
+                            .map(|n| n.0.to_string())
+                            .unwrap_or_default()
+                    } else {
+                        String::new()
+                    };
+
+                    csv_content.push_str(&format!(
+                        "{},\"{}\",\"{}\",\"{}\",\"{}\",{}\n",
+                        rank + 1,
+                        user_id.0,
+                        escaped_name,
+                        x_username,
+                        near_account,
+                        points
+                    ));
+                }
+
+                let for_chat_name = markdown::escape(
+                    &get_chat_title_cached_5m(
+                        context.bot().bot(),
+                        NotificationDestination::Chat(target_chat_id),
+                    )
+                    .await?
+                    .unwrap_or_else(|| "<error>".to_string()),
+                );
+
+                let caption = format!("Raid Leaderboard for {}\\.", for_chat_name);
+                let file_name = format!("leaderboard_{}.csv", target_chat_id.0);
+                let buttons = vec![vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::RaidBotChatSettings { target_chat_id })
+                        .await,
+                )]];
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+
+                context
+                    .bot()
+                    .send_text_document(
+                        context.chat_id(),
+                        csv_content,
+                        caption,
+                        file_name,
+                        reply_markup,
+                    )
+                    .await?;
             }
             TgCommand::RaidBotDeletePreset {
                 target_chat_id,
@@ -2477,7 +2723,7 @@ When should this raid end?"
                     [
                         vec![vec![
                             InlineKeyboardButton::callback(
-                                "1m",
+                                "🪲 1m",
                                 context
                                     .bot()
                                     .to_callback_data(&TgCommand::RaidConfigReview {
@@ -2494,7 +2740,7 @@ When should this raid end?"
                                     .await,
                             ),
                             InlineKeyboardButton::callback(
-                                "5m",
+                                "🪲 5m",
                                 context
                                     .bot()
                                     .to_callback_data(&TgCommand::RaidConfigReview {
@@ -3136,4 +3382,13 @@ async fn x_id_to_user_id(x_id: String, xeon: &XeonState) -> Result<UserId, anyho
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("User not found"))
         })
+}
+
+async fn is_ascendant(account_id: &AccountId) -> Result<bool, anyhow::Error> {
+    view_cached_5m(
+        "ascendant.nearlegion.near",
+        "has_sbt",
+        serde_json::json!({ "account_id": account_id }),
+    )
+    .await
 }

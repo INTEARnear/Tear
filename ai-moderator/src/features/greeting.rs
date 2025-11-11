@@ -43,13 +43,12 @@ pub async fn handle_greeting(
                             .await
                         {
                             Ok(message) => {
-                                bot_config
-                                    .schedule_message_autodeletion(
-                                        chat_id,
-                                        message.id,
-                                        Utc::now() + Duration::from_secs(20),
-                                    )
-                                    .await?;
+                                bot.schedule_message_autodeletion(
+                                    chat_id,
+                                    message.id,
+                                    Utc::now() + Duration::from_secs(20),
+                                )
+                                .await?;
                             }
                             Err(err) => {
                                 log::warn!("Failed to send greeting message: {err:?}");
