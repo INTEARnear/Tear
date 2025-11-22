@@ -46,6 +46,8 @@ use raid_bot::RaidBotModule;
 use reqwest::Url;
 #[cfg(feature = "socialdb-module")]
 use socialdb::SocialDBModule;
+#[cfg(feature = "subscription-lists-module")]
+use subscription_lists::SubscriptionListsModule;
 use tearbot_common::mongodb::options::ClientOptions;
 use tearbot_common::mongodb::{Client, Database};
 use tearbot_common::teloxide::adaptors::throttle::Limits;
@@ -343,6 +345,12 @@ fn main() -> Result<(), anyhow::Error> {
                 {
                     xeon.state()
                         .add_bot_module(RaidBotModule::new(xeon.arc_clone_state()).await?)
+                        .await;
+                }
+                #[cfg(feature = "subscription-lists-module")]
+                {
+                    xeon.state()
+                        .add_bot_module(SubscriptionListsModule::new(xeon.arc_clone_state()).await?)
                         .await;
                 }
             }

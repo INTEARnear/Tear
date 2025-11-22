@@ -1459,6 +1459,19 @@ pub enum TgCommand {
         target_chat_id: ChatId,
         reset_interval: Option<Duration>,
     },
+    #[cfg(feature = "subscription-lists-module")]
+    SubscriptionListsSettings(NotificationDestination),
+    #[cfg(feature = "subscription-lists-module")]
+    SubscriptionListsToggle {
+        list: NewsletterList,
+        target_chat_id: NotificationDestination,
+    },
+    #[cfg(feature = "subscription-lists-module")]
+    SubscriptionListsAnnounceConfirm {
+        list: NewsletterList,
+        message_text: String,
+        attachment: Attachment,
+    },
     GenericDeleteCurrentMessage {
         allowed_user: Option<UserId>,
     },
@@ -1532,6 +1545,29 @@ pub struct IntentQuote {
     /// Key is the asset id, value is the amount i128 stringified
     pub token_diff: HashMap<String, String>,
     pub expiration_time: DateTime<Utc>,
+}
+
+#[cfg(feature = "subscription-lists-module")]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq, Hash)]
+pub enum NewsletterList {
+    EcosystemNews,
+    EventsAirdrops,
+    IRLEvents,
+    DevUpdates,
+    ValidatorUpdates,
+}
+
+#[cfg(feature = "subscription-lists-module")]
+impl NewsletterList {
+    pub fn list_display_name(&self) -> &'static str {
+        match self {
+            NewsletterList::EcosystemNews => "Ecosystem News",
+            NewsletterList::EventsAirdrops => "Events / Airdrops",
+            NewsletterList::IRLEvents => "IRL Events",
+            NewsletterList::DevUpdates => "Dev Updates",
+            NewsletterList::ValidatorUpdates => "Validator Updates",
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -1930,6 +1966,10 @@ pub enum MessageCommand {
         target_comments: Option<usize>,
         repost_interval: Option<Duration>,
         setup_message_id: teloxide::types::MessageId,
+    },
+    #[cfg(feature = "subscription-lists-module")]
+    SubscriptionListsAnnounce {
+        list: NewsletterList,
     },
 }
 

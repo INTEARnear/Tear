@@ -5,7 +5,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use tearbot_common::teloxide::prelude::{ChatId, UserId};
+use tearbot_common::teloxide::{prelude::{ChatId, UserId}, types::MessageId};
 use tokio::sync::RwLock;
 
 use crate::ChatUser;
@@ -48,6 +48,7 @@ impl TokenBucket {
 struct UserMessage {
     text: String,
     timestamp: DateTime<Utc>,
+    message_id: MessageId,
 }
 
 pub struct MuteFloodData {
@@ -65,7 +66,7 @@ impl MuteFloodData {
         }
     }
 
-    pub async fn check_flood(&self, chat_id: ChatId, user_id: UserId, message_text: &str) -> bool {
+    pub async fn check_flood(&self, chat_id: ChatId, user_id: UserId, message_text: &str, message_id: MessageId) -> bool {
         let chat_user = ChatUser { chat_id, user_id };
 
         // Check token bucket (1 token per second, 3 capacity)
@@ -123,12 +124,23 @@ impl MuteFloodData {
             messages.push_back(UserMessage {
                 text: message_text.to_string(),
                 timestamp: now,
+                message_id,
             });
-            if messages.len() > 5 {
+            if messages.len() > 5_000 {
                 messages.pop_front();
             }
         }
 
         false
+    }
+
+    pub async fn get_user_message_ids(&self, chat_id: ChatId, user_id: UserId) -> Vec<MessageId> {
+        let chat_user = ChatUser { chat_id, user_id };
+        let user_messages = self.user_messages.read().await;
+        if let Some(messages) = user_messages.get(&chat_user) {
+            messages.iter().map(|msg| msg.message_id).collect()
+        } else {
+            Vec::new()
+        }
     }
 }

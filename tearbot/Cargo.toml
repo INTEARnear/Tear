@@ -26,6 +26,7 @@ wallet-tracking = { path = "../wallet-tracking", optional = true }
 agents = { path = "../agents", optional = true }
 tip-bot = { path = "../tip-bot", optional = true }
 raid-bot = { path = "../raid-bot", optional = true }
+subscription-lists = { path = "../subscription-lists", optional = true }
 
 anyhow = { workspace = true }
 dotenvy = { workspace = true }
@@ -68,6 +69,7 @@ tear = [
     "explorer-module",
     "tip-bot-module",
     "raid-bot-module",
+    "subscription-lists-module",
 ]
 xeon = [
     "contract-logs-module",
@@ -93,6 +95,7 @@ xeon = [
     "explorer-module",
     "tip-bot-module",
     "raid-bot-module",
+    "subscription-lists-module",
 ]
 int = [
     "ai-moderator-module",
@@ -137,3 +140,4 @@ agents-module = ["tearbot-common/agents-module", "agents"]
 explorer-module = ["tearbot-common/explorer-module", "explorer"]
 tip-bot-module = ["tearbot-common/tip-bot-module", "tip-bot"]
 raid-bot-module = ["tearbot-common/raid-bot-module", "raid-bot"]
+subscription-lists-module = ["tearbot-common/subscription-lists-module", "subscription-lists"]

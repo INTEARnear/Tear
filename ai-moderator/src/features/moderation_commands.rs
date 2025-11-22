@@ -73,7 +73,7 @@ async fn handle_ban_command(
     bot: &BotData,
     chat_id: ChatId,
     message: &Message,
-    _bot_config: &AiModeratorBotConfig,
+    bot_config: &AiModeratorBotConfig,
     can_restrict: bool,
 ) -> Result<(), anyhow::Error> {
     bot.schedule_message_autodeletion(chat_id, message.id, Utc::now() + Duration::from_secs(10))
@@ -133,6 +133,15 @@ async fn handle_ban_command(
         {
             log::warn!("Error banning user {user_id}: {err}");
         } else {
+            let message_ids = bot_config.mute_flood_data.get_user_message_ids(chat_id, user_id).await;
+            if !message_ids.is_empty() {
+                // Delete messages in batches of 100 (Telegram API limit)
+                for chunk in message_ids.chunks(100) {
+                    if let Err(err) = bot.bot().delete_messages(chat_id, chunk.to_vec()).await {
+                        log::warn!("Failed to delete cached messages: {err}");
+                    }
+                }
+            }
             successfully_banned.push(user_id);
         }
     }

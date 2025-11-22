@@ -442,6 +442,17 @@ impl XeonBotModule for AiModeratorModule {
                         .await
                     {
                         Ok(True) => {
+                            if let Some(bot_config) = self.bot_configs.get(&ctx.bot().id()) {
+                                let message_ids = bot_config.mute_flood_data.get_user_message_ids(chat_id, user_id).await;
+                                if !message_ids.is_empty() {
+                                    // Delete messages in batches of 100 (Telegram API limit)
+                                    for chunk in message_ids.chunks(100) {
+                                        if let Err(err) = ctx.bot().bot().delete_messages(chat_id, chunk.to_vec()).await {
+                                            log::warn!("Failed to delete cached messages: {err}");
+                                        }
+                                    }
+                                }
+                            }
                             ctx.bot()
                                 .schedule_message_autodeletion(
                                     chat_id,
@@ -541,6 +552,7 @@ impl XeonBotModule for AiModeratorModule {
                         &mut ctx,
                         target_chat_id,
                         target_user_id,
+                        &self.bot_configs,
                     )
                     .await?;
                 }
@@ -1281,7 +1293,6 @@ impl AiModeratorModule {
                     ModerationAction::Ban => {
                         if !chat_config.debug_mode {
                             let result = if let Some(user_id) = sender_id.as_user() {
-                                let _ = bot.bot().delete_message(chat_id, message.id).await;
                                 if let Err(err) = bot
                                     .bot()
                                     .ban_chat_member(chat_id, user_id)
@@ -1293,6 +1304,15 @@ impl AiModeratorModule {
                                             .delete_message(chat_id, message.id)
                                             .await
                                     } else {
+                                        let message_ids = bot_config.mute_flood_data.get_user_message_ids(chat_id, user_id).await;
+                                        if !message_ids.is_empty() {
+                                            // Delete messages in batches of 100 (Telegram API limit)
+                                            for chunk in message_ids.chunks(100) {
+                                                if let Err(err) = bot.bot().delete_messages(chat_id, chunk.to_vec()).await {
+                                                    log::warn!("Failed to delete cached messages: {err}");
+                                                }
+                                            }
+                                        }
                                         Ok(True)
                                     }
                             } else if let Err(err) = bot
@@ -1382,10 +1402,7 @@ impl AiModeratorModule {
                                     .await
                                 {
                                     log::warn!("Failed to mute user: {err}");
-                                    bot
-                                        .bot()
-                                        .delete_message(chat_id, message.id)
-                                        .await
+                                    Ok(True)
                                 } else {
                                     Ok(True)
                                 }
@@ -1469,10 +1486,7 @@ impl AiModeratorModule {
                                     .await
                                 {
                                     log::warn!("Failed to temp mute user: {err}");
-                                    bot
-                                        .bot()
-                                        .delete_message(chat_id, message.id)
-                                        .await
+                                    Ok(True)
                                 } else {
                                     Ok(True)
                                 }

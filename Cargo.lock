@@ -11823,6 +11823,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "subscription-lists"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "log",
+ "serde",
+ "tearbot-common",
+ "tokio",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12016,6 +12028,7 @@ dependencies = [
  "serde_json",
  "simple_logger",
  "socialdb",
+ "subscription-lists",
  "tearbot-common",
  "tip-bot",
  "tokio",

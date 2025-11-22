@@ -1,0 +1,13 @@
+[package]
+name = "subscription-lists"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+tearbot-common = { path = "../tearbot-common", features = [ "subscription-lists-module" ] }
+async-trait = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+log = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }

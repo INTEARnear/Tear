@@ -245,12 +245,16 @@ async fn distribute_raid_points(
 
     // Legion
     if raid_key.chat_id.chat_id().0 == -1002742182312 {
+        log::info!("Raid in Legion");
         for user_id in &all_participants {
+            log::info!("User ID: {user_id}");
             if let Some(connected_accounts) =
                 bot.xeon().get_resource::<ConnectedAccounts>(*user_id).await
             {
+                log::info!("Connected accounts: {connected_accounts:?}");
                 if let Some(near_account) = &connected_accounts.near {
-                    if is_ascendant(&near_account.0).await.unwrap_or(false) {
+                    log::info!("Near account: {near_account:?}");
+                    if dbg!(is_ascendant(&near_account.0).await).unwrap_or(false) {
                         let account_id = &near_account.0;
                         let current_count =
                             raid_participation.get(account_id).await.unwrap_or_default();
@@ -274,6 +278,17 @@ async fn distribute_raid_points(
 
     let mut points_summary = String::new();
     let mut user_points_earned: HashMap<UserId, usize> = HashMap::new();
+
+    log::info!(
+        "Reposters for raid {}: {reposters:?}, {:?}",
+        raid_key.tweet_id,
+        raid_state.points_per_repost
+    );
+    log::info!(
+        "Repliers for raid {}: {repliers:?}, {:?}",
+        raid_key.tweet_id,
+        raid_state.points_per_comment
+    );
 
     if let Some(points) = raid_state.points_per_repost {
         if points > 0 && !reposters.is_empty() {
@@ -405,8 +420,13 @@ fn create_raid_message(raid_state: &RaidState, stats: Option<&TweetStats>) -> St
 
 {}
 
-🔥 Drop your likes, retweets, and replies\\!",
-        markdown::escape(&raid_state.tweet_url)
+🔥 Drop your likes, retweets, and replies\\!{}",
+        markdown::escape(&raid_state.tweet_url),
+        if raid_state.points_per_comment.is_some() || raid_state.points_per_repost.is_some() {
+            format!("\n\nIf you haven't yet: connect your X account to make the points count\\!")
+        } else {
+            "".to_string()
+        }
     );
 
     let has_targets = raid_state.target_likes.is_some()
@@ -751,19 +771,27 @@ impl RaidBotModule {
                         create_raid_message(&state, stats.as_ref())
                     };
 
-                    let buttons = vec![vec![InlineKeyboardButton::url(
-                        "Connect X",
-                        format!(
-                            "tg://resolve?domain={}&start=connect-accounts",
-                            bot.bot()
-                                .get_me()
-                                .await
-                                .map(|me| me.username.clone().unwrap_or_default())
-                                .unwrap_or_default()
-                        )
-                        .parse()
-                        .unwrap(),
-                    )]];
+                    let buttons = if all_goals_reached
+                        || deadline_hit
+                        || state.points_per_comment.is_none()
+                        || state.points_per_repost.is_none()
+                    {
+                        Vec::<Vec<_>>::new()
+                    } else {
+                        vec![vec![InlineKeyboardButton::url(
+                            "Connect X",
+                            format!(
+                                "tg://resolve?domain={}&start=connect-accounts",
+                                bot.bot()
+                                    .get_me()
+                                    .await
+                                    .map(|me| me.username.clone().unwrap_or_default())
+                                    .unwrap_or_default()
+                            )
+                            .parse()
+                            .unwrap(),
+                        )]]
+                    };
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
 
                     if deadline_hit || all_goals_reached || state.updated_times >= 1000 {
@@ -3064,21 +3092,27 @@ When should this raid end?"
 
                 let message_text = create_raid_message(&raid_state, tweet_stats.as_ref());
 
-                let buttons = vec![vec![InlineKeyboardButton::url(
-                    "Connect X",
-                    format!(
-                        "tg://resolve?domain={}&start=connect-accounts",
-                        context
-                            .bot()
-                            .bot()
-                            .get_me()
-                            .await
-                            .map(|me| me.username.clone().unwrap_or_default())
-                            .unwrap_or_default()
-                    )
-                    .parse()
-                    .unwrap(),
-                )]];
+                let buttons = if raid_state.points_per_comment.is_some()
+                    || raid_state.points_per_repost.is_some()
+                {
+                    vec![vec![InlineKeyboardButton::url(
+                        "Connect X",
+                        format!(
+                            "tg://resolve?domain={}&start=connect-accounts",
+                            context
+                                .bot()
+                                .bot()
+                                .get_me()
+                                .await
+                                .map(|me| me.username.clone().unwrap_or_default())
+                                .unwrap_or_default()
+                        )
+                        .parse()
+                        .unwrap(),
+                    )]]
+                } else {
+                    Vec::<Vec<_>>::new()
+                };
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 let sent = context
                     .bot()

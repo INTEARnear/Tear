@@ -724,7 +724,7 @@ impl XeonBotModule for HubModule {
                 }
                 #[cfg(feature = "trading-bot-module")]
                 if text == "/buy" {
-                    // Uses set_dm_message_command, but TradingBotModule goes after HubModule,
+                    // Uses set_message_command, but TradingBotModule goes after HubModule,
                     // so avoid handling this message as input to /buy
                     let xeon = Arc::clone(bot.xeon());
                     let bot_id = bot.id();
@@ -754,7 +754,7 @@ impl XeonBotModule for HubModule {
                 }
                 #[cfg(feature = "utilities-module")]
                 if text == "/token" || text == "/ft" {
-                    // Uses set_dm_message_command, but UtilitiesModule goes after HubModule,
+                    // Uses set_message_command, but UtilitiesModule goes after HubModule,
                     // so avoid handling this message as input to /token
                     let xeon = Arc::clone(bot.xeon());
                     let bot_id = bot.id();
@@ -823,7 +823,7 @@ impl XeonBotModule for HubModule {
                 }
                 #[cfg(feature = "utilities-module")]
                 if text == "/holders" {
-                    // Uses set_dm_message_command, but UtilitiesModule goes after HubModule,
+                    // Uses set_message_command, but UtilitiesModule goes after HubModule,
                     // so avoid handling this message as input to /holders
                     let xeon = Arc::clone(bot.xeon());
                     let bot_id = bot.id();
@@ -887,7 +887,7 @@ impl XeonBotModule for HubModule {
                 }
                 #[cfg(feature = "utilities-module")]
                 if text == "/account" || text == "/acc" {
-                    // Uses set_dm_message_command, but UtilitiesModule goes after HubModule,
+                    // Uses set_message_command, but UtilitiesModule goes after HubModule,
                     // so avoid handling this message as input to /account
                     let xeon = Arc::clone(bot.xeon());
                     let bot_id = bot.id();
@@ -3080,47 +3080,50 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 }
             }
         }
-        #[cfg(any(feature = "tip-bot-module", feature = "raid-bot-module"))]
-        {
-            let mut row = Vec::new();
-            #[cfg(feature = "tip-bot-module")]
+        if !target_chat_id.is_user() {
+            #[cfg(any(feature = "tip-bot-module", feature = "raid-bot-module"))]
             {
-                row.push(InlineKeyboardButton::callback(
-                    "💁 Tip Bot",
-                    context
+                let mut row = Vec::new();
+                #[cfg(feature = "tip-bot-module")]
+                {
+                    row.push(InlineKeyboardButton::callback(
+                        "💁 Tip Bot",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::TipBotChatSettings {
+                                target_chat_id: target_chat_id.chat_id(),
+                            })
+                            .await,
+                    ));
+                }
+                #[cfg(feature = "raid-bot-module")]
+                {
+                    let chat = context
                         .bot()
-                        .to_callback_data(&TgCommand::TipBotChatSettings {
-                            target_chat_id: target_chat_id.chat_id(),
-                        })
-                        .await,
-                ));
-            }
-            #[cfg(feature = "raid-bot-module")]
-            {
-                let chat = context
-                    .bot()
-                    .bot()
-                    .get_chat(target_chat_id.chat_id())
-                    .await?;
-                if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
-                    if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
-                    | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
-                    {
-                        if target_chat_id.thread_id().is_none() {
-                            row.push(InlineKeyboardButton::callback(
-                                "💬 Raid Bot",
-                                context
-                                    .bot()
-                                    .to_callback_data(&TgCommand::RaidBotChatSettings {
-                                        target_chat_id: target_chat_id.chat_id(),
-                                    })
-                                    .await,
-                            ));
+                        .bot()
+                        .get_chat(target_chat_id.chat_id())
+                        .await?;
+                    if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
+                        if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
+                        | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) =
+                            chat.kind
+                        {
+                            if target_chat_id.thread_id().is_none() {
+                                row.push(InlineKeyboardButton::callback(
+                                    "💬 Raid Bot",
+                                    context
+                                        .bot()
+                                        .to_callback_data(&TgCommand::RaidBotChatSettings {
+                                            target_chat_id: target_chat_id.chat_id(),
+                                        })
+                                        .await,
+                                ));
+                            }
                         }
                     }
                 }
+                buttons.push(row);
             }
-            buttons.push(row);
         }
         if !target_chat_id.is_user() && target_chat_id.thread_id().is_none() {
             buttons.push(vec![InlineKeyboardButton::callback(
@@ -3224,6 +3227,12 @@ async fn create_notificatons_buttons(
     buttons.push(InlineKeyboardButton::callback(
         "🏦 House of Stake",
         bot.to_callback_data(&TgCommand::HouseOfStakeSettings(target_chat_id))
+            .await,
+    ));
+    #[cfg(feature = "subscription-lists-module")]
+    buttons.push(InlineKeyboardButton::callback(
+        "📬 Newsletters",
+        bot.to_callback_data(&TgCommand::SubscriptionListsSettings(target_chat_id))
             .await,
     ));
     let mut buttons = buttons

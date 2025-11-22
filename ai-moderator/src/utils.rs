@@ -108,19 +108,19 @@ pub async fn get_message_rating(
     xeon: Arc<XeonState>,
     bot_config: &AiModeratorBotConfig,
 ) -> MessageRating {
-    if config.mute_flood {
-        if let Some(user) = message.from.as_ref() {
-            let message_text = message
-                .text()
-                .or(message.caption())
-                .unwrap_or_default()
-                .to_string();
+    if let Some(user) = message.from.as_ref() {
+        let message_text = message
+            .text()
+            .or(message.caption())
+            .unwrap_or_default()
+            .to_string();
 
-            if bot_config
-                .mute_flood_data
-                .check_flood(chat_id, user.id, &message_text)
-                .await
-            {
+        if bot_config
+            .mute_flood_data
+            .check_flood(chat_id, user.id, &message_text, message.id)
+            .await
+        {
+            if config.mute_flood {
                 return MessageRating::Ok {
                     judgement: ModerationJudgement::JustMute(Some(Duration::from_secs(3 * 60))),
                     reasoning: "User exceeded flood limits (too many messages too quickly, or repeated messages)".to_string(),

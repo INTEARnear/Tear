@@ -16,6 +16,7 @@ Tear is an open-source edition of [Xeon](https://t.me/Intear_Xeon_bot), that cur
 - Tip Bot
 - House of Stake Notifications
 - Raid Bot
+- Newsletter Subscriptions
 
 ### Running
 
@@ -89,19 +90,39 @@ No additional setup is required.
 
 #### Chart Command
 
+You need to have `geckodriver` installed and in your PATH.
+
+#### Wallet Tracking
+
 No additional setup is required.
 
-Also, you need to have `geckodriver` installed and in your PATH.
+#### House of Stake Notifications
 
-#### AI Agents
+No additional setup is required.
 
-You need to have `NEAR_AI_API_KEY` and `BITTE_API_KEY` environment variables set. Get `NEAR_AI_API_KEY` from Near AI CLI (`pip install nearai`, `nearai login`, `cat ~/.nearai/config.json | jq .auth`) and `BITTE_API_KEY` from [Bitte](https://key.bitte.ai).
+#### Raid Bot
+
+Need to set up X API and bettearbot-connect-bridge and:
+- `CONNECTION_HOST`: The address of the bettearbot connect bridge deployment.
+- `CONNECTION_KEY`: An ed25519 key, in same format as NEAR private keys. Used to authenticate with bettearbot-connect-bridge.
+- `TWEETAPI_KEY`: An API key to tweetapi.com service used for X information retrieval.
+
+#### Tip Bot
+
+You need to have these environment variables:
+
+- `TIPBOT_ACCOUNT_ID`: The parent account for tipbot treasuries (e.g. `tipbot.intear.near`)
+- `TIPBOT_PRIVATE_KEY`: The private key to that parent account. It will also be used for child accounts.
+
+#### Newsletter Subscriptions
+
+No additional setup is required.
 
 ### Architecture
 
 The bot consists of multiple modules. The first and necessary one is HubModule. It handles /start and gives buttons that help users access other modules. There are also event handlers that handle events from blockchain, they are somewhat similar to modules, and one struct can implement both traits. Check out `tearbot/src/main.rs` to see how to register a module. Modules in Tear are hidden behind feature flags. Some of the modules are open-source, so these features are enabled by default, but some are stored inside `xeon-private-modules`, which are not accessible publicly. Tear can support multiple telegram bot instances, with different or shared per-bot data and modules, check out the `main.rs` to see more.
 
-There are 2 types of telegram events: Callbacks (button clicks) and Messages. Telegram has a limit of 64 characters in button metadata, so when the bot sends a button with a callback data, it creates a hash and stores its base58 representation in MongoDB. When the user clicks a button, the bot pulls the data associated with this hash, deserializes it into enum `TgCommand`, and lets every module handle this callback. The bot works primarily with `TgContext` struct, which has a method `edit_or_send` that is quite convenient if you want to avoid sending a new message each time a user interacts with a button. The context stores a shared reference to struct `BotData`, which contains various internal bot data, such as connected accounts, message commands (message requests), etc. When the bot needs to request the user to send a message, it uses `bot_data.set_dm_message_command(user_id, MessageCommand::Something)`, which stores the `MessageCommand` in a `PersistentCachedStore<UserId, MessageCommand>` for later use. When a user sends a message, and the user exists in this data structure, the modules handle this `MessageCommand`, and if the message is valid and the action was successful, call `bot_data.remove_dm_message_command(UserId)`.
+There are 2 types of telegram events: Callbacks (button clicks) and Messages. Telegram has a limit of 64 characters in button metadata, so when the bot sends a button with a callback data, it creates a hash and stores its base58 representation in MongoDB. When the user clicks a button, the bot pulls the data associated with this hash, deserializes it into enum `TgCommand`, and lets every module handle this callback. The bot works primarily with `TgContext` struct, which has a method `edit_or_send` that is quite convenient if you want to avoid sending a new message each time a user interacts with a button. The context stores a shared reference to struct `BotData`, which contains various internal bot data, such as connected accounts, message commands (message requests), etc. When the bot needs to request the user to send a message, it uses `bot_data.set_message_command(user_id, MessageCommand::Something)`, which stores the `MessageCommand` in a `PersistentCachedStore<UserId, MessageCommand>` for later use. When a user sends a message, and the user exists in this data structure, the modules handle this `MessageCommand`, and if the message is valid and the action was successful, call `bot_data.remove_message_command(UserId)`.
 
 One struct you would notice particularly often in the codebase is `PersistentCachedStore`, it's a high-level abstraction over a MongoDB key-value store. Check the comments in the struct declaration to understand more about its usage.
 
