@@ -738,7 +738,8 @@ impl RaidBotModule {
 
                     let stats = get_tweet_stats(state.tweet_url.clone()).await.ok();
 
-                    let deadline_hit = state.deadline.map(|d| now >= d).unwrap_or(false);
+                    let deadline_hit = state.deadline.map(|d| now >= d).unwrap_or(false)
+                        || state.updated_times >= 3416; // makes it 7 days in total
 
                     let has_targets = state.target_likes.is_some()
                         || state.target_reposts.is_some()
@@ -794,7 +795,7 @@ impl RaidBotModule {
                     };
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
 
-                    if deadline_hit || all_goals_reached || state.updated_times >= 1000 {
+                    if deadline_hit || all_goals_reached {
                         if state.pinned {
                             let _ = bot
                                 .bot()
@@ -853,7 +854,16 @@ impl RaidBotModule {
                                     )
                                     .await;
 
-                                let next_stats_update = now + chrono::Duration::seconds(30);
+                                let next_stats_update = now
+                                    + match state.updated_times {
+                                        ..200 => chrono::Duration::seconds(30),
+                                        200..400 => chrono::Duration::seconds(45),
+                                        400..600 => chrono::Duration::seconds(60),
+                                        600..800 => chrono::Duration::seconds(75),
+                                        800..1000 => chrono::Duration::seconds(90),
+                                        1000..2000 => chrono::Duration::seconds(120),
+                                        2000.. => chrono::Duration::seconds(300),
+                                    };
                                 let next_repost =
                                     state.repost_interval.map(|interval| now + interval);
 

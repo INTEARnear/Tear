@@ -626,15 +626,9 @@ impl XeonBotModule for TipBotModule {
                     return Ok(());
                 };
 
-                let expected_start = format!(
-                    "{}, you received ",
-                    user_message
-                        .from
-                        .as_ref()
-                        .map_or("Unknown".to_string(), |user| user.full_name()),
-                );
-
-                if !reply_to_text.starts_with(&expected_start) {
+                if !reply_to_text.ends_with(
+                    "reply to this message with your .near or .tg address to connect and claim",
+                ) {
                     return Ok(());
                 }
 

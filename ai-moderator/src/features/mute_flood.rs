@@ -5,7 +5,10 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use tearbot_common::teloxide::{prelude::{ChatId, UserId}, types::MessageId};
+use tearbot_common::teloxide::{
+    prelude::{ChatId, UserId},
+    types::MessageId,
+};
 use tokio::sync::RwLock;
 
 use crate::ChatUser;
@@ -66,7 +69,13 @@ impl MuteFloodData {
         }
     }
 
-    pub async fn check_flood(&self, chat_id: ChatId, user_id: UserId, message_text: &str, message_id: MessageId) -> bool {
+    pub async fn check_flood(
+        &self,
+        chat_id: ChatId,
+        user_id: UserId,
+        message_text: &str,
+        message_id: MessageId,
+    ) -> bool {
         let chat_user = ChatUser { chat_id, user_id };
 
         // Check token bucket (1 token per second, 3 capacity)

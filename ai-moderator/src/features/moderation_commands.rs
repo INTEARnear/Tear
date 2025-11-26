@@ -133,7 +133,10 @@ async fn handle_ban_command(
         {
             log::warn!("Error banning user {user_id}: {err}");
         } else {
-            let message_ids = bot_config.mute_flood_data.get_user_message_ids(chat_id, user_id).await;
+            let message_ids = bot_config
+                .mute_flood_data
+                .get_user_message_ids(chat_id, user_id)
+                .await;
             if !message_ids.is_empty() {
                 // Delete messages in batches of 100 (Telegram API limit)
                 for chunk in message_ids.chunks(100) {
