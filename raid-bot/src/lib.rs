@@ -244,7 +244,9 @@ async fn distribute_raid_points(
     all_participants.extend(repliers.iter());
 
     // Legion
-    if raid_key.chat_id.chat_id().0 == -1002742182312 {
+    if raid_key.chat_id.chat_id().0 == -1002742182312
+        || raid_key.chat_id.chat_id().0 == -1003269734063
+    {
         log::info!("Raid in Legion");
         for user_id in &all_participants {
             log::info!("User ID: {user_id}");
