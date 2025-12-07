@@ -7,7 +7,7 @@ use crate::{utils::badges::get_selected_badge, xeon::XeonState};
 
 use super::{
     requests::get_cached_30s,
-    rpc::{view_cached_30s, view_cached_7d},
+    rpc::{view_cached_7d, view_cached_30s},
 };
 
 pub const NEAR_DECIMALS: u32 = 24;

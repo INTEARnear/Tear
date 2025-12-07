@@ -4,8 +4,8 @@ use std::time::Duration;
 use std::{
     collections::HashMap,
     sync::{
-        atomic::{AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicI32, Ordering},
     },
 };
 
@@ -29,7 +29,7 @@ use tearbot_common::{
 };
 use unicode_security::skeleton;
 
-use crate::{utils, AiModeratorBotConfig, AiModeratorChatConfig};
+use crate::{AiModeratorBotConfig, AiModeratorChatConfig, utils};
 
 pub async fn is_in_moderator_chat_or_dm(
     chat_id: ChatId,

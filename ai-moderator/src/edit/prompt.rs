@@ -11,15 +11,14 @@ use tearbot_common::{
         prelude::{ChatId, Requester, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup, ParseMode},
     },
-    tgbot::{BotData, TgCallbackContext, DONT_CARE},
+    tgbot::{BotData, DONT_CARE, TgCallbackContext},
     utils::chat::{check_admin_permission_in_chat, expandable_blockquote},
     xeon::XeonState,
 };
 
 use crate::{
-    moderator,
+    AiModeratorBotConfig, moderator,
     utils::{self, reached_base_rate_limit},
-    AiModeratorBotConfig,
 };
 
 pub async fn handle_set_prompt_input(

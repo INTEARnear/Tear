@@ -7,7 +7,7 @@ use tearbot_common::{
     utils::chat::check_admin_permission_in_chat,
 };
 
-use crate::{moderator, AiModeratorBotConfig};
+use crate::{AiModeratorBotConfig, moderator};
 
 pub async fn handle_button(
     ctx: &mut TgCallbackContext<'_>,

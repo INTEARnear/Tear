@@ -4,13 +4,13 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use bigdecimal::ToPrimitive;
-use near_api::signer::secret_key::SecretKeySigner;
-use near_api::signer::Signer;
-use near_api::signer::SignerTrait;
-use near_api::types::storage::StorageBalanceInternal;
 use near_api::RPCEndpoint;
 use near_api::Tokens;
 use near_api::Transaction;
+use near_api::signer::Signer;
+use near_api::signer::SignerTrait;
+use near_api::signer::secret_key::SecretKeySigner;
+use near_api::types::storage::StorageBalanceInternal;
 use near_api::{Account, Contract, NetworkConfig};
 use near_crypto::SecretKey;
 
@@ -19,6 +19,7 @@ use near_primitives::account::AccessKeyPermission;
 use near_primitives::views::FinalExecutionStatus;
 use near_token::NearToken;
 use serde::{Deserialize, Serialize};
+use tearbot_common::bot_commands::ConnectedAccounts;
 use tearbot_common::bot_commands::{MessageCommand, TgCommand};
 use tearbot_common::mongodb::Database;
 use tearbot_common::near_primitives::types::AccountId;
@@ -32,17 +33,17 @@ use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::tgbot::{
     BotData, BotType, MustAnswerCallbackQuery, NotificationDestination, TgCallbackContext,
 };
+use tearbot_common::utils::UserInChat;
 use tearbot_common::utils::apis::search_token;
 use tearbot_common::utils::chat::{
-    check_admin_permission_in_chat, get_chat_title_cached_5m, DM_CHAT,
+    DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m,
 };
 use tearbot_common::utils::rpc::account_exists;
 use tearbot_common::utils::store::PersistentCachedStore;
+use tearbot_common::utils::tokens::StringifiedBalance;
 use tearbot_common::utils::tokens::format_near_amount;
 use tearbot_common::utils::tokens::format_tokens;
 use tearbot_common::utils::tokens::get_ft_metadata;
-use tearbot_common::utils::tokens::StringifiedBalance;
-use tearbot_common::utils::UserInChat;
 use tearbot_common::xeon::{TokenScore, XeonBotModule, XeonState};
 
 pub struct TipBotModule {
@@ -431,9 +432,17 @@ impl XeonBotModule for TipBotModule {
                         return Ok(());
                     };
 
-                    if let Some(recipient_account_id) =
-                        bot_config.connected_accounts.get(&user_in_chat).await
-                    {
+                    let connected_account = bot
+                        .xeon()
+                        .get_resource::<ConnectedAccounts>(reply_to_user.id)
+                        .await;
+                    let connected_account =
+                        if let Some(Some(connected_account)) = connected_account.map(|c| c.near) {
+                            Some(connected_account.0)
+                        } else {
+                            bot_config.connected_accounts.get(&user_in_chat).await
+                        };
+                    if let Some(recipient_account_id) = connected_account {
                         if let Err(err_msg) =
                             self.check_treasury_near_balance(tip_treasury_wallet).await
                         {
@@ -597,7 +606,10 @@ impl XeonBotModule for TipBotModule {
                             "[{}](tg://user?id={}), you received {}, reply to this message with your \\.near or \\.tg address to connect and claim",
                             markdown::escape(&reply_to_user.full_name()),
                             reply_to_user.id.0,
-                            markdown::escape(&format_tokens(amount_balance, &token_contract, Some(bot.xeon())).await),
+                            markdown::escape(
+                                &format_tokens(amount_balance, &token_contract, Some(bot.xeon()))
+                                    .await
+                            ),
                         );
 
                         let buttons = Vec::<Vec<_>>::new();
@@ -781,6 +793,8 @@ impl XeonBotModule for TipBotModule {
                             "\n\n⚠️ Failed to claim: {}",
                             markdown::escape(&failed_tokens.join(", "))
                         ));
+                    } else if !unclaimed_tips.is_empty() {
+                        success_message.push_str("\n\n🎁 All claimed\\!");
                     }
                 }
 

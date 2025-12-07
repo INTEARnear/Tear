@@ -23,12 +23,12 @@ use tearbot_common::{
         BotData, BotType, MustAnswerCallbackQuery, NotificationDestination, TgCallbackContext,
     },
     utils::{
-        chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, DM_CHAT},
+        chat::{DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m},
         format_duration,
         rpc::view_not_cached,
         store::PersistentCachedStore,
         tokens::{
-            format_account_id, format_near_amount_without_price, StringifiedBalance, NEAR_DECIMALS,
+            NEAR_DECIMALS, StringifiedBalance, format_account_id, format_near_amount_without_price,
         },
     },
     xeon::{XeonBotModule, XeonState},

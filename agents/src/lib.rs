@@ -35,12 +35,12 @@ use tearbot_common::{
 };
 
 use bitte::{
-    get_bitte_agents, handle_bitte_agent, score_agent_relevance as bitte_score_agent_relevance,
-    MessageRole,
+    MessageRole, get_bitte_agents, handle_bitte_agent,
+    score_agent_relevance as bitte_score_agent_relevance,
 };
 use near_ai::{
-    get_near_ai_agents, handle_near_ai_agent,
-    score_agent_relevance as near_ai_score_agent_relevance, NearAIAgentResult,
+    NearAIAgentResult, get_near_ai_agents, handle_near_ai_agent,
+    score_agent_relevance as near_ai_score_agent_relevance,
 };
 
 pub struct AgentsModule {
@@ -174,7 +174,9 @@ impl XeonBotModule for AgentsModule {
                                     .or(message.quote().map(|q| q.text.clone())),
                             ) {
                                 (Some(additional_info), Some(reply_text)) => {
-                                    format!("User's instructions: {additional_info}\n\nThis is a reply to someone's message: {reply_text}")
+                                    format!(
+                                        "User's instructions: {additional_info}\n\nThis is a reply to someone's message: {reply_text}"
+                                    )
                                 }
                                 (Some(additional_info), None) => additional_info.to_string(),
                                 (None, Some(reply_text)) => reply_text.to_string(),
@@ -795,19 +797,19 @@ Send a text message to use the agent
             }
             TgCommand::AgentsAddToChatStep1 { agent_type } => {
                 let message = "What chat do you want to add the agent to?";
-                let reply_markup = KeyboardMarkup::new(vec![vec![KeyboardButton::new(
-                    "Select Chat",
-                )
-                .request(ButtonRequest::RequestChat(KeyboardButtonRequestChat {
-                    request_id: RequestId(0),
-                    chat_is_channel: false,
-                    chat_is_forum: None,
-                    chat_has_username: None,
-                    chat_is_created: None,
-                    user_administrator_rights: None,
-                    bot_administrator_rights: None,
-                    bot_is_member: true,
-                }))]]);
+                let reply_markup =
+                    KeyboardMarkup::new(vec![vec![KeyboardButton::new("Select Chat").request(
+                        ButtonRequest::RequestChat(KeyboardButtonRequestChat {
+                            request_id: RequestId(0),
+                            chat_is_channel: false,
+                            chat_is_forum: None,
+                            chat_has_username: None,
+                            chat_is_created: None,
+                            user_administrator_rights: None,
+                            bot_administrator_rights: None,
+                            bot_is_member: true,
+                        }),
+                    )]]);
                 context
                     .bot()
                     .set_message_command(

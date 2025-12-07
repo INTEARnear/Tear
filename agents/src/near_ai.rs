@@ -5,14 +5,14 @@ use std::{
 };
 
 use base64::{
-    prelude::{BASE64_STANDARD, BASE64_URL_SAFE},
     Engine,
+    prelude::{BASE64_STANDARD, BASE64_URL_SAFE},
 };
 use cached::proc_macro::cached;
 use itertools::Itertools;
-use near_api::{signer::NEP413Payload, AccountId, SignerTrait};
+use near_api::{AccountId, SignerTrait, signer::NEP413Payload};
 use near_crypto::Signature;
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tearbot_common::{

@@ -18,7 +18,7 @@ use tearbot_common::{
     },
     tgbot::NotificationDestination,
     utils::{
-        chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, DM_CHAT},
+        chat::{DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m},
         store::PersistentCachedStore,
         tokens::{format_account_id, format_usd_amount},
     },
@@ -353,7 +353,9 @@ impl XeonBotModule for BurrowLiquidationsModule {
                 } else {
                     return Ok(());
                 };
-                let message = format!("Burrow liquidation alerts{for_chat_name}\n\nClick an account to stop receiving liquidation alerts");
+                let message = format!(
+                    "Burrow liquidation alerts{for_chat_name}\n\nClick an account to stop receiving liquidation alerts"
+                );
                 let mut buttons = vec![vec![InlineKeyboardButton::callback(
                     "🗑 Remove all",
                     context

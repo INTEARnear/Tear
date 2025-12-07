@@ -1,4 +1,4 @@
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use cached::proc_macro::cached;
 use chrono::{DateTime, Utc};
 use inindexer::near_utils::dec_format;
@@ -10,7 +10,7 @@ use near_primitives::{
     hash::CryptoHash,
     types::{AccountId, Balance, BlockHeight},
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use super::requests::get_reqwest_client;
 

@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 
-use base64::prelude::{Engine, BASE64_STANDARD};
+use base64::prelude::{BASE64_STANDARD, Engine};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -149,7 +149,9 @@ impl Model {
         } else {
             match serde_json::from_str::<T>(text) {
                 Ok(result) => {
-                    log::info!("{self:?} response for:\n\nMessage:{message}\n\nPrompt: {prompt}\n\nResponse: {result:?}\n\n");
+                    log::info!(
+                        "{self:?} response for:\n\nMessage:{message}\n\nPrompt: {prompt}\n\nResponse: {result:?}\n\n"
+                    );
                     Ok(result)
                 }
                 Err(err) => {
@@ -270,7 +272,9 @@ pub async fn get_ai_response(
     let prompt = if schema_supported || schema == SCHEMA_STRING {
         prompt.to_string()
     } else {
-        format!("{prompt}\n\nRespond with a json object that matches the following schema, without formatting, ready to parse:\n{schema}")
+        format!(
+            "{prompt}\n\nRespond with a json object that matches the following schema, without formatting, ready to parse:\n{schema}"
+        )
     };
     let content = if let Some(image_jpeg) = image_jpeg {
         serde_json::json!([

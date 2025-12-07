@@ -11,9 +11,9 @@ use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::tgbot::{
     Attachment, BotData, BotType, MustAnswerCallbackQuery, TgCallbackContext,
 };
-use tearbot_common::utils::chat::{get_chat_title_cached_5m, DM_CHAT};
-use tearbot_common::utils::store::PersistentCachedStore;
 use tearbot_common::utils::SLIME_USER_ID;
+use tearbot_common::utils::chat::{DM_CHAT, get_chat_title_cached_5m};
+use tearbot_common::utils::store::PersistentCachedStore;
 use tearbot_common::xeon::{XeonBotModule, XeonState};
 
 pub struct SubscriptionListsModule {

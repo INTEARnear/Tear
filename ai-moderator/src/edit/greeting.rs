@@ -8,11 +8,11 @@ use tearbot_common::{
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
     },
-    tgbot::{Attachment, BotData, TgCallbackContext, DONT_CARE},
+    tgbot::{Attachment, BotData, DONT_CARE, TgCallbackContext},
     utils::chat::check_admin_permission_in_chat,
 };
 
-use crate::{moderator, AiModeratorBotConfig};
+use crate::{AiModeratorBotConfig, moderator};
 
 pub async fn handle_button(
     ctx: &mut TgCallbackContext<'_>,

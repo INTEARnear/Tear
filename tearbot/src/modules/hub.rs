@@ -8,8 +8,8 @@ use std::{
 
 use async_trait::async_trait;
 use base64::{
-    prelude::{BASE64_STANDARD, BASE64_URL_SAFE},
     Engine,
+    prelude::{BASE64_STANDARD, BASE64_URL_SAFE},
 };
 use cached::proc_macro::cached;
 use itertools::Itertools;
@@ -17,6 +17,10 @@ use near_crypto::SecretKey;
 use serde::{Deserialize, Serialize};
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
+use tearbot_common::utils::{
+    apis::parse_meme_cooking_link, badges::get_all_badges, requests::get_reqwest_client,
+    rpc::account_exists,
+};
 use tearbot_common::{
     bot_commands::{
         ConnectedAccounts, ConnectedNearAccount, MessageCommand, TgCommand, UsersByNearAccount,
@@ -34,11 +38,14 @@ use tearbot_common::{
         utils::markdown,
     },
     tgbot::{
-        Attachment, BotData, BotType, MigrationData, MustAnswerCallbackQuery, TgCallbackContext,
-        DONT_CARE,
+        Attachment, BotData, BotType, DONT_CARE, MigrationData, MustAnswerCallbackQuery,
+        TgCallbackContext,
     },
     utils::{
-        chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, ChatPermissionLevel},
+        chat::{
+            ChatPermissionLevel, check_admin_permission_in_chat, get_chat_title_cached_5m,
+            has_permission_in_chat,
+        },
         store::PersistentCachedStore,
     },
     xeon::{XeonBotModule, XeonState},
@@ -47,17 +54,10 @@ use tearbot_common::{
     teloxide::types::{MessageId, ThreadId},
     utils::tokens::get_ft_metadata,
 };
-use tearbot_common::{
-    tgbot::ConnectedAccount,
-    utils::{
-        apis::parse_meme_cooking_link, badges::get_all_badges, requests::get_reqwest_client,
-        rpc::account_exists,
-    },
-};
-use tearbot_common::{tgbot::NotificationDestination, utils::tokens::format_tokens};
 use tearbot_common::{tgbot::BASE_REFERRAL_SHARE, utils::tokens::format_account_id};
+use tearbot_common::{tgbot::NotificationDestination, utils::tokens::format_tokens};
 use tearbot_common::{
-    utils::{apis::get_x_username, tokens::MEME_COOKING_CONTRACT_ID, SLIME_USER_ID},
+    utils::{SLIME_USER_ID, apis::get_x_username, tokens::MEME_COOKING_CONTRACT_ID},
     xeon::Resource,
 };
 
@@ -158,6 +158,7 @@ impl XeonBotModule for HubModule {
                             accounts.push(user_id);
                         }
                     }
+                    log::info!("Users by X account: {} -> {:?}", x_id.0, accounts);
                     Some(Box::new(UsersByXAccount(accounts)))
                 })
             })
@@ -446,10 +447,45 @@ impl XeonBotModule for HubModule {
                 || text == "/start"
                 || text.to_lowercase() == format!("/start@{bot_username}").to_lowercase()
             {
-                let buttons = if let Some(thread_id) = user_message.thread_id {
-                    vec![
-                        vec![InlineKeyboardButton::url(
-                            "Setup for entire chat",
+                if let Some(user_id) = user_id
+                    && has_permission_in_chat(bot, chat_id, user_id).await
+                {
+                    let buttons = if let Some(thread_id) = user_message.thread_id {
+                        vec![
+                            vec![InlineKeyboardButton::url(
+                                "Setup for entire chat",
+                                format!(
+                                    "tg://resolve?domain={bot_username}&start=setup-{chat_id}",
+                                    bot_username = bot
+                                        .bot()
+                                        .get_me()
+                                        .await?
+                                        .username
+                                        .as_ref()
+                                        .expect("Bot has no username"),
+                                )
+                                .parse()
+                                .unwrap(),
+                            )],
+                            vec![InlineKeyboardButton::url(
+                                "Setup only this topic",
+                                format!(
+                                    "tg://resolve?domain={bot_username}&start=setup-{chat_id}={thread_id}",
+                                    bot_username = bot
+                                        .bot()
+                                        .get_me()
+                                        .await?
+                                        .username
+                                        .as_ref()
+                                        .expect("Bot has no username"),
+                                )
+                                .parse()
+                                .unwrap(),
+                            )],
+                        ]
+                    } else {
+                        vec![vec![InlineKeyboardButton::url(
+                            "Setup",
                             format!(
                                 "tg://resolve?domain={bot_username}&start=setup-{chat_id}",
                                 bot_username = bot
@@ -462,48 +498,17 @@ impl XeonBotModule for HubModule {
                             )
                             .parse()
                             .unwrap(),
-                        )],
-                        vec![InlineKeyboardButton::url(
-                            "Setup only this topic",
-                            format!(
-                                "tg://resolve?domain={bot_username}&start=setup-{chat_id}={thread_id}",
-                                bot_username = bot
-                                    .bot()
-                                    .get_me()
-                                    .await?
-                                    .username
-                                    .as_ref()
-                                    .expect("Bot has no username"),
-                            )
-                            .parse()
-                            .unwrap(),
-                        )],
-                    ]
-                } else {
-                    vec![vec![InlineKeyboardButton::url(
-                        "Setup",
-                        format!(
-                            "tg://resolve?domain={bot_username}&start=setup-{chat_id}",
-                            bot_username = bot
-                                .bot()
-                                .get_me()
-                                .await?
-                                .username
-                                .as_ref()
-                                .expect("Bot has no username"),
-                        )
-                        .parse()
-                        .unwrap(),
-                    )]]
-                };
-                let message = "Click here to set up the bot".to_string();
-                let reply_markup = InlineKeyboardMarkup::new(buttons);
-                bot.send_text_message(
-                    NotificationDestination::from_message(user_message),
-                    message,
-                    reply_markup,
-                )
-                .await?;
+                        )]]
+                    };
+                    let message = "Click here to set up the bot".to_string();
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    bot.send_text_message(
+                        NotificationDestination::from_message(user_message),
+                        message,
+                        reply_markup,
+                    )
+                    .await?;
+                }
             }
             #[cfg(feature = "ai-moderator-module")]
             if text == "/mod" || text == "/aimod" {
@@ -2181,7 +2186,9 @@ Sign up on [Imminent\\.build](https://imminent.build) to start collecting badges
                         .to_callback_data(&TgCommand::ChatSettings(target_chat_id))
                         .await,
                 )]);
-                let message = format!("Choose who can manage chat settings\\. These people will be able to add, remove, or change alerts in this chat\\.\n\nSelected option:\n{description}");
+                let message = format!(
+                    "Choose who can manage chat settings\\. These people will be able to add, remove, or change alerts in this chat\\.\n\nSelected option:\n{description}"
+                );
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
             }
@@ -2774,7 +2781,8 @@ Developed by [Intear](tg://resolve?domain=intearchat)", tearbot_common::tgbot::N
 
 Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
             ];
-            messages.choose(&mut rand::thread_rng()).unwrap().clone() + "\n\nClick the button to get started, or paste Token Contract, Account ID, /buy, /positions, /pricealerts, or /near for quick access"
+            messages.choose(&mut rand::thread_rng()).unwrap().clone()
+                + "\n\nClick the button to get started, or paste Token Contract, Account ID, /buy, /positions, /pricealerts, or /near for quick access"
         };
         #[cfg(feature = "tear")]
         let message = "

@@ -11,11 +11,11 @@ use tearbot_common::{
             RequestId,
         },
     },
-    tgbot::{Attachment, BotData, TgCallbackContext, DONT_CARE},
+    tgbot::{Attachment, BotData, DONT_CARE, TgCallbackContext},
     utils::chat::{check_admin_permission_in_chat, get_chat_title_cached_5m},
 };
 
-use crate::{moderator, AiModeratorBotConfig};
+use crate::{AiModeratorBotConfig, moderator};
 
 const CANCEL_TEXT: &str = "Cancel";
 

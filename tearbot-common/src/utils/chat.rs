@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use cached::{proc_macro::cached, TimedSizedCache};
+use cached::{TimedSizedCache, proc_macro::cached};
 use serde::{Deserialize, Serialize};
 use teloxide::{
     prelude::{ChatId, Message, Requester, UserId},
@@ -71,7 +71,7 @@ pub async fn get_chat_title_not_cached(
     }
 }
 
-pub async fn check_admin_permission_in_chat(
+pub async fn has_permission_in_chat(
     bot: &BotData,
     chat_id: impl Into<ChatId>,
     user_id: UserId,
@@ -109,6 +109,15 @@ pub async fn check_admin_permission_in_chat(
         }
         ChatPermissionLevel::Admin => member.is_owner() || administrator.is_some(),
     };
+    is_allowed
+}
+
+pub async fn check_admin_permission_in_chat(
+    bot: &BotData,
+    chat_id: impl Into<ChatId>,
+    user_id: UserId,
+) -> bool {
+    let is_allowed = has_permission_in_chat(bot, chat_id, user_id).await;
     if !is_allowed {
         bot
             .send_text_message(ChatId(user_id.0 as i64).into(), "You don't have permission to manage this chat\\. If you believe this is a mistake, contact the owner and ask them to change group permissions in the bot".to_string(), ReplyMarkup::inline_kb(Vec::<Vec<_>>::new()))

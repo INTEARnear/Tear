@@ -959,6 +959,6 @@ async fn get_all_fts_owned(account_id: &AccountId) -> Vec<(AccountId, u128)> {
 
 fn random_id() -> String {
     let mut rng = rand::thread_rng();
-    let id: [u8; 32] = rng.gen();
+    let id: [u8; 32] = rng.r#gen();
     CryptoHash(id).to_string()
 }

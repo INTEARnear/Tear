@@ -8,11 +8,11 @@ use tearbot_common::{
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
     },
-    tgbot::{Attachment, BotData, TgCallbackContext, DONT_CARE},
+    tgbot::{Attachment, BotData, DONT_CARE, TgCallbackContext},
     utils::chat::check_admin_permission_in_chat,
 };
 
-use crate::{moderator, AiModeratorBotConfig};
+use crate::{AiModeratorBotConfig, moderator};
 
 pub enum AiModeratorPreset {
     NearProject,
@@ -36,8 +36,12 @@ Reputable projects that are allowed to be mentioned: $NEAR, $TEAR / Intear / t.m
 
     pub fn allow_links(&self) -> &'static str {
         match self {
-            Self::NearProject => "Links to all websites are allowed, even if they are not related to NEAR Protocol or the current project.",
-            Self::JustChat => "Links to all websites are allowed, even if they are not related to the chat.",
+            Self::NearProject => {
+                "Links to all websites are allowed, even if they are not related to NEAR Protocol or the current project."
+            }
+            Self::JustChat => {
+                "Links to all websites are allowed, even if they are not related to the chat."
+            }
         }
     }
 
@@ -111,7 +115,9 @@ Reputable projects that are allowed to be mentioned: $NEAR, $TEAR / Intear / t.m
 
     pub fn scam_allowed(&self) -> &'static str {
         match self {
-            Self::NearProject | Self::JustChat => "Scamming is allowed, or is handled through another bot, so pass this as 'Good' even if you're sure that this message is harmful to other users.",
+            Self::NearProject | Self::JustChat => {
+                "Scamming is allowed, or is handled through another bot, so pass this as 'Good' even if you're sure that this message is harmful to other users."
+            }
         }
     }
 

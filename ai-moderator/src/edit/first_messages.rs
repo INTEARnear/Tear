@@ -7,11 +7,11 @@ use tearbot_common::{
         prelude::{ChatId, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
     },
-    tgbot::{BotData, TgCallbackContext, DONT_CARE},
+    tgbot::{BotData, DONT_CARE, TgCallbackContext},
     utils::chat::check_admin_permission_in_chat,
 };
 
-use crate::{moderator, AiModeratorBotConfig};
+use crate::{AiModeratorBotConfig, moderator};
 
 pub async fn handle_input(
     bot: &BotData,

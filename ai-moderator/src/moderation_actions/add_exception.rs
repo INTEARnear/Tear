@@ -10,12 +10,12 @@ use tearbot_common::{
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
     },
-    tgbot::{TgCallbackContext, DONT_CARE},
+    tgbot::{DONT_CARE, TgCallbackContext},
     utils::chat::{check_admin_permission_in_chat, expandable_blockquote},
     xeon::XeonState,
 };
 
-use crate::{utils::reached_base_rate_limit, AiModeratorBotConfig};
+use crate::{AiModeratorBotConfig, utils::reached_base_rate_limit};
 
 pub async fn handle_button(
     ctx: &mut TgCallbackContext<'_>,
@@ -39,7 +39,9 @@ pub async fn handle_button(
         return Ok(());
     };
     let quote = expandable_blockquote(&chat_config.prompt);
-    let message = format!("Here's the prompt I'm currently using:\n\n{quote}\n\nClick \"Enter what to allow\" to enter the thing you want to allow, and AI will generate a new prompt based on the old one and your request\nClick \"⌨️ Enter the new prompt\" to change the prompt completely, \\(write the new prompt manually\\)");
+    let message = format!(
+        "Here's the prompt I'm currently using:\n\n{quote}\n\nClick \"Enter what to allow\" to enter the thing you want to allow, and AI will generate a new prompt based on the old one and your request\nClick \"⌨️ Enter the new prompt\" to change the prompt completely, \\(write the new prompt manually\\)"
+    );
     let buttons: Vec<Vec<InlineKeyboardButton>> = vec![
         vec![InlineKeyboardButton::callback(
             "✨ Enter what to allow",
@@ -138,8 +140,9 @@ The AI Moderator can't flag for review, update its model, or do anything other t
                         .unwrap();
                         s
                     });
-                let message =
-                format!("{message}\n\nOr choose one of the AI\\-generated options:{suggestions}\n\n*Note that these suggestions are not guaranteed to work\\. They're easy to set up, but for best performance, it's recommended to write your own prompts*");
+                let message = format!(
+                    "{message}\n\nOr choose one of the AI\\-generated options:{suggestions}\n\n*Note that these suggestions are not guaranteed to work\\. They're easy to set up, but for best performance, it's recommended to write your own prompts*"
+                );
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 if let Err(err) = ctx.edit_or_send(message, reply_markup).await {
                     log::error!("Failed to send prompt edition message: {err:?}");

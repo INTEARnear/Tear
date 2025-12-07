@@ -18,8 +18,8 @@ use super::{
     requests::{get_cached_1h, get_reqwest_client},
     rpc::view_cached_1h,
     tokens::{
-        get_memecooking_finalized_info, get_memecooking_prelaunch_info, MemeCookingInfo,
-        MEME_COOKING_CONTRACT_ID,
+        MEME_COOKING_CONTRACT_ID, MemeCookingInfo, get_memecooking_finalized_info,
+        get_memecooking_prelaunch_info,
     },
 };
 
@@ -127,12 +127,13 @@ pub async fn search_token(
         } else {
             return Err(anyhow::anyhow!("Invalid token id"));
         };
-        return Ok(vec![bot
-            .xeon()
-            .get_token_info(&token_id)
-            .await
-            .ok_or_else(|| anyhow::anyhow!("Token not found"))?
-            .into()]);
+        return Ok(vec![
+            bot.xeon()
+                .get_token_info(&token_id)
+                .await
+                .ok_or_else(|| anyhow::anyhow!("Token not found"))?
+                .into(),
+        ]);
     }
     if let Some(token_id) = query.strip_prefix("https://gra.fun/near-mainnet/") {
         let token_id = if let Some((token_id, _)) = token_id.split_once(['?', '#']) {
@@ -140,12 +141,13 @@ pub async fn search_token(
         } else {
             return Err(anyhow::anyhow!("Invalid token id"));
         };
-        return Ok(vec![bot
-            .xeon()
-            .get_token_info(&token_id)
-            .await
-            .ok_or_else(|| anyhow::anyhow!("Token not found"))?
-            .into()]);
+        return Ok(vec![
+            bot.xeon()
+                .get_token_info(&token_id)
+                .await
+                .ok_or_else(|| anyhow::anyhow!("Token not found"))?
+                .into(),
+        ]);
     }
     let search_results = get_search_results(query, results_num).await?;
     if !search_results.is_empty() {

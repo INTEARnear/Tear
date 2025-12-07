@@ -16,15 +16,15 @@ use crate::{
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use dashmap::{
-    mapref::{multiple::RefMulti, one::Ref},
     DashMap,
+    mapref::{multiple::RefMulti, one::Ref},
 };
 use futures_util::FutureExt;
 use inindexer::near_utils::dec_format;
 use mongodb::Database;
 use near_primitives::types::{AccountId, Balance};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use teloxide::prelude::{ChatId, Message, UserId};
 use teloxide::types::{InlineQuery, InlineQueryResult};
 use tokio::sync::{RwLock, RwLockReadGuard};
@@ -308,10 +308,13 @@ impl XeonState {
 
     pub async fn provide_resource<R: Resource>(
         &self,
-        provider: impl Fn(R::Key) -> Pin<Box<dyn Future<Output = Option<Box<R>>> + Send + Sync + 'static>>
-            + Send
-            + Sync
-            + 'static + 'static,
+        provider: impl Fn(
+            R::Key,
+        )
+            -> Pin<Box<dyn Future<Output = Option<Box<R>>> + Send + Sync + 'static>>
+        + Send
+        + Sync
+        + 'static + 'static,
     ) {
         self.resource_providers.write().await.insert(
             TypeId::of::<R>(),

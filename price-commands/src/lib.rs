@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use base64::prelude::{Engine, BASE64_STANDARD};
+use base64::prelude::{BASE64_STANDARD, Engine};
 use bigdecimal::{BigDecimal, ToPrimitive};
 use chrono::{DateTime, Utc};
 use fantoccini::{ClientBuilder, Locator};
@@ -13,7 +13,7 @@ use tearbot_common::tgbot::{Attachment, NotificationDestination};
 use tearbot_common::utils::apis::search_token;
 use tearbot_common::utils::requests::get_reqwest_client;
 use tearbot_common::utils::tokens::{
-    format_price_change, format_usd_amount, get_ft_metadata, USDT_DECIMALS,
+    USDT_DECIMALS, format_price_change, format_usd_amount, get_ft_metadata,
 };
 use tearbot_common::{
     mongodb::Database,
@@ -24,7 +24,7 @@ use tearbot_common::{
         utils::markdown,
     },
     utils::{
-        chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, DM_CHAT},
+        chat::{DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m},
         store::PersistentCachedStore,
     },
 };
@@ -1068,7 +1068,9 @@ async fn get_price_at(token_id: &AccountId, time: DateTime<Utc>) -> Result<f64, 
     }
 
     let timestamp_nanosec = time.timestamp_nanos_opt().unwrap();
-    let url = format!("https://events-v3.intear.tech/v3/price_token/price_at_time?token={token_id}&timestamp_nanosec={timestamp_nanosec}");
+    let url = format!(
+        "https://events-v3.intear.tech/v3/price_token/price_at_time?token={token_id}&timestamp_nanosec={timestamp_nanosec}"
+    );
     let response = get_reqwest_client()
         .get(url)
         .send()

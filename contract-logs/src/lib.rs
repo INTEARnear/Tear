@@ -8,7 +8,7 @@ use tearbot_common::{
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
     },
-    utils::chat::{get_chat_title_cached_5m, DM_CHAT},
+    utils::chat::{DM_CHAT, get_chat_title_cached_5m},
 };
 
 use tearbot_common::{
@@ -76,8 +76,9 @@ impl XeonBotModule for ContractLogsModule {
                         )
                     )
                 };
-                let message =
-                    format!("Choose a type of log notifications to receive{in_chat_name}\n\nThis is a feature for developers of smart contracts on NEAR, not for users\\.");
+                let message = format!(
+                    "Choose a type of log notifications to receive{in_chat_name}\n\nThis is a feature for developers of smart contracts on NEAR, not for users\\."
+                );
                 let buttons = vec![
                     vec![InlineKeyboardButton::callback(
                         "📝 Plain text logs",

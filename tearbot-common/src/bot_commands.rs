@@ -14,8 +14,8 @@ use chrono::{DateTime, Utc};
 use inindexer::near_utils::{dec_format, dec_format_map};
 use mongodb::bson::Bson;
 use near_api::{
-    signer::{secret_key::SecretKeySigner, Signer},
     NetworkConfig,
+    signer::{Signer, secret_key::SecretKeySigner},
 };
 use near_crypto::PublicKey;
 use near_primitives::{

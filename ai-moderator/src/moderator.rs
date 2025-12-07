@@ -13,13 +13,13 @@ use tearbot_common::{
     },
     tgbot::{BotData, TgCallbackContext},
     utils::chat::{
-        check_admin_permission_in_chat, expandable_blockquote, get_chat_title_cached_5m, DM_CHAT,
+        DM_CHAT, check_admin_permission_in_chat, expandable_blockquote, get_chat_title_cached_5m,
     },
     xeon::XeonState,
 };
 
 use crate::utils::MessageRating;
-use crate::{setup, utils::get_message_rating, AiModeratorBotConfig};
+use crate::{AiModeratorBotConfig, setup, utils::get_message_rating};
 
 pub async fn open_main(
     ctx: &mut TgCallbackContext<'_>,

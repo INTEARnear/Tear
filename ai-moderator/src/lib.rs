@@ -16,6 +16,7 @@ use tearbot_common::{
     bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
     mongodb::Database,
     teloxide::{
+        ApiError, RequestError,
         payloads::{RestrictChatMemberSetters, SendMessageSetters},
         prelude::{ChatId, Message, Requester, UserId},
         types::{
@@ -23,7 +24,6 @@ use tearbot_common::{
             ReplyParameters,
         },
         utils::markdown,
-        ApiError, RequestError,
     },
     tgbot::{Attachment, BotType},
     utils::{chat::expandable_blockquote, store::PersistentCachedStore},
@@ -156,7 +156,10 @@ impl XeonBotModule for AiModeratorModule {
         text: &str,
         message: &Message,
     ) -> Result<(), anyhow::Error> {
-        log::debug!("Handling message {} in {chat_id} from {user_id:?} with command {command:?} and text `{text}`", message.id);
+        log::debug!(
+            "Handling message {} in {chat_id} from {user_id:?} with command {command:?} and text `{text}`",
+            message.id
+        );
         if bot.bot_type() != BotType::Main {
             return Ok(());
         }
@@ -1673,7 +1676,7 @@ impl AiModeratorModule {
                     ModerationAction::Ok => {
                         if chat_config.debug_mode {
                             let message_to_send = format!(
-                                "{sender_link} sent a message in {chat_name} and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable debug mode\\):\n\n{original_message_text}{note}"
+                                "{sender_link} sent a message in {chat_name} and it was *NOT* flagged \\(you won't get alerts for non\\-spam messages when you disable testing mode\\):\n\n{original_message_text}{note}"
                             );
                             let mut buttons = vec![
                                 vec![InlineKeyboardButton::callback(

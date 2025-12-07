@@ -15,11 +15,11 @@ use house_of_stake::HouseOfStakeModule;
 // #[cfg(feature = "airdrops")]
 // use airdrops::AirdropsModule;
 #[cfg(feature = "contract-logs-module")]
+use contract_logs::ContractLogsModule;
+#[cfg(feature = "contract-logs-module")]
 use contract_logs::nep297::ContractLogsNep297Module;
 #[cfg(feature = "contract-logs-module")]
 use contract_logs::text::ContractLogsTextModule;
-#[cfg(feature = "contract-logs-module")]
-use contract_logs::ContractLogsModule;
 #[cfg(feature = "explorer-module")]
 use explorer::ExplorerModule;
 #[cfg(feature = "ft-buybot-module")]
@@ -50,8 +50,8 @@ use socialdb::SocialDBModule;
 use subscription_lists::SubscriptionListsModule;
 use tearbot_common::mongodb::options::ClientOptions;
 use tearbot_common::mongodb::{Client, Database};
-use tearbot_common::teloxide::adaptors::throttle::Limits;
 use tearbot_common::teloxide::adaptors::CacheMe;
+use tearbot_common::teloxide::adaptors::throttle::Limits;
 use tearbot_common::teloxide::prelude::{Bot, RequesterExt};
 use tearbot_common::tgbot::{BotData, BotType};
 use tearbot_common::xeon::Xeon;

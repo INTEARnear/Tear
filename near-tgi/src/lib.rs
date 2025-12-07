@@ -2,22 +2,22 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use clap::error::ErrorKind;
 use clap::Parser;
-use inquire::{Prompt, PromptAnswer, CURRENT_PROMPT, CURRENT_PROMPT_ANSWER};
+use clap::error::ErrorKind;
+use inquire::{CURRENT_PROMPT, CURRENT_PROMPT_ANSWER, Prompt, PromptAnswer};
 use interactive_clap::{FromCli, ResultFromCli, ToCliArgs};
-use near_cli_rs::commands::account::storage_management::CliStorageActions;
+use near_cli_rs::LOG_COLLECTOR;
+use near_cli_rs::commands::CliTopLevelCommand;
 use near_cli_rs::commands::account::CliAccountActions;
-use near_cli_rs::commands::contract::call_function::call_function_args_type::FunctionArgsType;
-use near_cli_rs::commands::contract::call_function::CliCallFunctionActions;
+use near_cli_rs::commands::account::storage_management::CliStorageActions;
 use near_cli_rs::commands::contract::CliContractActions;
-use near_cli_rs::commands::staking::delegate::CliStakeDelegationCommand;
+use near_cli_rs::commands::contract::call_function::CliCallFunctionActions;
+use near_cli_rs::commands::contract::call_function::call_function_args_type::FunctionArgsType;
 use near_cli_rs::commands::staking::CliStakingType;
+use near_cli_rs::commands::staking::delegate::CliStakeDelegationCommand;
 use near_cli_rs::commands::tokens::CliTokensActions;
 use near_cli_rs::commands::transaction::CliTransactionActions;
-use near_cli_rs::commands::CliTopLevelCommand;
 use near_cli_rs::js_command_match::JsCmd;
-use near_cli_rs::LOG_COLLECTOR;
 use tearbot_common::teloxide::prelude::Requester;
 use tearbot_common::teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 use tearbot_common::teloxide::utils::markdown;
@@ -531,7 +531,9 @@ impl XeonBotModule for NearTgiModule {
                             Ok(())
                         }.await;
                         if let Err(err) = result {
-                            log::error!("Error responding to command `{command_string_clone}` with response `{response_clone:?}`: {err:?}");
+                            log::error!(
+                                "Error responding to command `{command_string_clone}` with response `{response_clone:?}`: {err:?}"
+                            );
                         }
                     });
                 });

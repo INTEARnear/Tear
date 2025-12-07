@@ -21,8 +21,8 @@ use tearbot_common::{
         requests::get_cached_30s,
         rpc::{view_account_cached_30s, view_cached_30s},
         tokens::{
-            format_account_id, format_near_amount, format_tokens, get_ft_metadata,
-            StringifiedBalance, WRAP_NEAR,
+            StringifiedBalance, WRAP_NEAR, format_account_id, format_near_amount, format_tokens,
+            get_ft_metadata,
         },
     },
     xeon::{TokenScore, XeonBotModule, XeonState},
@@ -340,9 +340,9 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             PoolId::Ref(pool_id) => format!(
                                 "[DexScreener](https://dexscreener.com/near/refv1-{pool_id}) \\| [DexTools](https://www.dextools.io/app/en/near/pair-explorer/{pool_id})",
                             ),
-                            PoolId::Aidols(account_id) => format!(
-                                "[AIdols](https://aidols.bot/agents/{account_id})",
-                            ),
+                            PoolId::Aidols(account_id) => {
+                                format!("[AIdols](https://aidols.bot/agents/{account_id})",)
+                            }
                             PoolId::RefDcl(token1, token2, fee) => format!(
                                 "[Rhea CLMM](https://app.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee})"
                             ),

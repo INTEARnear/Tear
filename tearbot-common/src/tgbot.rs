@@ -1,6 +1,6 @@
 use std::ops::Deref;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use std::{
     collections::{BTreeSet, HashMap},
@@ -10,7 +10,6 @@ use std::{
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use log::warn;
-use mongodb::bson::Bson;
 use near_api::signer::Signer;
 use near_api::{Contract, Tokens};
 use near_gas::NearGas;
@@ -29,18 +28,18 @@ use teloxide::prelude::Message;
 use teloxide::prelude::Requester;
 use teloxide::prelude::Update;
 use teloxide::prelude::UserId;
-use teloxide::prelude::{dptree, LoggingErrorHandler};
+use teloxide::prelude::{LoggingErrorHandler, dptree};
 use teloxide::types::{
     InlineKeyboardMarkup, InlineQuery, InputFile, LinkPreviewOptions, MessageId, ParseMode,
     ReplyMarkup, ThreadId,
 };
 use teloxide::update_listeners::webhooks;
 use teloxide::utils::markdown;
-use teloxide::{adaptors::throttle::Throttle, prelude::ChatId};
+use teloxide::{ApiError, Bot, RequestError};
 use teloxide::{adaptors::CacheMe, payloads::SendVideoSetters};
+use teloxide::{adaptors::throttle::Throttle, prelude::ChatId};
 use teloxide::{dispatching::UpdateFilterExt, types::ReplyParameters};
 use teloxide::{payloads::SendAnimationSetters, prelude::PreCheckoutQuery};
-use teloxide::{ApiError, Bot, RequestError};
 use tokio::sync::RwLock;
 
 use crate::utils::chat::ChatPermissionLevel;
@@ -139,18 +138,6 @@ pub struct BotData {
 pub enum BotType {
     Main,
     // Custom,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct ConnectedAccount {
-    pub account_id: AccountId,
-    pub is_verified: bool,
-}
-
-impl From<ConnectedAccount> for Bson {
-    fn from(account: ConnectedAccount) -> Self {
-        mongodb::bson::to_bson(&account).unwrap()
-    }
 }
 
 impl BotData {

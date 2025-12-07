@@ -3,16 +3,16 @@ use std::{
     future::Future,
     hash::Hash,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
-use dashmap::{mapref::multiple::RefMulti, DashMap};
-use futures_util::{lock::Mutex, TryStreamExt};
+use dashmap::{DashMap, mapref::multiple::RefMulti};
+use futures_util::{TryStreamExt, lock::Mutex};
 use mongodb::{
-    error::{ErrorKind, WriteError, WriteFailure},
     Database, IndexModel,
+    error::{ErrorKind, WriteError, WriteFailure},
 };
 use serde::{Deserialize, Serialize};
 
@@ -47,9 +47,9 @@ pub struct PersistentCachedStore<
 }
 
 impl<
-        K: Serialize + Clone + Send + Sync + Unpin + 'static + Eq + Hash,
-        V: Serialize + Clone + Send + Sync + Unpin + 'static,
-    > Debug for PersistentCachedStore<K, V>
+    K: Serialize + Clone + Send + Sync + Unpin + 'static + Eq + Hash,
+    V: Serialize + Clone + Send + Sync + Unpin + 'static,
+> Debug for PersistentCachedStore<K, V>
 where
     CacheEntry<K, V>: Debug,
 {
@@ -70,9 +70,9 @@ pub struct CacheEntry<
 }
 
 impl<
-        K: Serialize + Clone + Send + Sync + Unpin + 'static + Eq + Hash,
-        V: Serialize + Clone + Send + Sync + Unpin + 'static,
-    > PersistentCachedStore<K, V>
+    K: Serialize + Clone + Send + Sync + Unpin + 'static + Eq + Hash,
+    V: Serialize + Clone + Send + Sync + Unpin + 'static,
+> PersistentCachedStore<K, V>
 where
     CacheEntry<K, V>: Serialize + for<'de> Deserialize<'de>,
 {
@@ -318,9 +318,9 @@ pub struct PersistentUncachedStore<
 }
 
 impl<
-        K: Serialize + Clone + Send + Sync + Unpin + 'static + Eq + Hash,
-        V: Serialize + Clone + Send + Sync + Unpin + 'static,
-    > PersistentUncachedStore<K, V>
+    K: Serialize + Clone + Send + Sync + Unpin + 'static + Eq + Hash,
+    V: Serialize + Clone + Send + Sync + Unpin + 'static,
+> PersistentUncachedStore<K, V>
 where
     CacheEntry<K, V>: Serialize + for<'de> Deserialize<'de>,
 {

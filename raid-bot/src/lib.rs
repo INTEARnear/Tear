@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
+use axum::{Router, extract::State, http::StatusCode, response::Json, routing::get};
 use cached::proc_macro::cached;
 use chrono::Timelike;
 use chrono::{DateTime, Utc};
@@ -13,7 +13,9 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tearbot_common::bot_commands::UsersByXAccount;
 use tearbot_common::bot_commands::XId;
-use tearbot_common::bot_commands::{ConnectedAccounts, MessageCommand, TgCommand};
+use tearbot_common::bot_commands::{
+    ConnectedAccounts, ConnectedNearAccount, MessageCommand, TgCommand, UsersByNearAccount,
+};
 use tearbot_common::mongodb::Database;
 use tearbot_common::near_primitives::types::AccountId;
 use tearbot_common::teloxide::prelude::*;
@@ -25,16 +27,18 @@ use tearbot_common::teloxide::types::{
 use tearbot_common::teloxide::utils::markdown;
 use tearbot_common::tgbot::{BotData, NotificationDestination};
 use tearbot_common::tgbot::{BotType, MustAnswerCallbackQuery, TgCallbackContext};
+use tearbot_common::utils::SLIME_USER_ID;
+use tearbot_common::utils::UserInChat;
 use tearbot_common::utils::apis::get_x_username;
 use tearbot_common::utils::chat::{check_admin_permission_in_chat, get_chat_title_cached_5m};
 use tearbot_common::utils::format_duration;
 use tearbot_common::utils::requests::get_reqwest_client;
 use tearbot_common::utils::rpc::view_cached_5m;
 use tearbot_common::utils::store::PersistentCachedStore;
-use tearbot_common::utils::UserInChat;
 use tearbot_common::xeon::{XeonBotModule, XeonState};
 use tokio::sync::RwLock;
 
+const LEGION_CHAT_IDS: &[ChatId] = &[ChatId(-1002742182312), ChatId(-1003269734063)];
 const LEADERBOARD_COMMAND_AUTODELETE_SECONDS: Duration = Duration::from_secs(40);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -221,6 +225,33 @@ fn format_preset(preset: &RaidPreset) -> String {
     }
 }
 
+async fn get_legion_leaderboard(
+    raid_participation: &PersistentCachedStore<AccountId, u64>,
+    bot: &BotData,
+) -> Result<Vec<(UserId, u64)>, anyhow::Error> {
+    let mut user_points: HashMap<UserId, u64> = HashMap::new();
+    for entry in raid_participation.values().await? {
+        let account_id = entry.key();
+        let count = *entry.value();
+
+        let near_account = ConnectedNearAccount(account_id.clone());
+        if let Some(users_by_account) = bot
+            .xeon()
+            .get_resource::<UsersByNearAccount>(near_account)
+            .await
+        {
+            for user_id in &users_by_account.0 {
+                *user_points.entry(*user_id).or_insert(0) += count;
+            }
+        }
+    }
+
+    let mut user_points: Vec<(UserId, u64)> = user_points.into_iter().collect();
+    user_points.sort_by(|a, b| b.1.cmp(&a.1));
+
+    Ok(user_points)
+}
+
 async fn distribute_raid_points(
     bot_config: &RaidBotConfig,
     bot: &BotData,
@@ -244,9 +275,7 @@ async fn distribute_raid_points(
     all_participants.extend(repliers.iter());
 
     // Legion
-    if raid_key.chat_id.chat_id().0 == -1002742182312
-        || raid_key.chat_id.chat_id().0 == -1003269734063
-    {
+    if LEGION_CHAT_IDS.contains(&raid_key.chat_id.chat_id()) {
         log::info!("Raid in Legion");
         for user_id in &all_participants {
             log::info!("User ID: {user_id}");
@@ -415,7 +444,11 @@ async fn format_leaderboard_message(
     message
 }
 
-fn create_raid_message(raid_state: &RaidState, stats: Option<&TweetStats>) -> String {
+fn create_raid_message(
+    raid_state: &RaidState,
+    stats: Option<&TweetStats>,
+    chat_id: ChatId,
+) -> String {
     let mut message = format!(
         "
 *RAID STARTED*
@@ -424,7 +457,12 @@ fn create_raid_message(raid_state: &RaidState, stats: Option<&TweetStats>) -> St
 
 🔥 Drop your likes, retweets, and replies\\!{}",
         markdown::escape(&raid_state.tweet_url),
-        if raid_state.points_per_comment.is_some() || raid_state.points_per_repost.is_some() {
+        if LEGION_CHAT_IDS.contains(&chat_id) {
+            format!(
+                "\n\n🐉 **Legion Raider Mission**: Connect both X and NEAR accounts \\(the one with Ascendant SBT\\) to make your raids count"
+            )
+        } else if raid_state.points_per_comment.is_some() || raid_state.points_per_repost.is_some()
+        {
             format!("\n\nIf you haven't yet: connect your X account to make the points count\\!")
         } else {
             "".to_string()
@@ -771,7 +809,7 @@ impl RaidBotModule {
                     } else if deadline_hit {
                         create_raid_failed_message(&state, stats.as_ref())
                     } else {
-                        create_raid_message(&state, stats.as_ref())
+                        create_raid_message(&state, stats.as_ref(), key.chat_id.chat_id())
                     };
 
                     let buttons = if all_goals_reached
@@ -781,19 +819,25 @@ impl RaidBotModule {
                     {
                         Vec::<Vec<_>>::new()
                     } else {
-                        vec![vec![InlineKeyboardButton::url(
-                            "Connect X",
-                            format!(
-                                "tg://resolve?domain={}&start=connect-accounts",
-                                bot.bot()
-                                    .get_me()
-                                    .await
-                                    .map(|me| me.username.clone().unwrap_or_default())
-                                    .unwrap_or_default()
-                            )
-                            .parse()
-                            .unwrap(),
-                        )]]
+                        vec![vec![
+                            InlineKeyboardButton::url(
+                                "Go to Post",
+                                state.tweet_url.clone().parse().unwrap(),
+                            ),
+                            InlineKeyboardButton::url(
+                                "Connect X",
+                                format!(
+                                    "tg://resolve?domain={}&start=connect-accounts",
+                                    bot.bot()
+                                        .get_me()
+                                        .await
+                                        .map(|me| me.username.clone().unwrap_or_default())
+                                        .unwrap_or_default()
+                                )
+                                .parse()
+                                .unwrap(),
+                            ),
+                        ]]
                     };
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
 
@@ -1113,6 +1157,155 @@ impl XeonBotModule for RaidBotModule {
 
         match command {
             MessageCommand::None => {
+                // Debug commands
+                if user_id == SLIME_USER_ID && chat_id.is_user() {
+                    // /stats <X link>
+                    if let Some(link) = text.strip_prefix("/stats ") {
+                        let link = link.trim();
+                        let tweet_id = extract_tweet_id(link);
+                        let Some(tweet_id) = tweet_id else {
+                            bot.send_text_message(
+                                chat_id.into(),
+                                "Invalid tweet URL format".to_string(),
+                                InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                            )
+                            .await?;
+                            return Ok(());
+                        };
+
+                        bot.send_text_message(
+                            chat_id.into(),
+                            "Fetching reposts and replies\\.\\.\\.".to_string(),
+                            InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                        )
+                        .await?;
+
+                        let xeon = bot.xeon();
+                        let (reposts, replies) = tokio::join!(
+                            get_tweet_reposts(tweet_id.clone(), xeon),
+                            get_tweet_replies(tweet_id.clone(), xeon)
+                        );
+
+                        let reposts = reposts.unwrap_or_default();
+                        let replies = replies.unwrap_or_default();
+
+                        let mut message = format!("Stats for tweet {tweet_id}:\n\n");
+                        message.push_str(&format!("Reposts: {}\n", reposts.len()));
+                        message.push_str(&format!("Replies: {}\n\n", replies.len()));
+
+                        if !reposts.is_empty() {
+                            message.push_str("Reposters:\n");
+                            for user_id in reposts {
+                                message.push_str(&markdown::escape(&format!("- {}\n", user_id.0)));
+                            }
+                            message.push_str("\n");
+                        }
+
+                        if !replies.is_empty() {
+                            message.push_str("Repliers:\n");
+                            for user_id in replies {
+                                message.push_str(&markdown::escape(&format!("- {}\n", user_id.0)));
+                            }
+                        }
+
+                        bot.send_text_message(
+                            chat_id.into(),
+                            message,
+                            InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                        )
+                        .await?;
+                        return Ok(());
+                    }
+
+                    // /connections <telegram id>
+                    if let Some(telegram_id_str) = text.strip_prefix("/connections ") {
+                        let telegram_id_str = telegram_id_str.trim();
+                        let Ok(telegram_id) = telegram_id_str.parse::<u64>() else {
+                            bot.send_text_message(
+                                chat_id.into(),
+                                "Invalid telegram ID format".to_string(),
+                                InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                            )
+                            .await?;
+                            return Ok(());
+                        };
+
+                        let target_user_id = UserId(telegram_id);
+                        let connected_accounts = bot
+                            .xeon()
+                            .get_resource::<ConnectedAccounts>(target_user_id)
+                            .await
+                            .unwrap_or_default();
+
+                        let mut message = format!("Connections for user {}:\n\n", telegram_id);
+
+                        if let Some(x_id) = connected_accounts.x {
+                            let x_username = get_x_username(x_id.0.clone()).await.ok();
+                            message.push_str(&format!("X Account ID: {}\n", x_id.0));
+                            if let Some(username) = x_username {
+                                message.push_str(&format!(
+                                    "X Username: x\\.com/{}\n",
+                                    markdown::escape(&username)
+                                ));
+                            } else {
+                                message.push_str("X Username: \\(could not resolve\\)\n");
+                            }
+                        } else {
+                            message.push_str("X Account: Not connected\n");
+                        }
+
+                        message.push_str("\n");
+
+                        if let Some(near_account) = connected_accounts.near {
+                            message.push_str(&format!("NEAR Wallet: `{}`\n", near_account.0));
+                        } else {
+                            message.push_str("NEAR Wallet: Not connected\n");
+                        }
+
+                        bot.send_text_message(
+                            chat_id.into(),
+                            message,
+                            InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                        )
+                        .await?;
+                        return Ok(());
+                    }
+
+                    // /xusername <x id>
+                    if let Some(x_id_str) = text.strip_prefix("/xusername ") {
+                        let x_id_str = x_id_str.trim();
+                        match get_x_username(x_id_str.to_string()).await {
+                            Ok(username) => {
+                                let message = format!(
+                                    "X ID `{}` resolves to: x\\.com/{}",
+                                    x_id_str,
+                                    markdown::escape(&username)
+                                );
+                                bot.send_text_message(
+                                    chat_id.into(),
+                                    message,
+                                    InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                                )
+                                .await?;
+                            }
+                            Err(e) => {
+                                let message = format!(
+                                    "Failed to resolve X ID `{}`: {}",
+                                    x_id_str,
+                                    markdown::escape(&e.to_string())
+                                );
+                                bot.send_text_message(
+                                    chat_id.into(),
+                                    message,
+                                    InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                                )
+                                .await?;
+                            }
+                        }
+                        return Ok(());
+                    }
+                }
+
                 if !chat_id.is_user() && text == "/stop" {
                     let Some(bot_config) = self.bot_configs.get(&bot.id()) else {
                         return Ok(());
@@ -1289,13 +1482,91 @@ impl XeonBotModule for RaidBotModule {
                         return Ok(());
                     }
 
+                    if LEGION_CHAT_IDS.contains(&chat_id) {
+                        let mut account_points: Vec<(AccountId, u64)> = self
+                            .raid_participation
+                            .values()
+                            .await?
+                            .map(|entry| (entry.key().clone(), *entry.value()))
+                            .collect();
+                        account_points.sort_by(|a, b| b.1.cmp(&a.1));
+
+                        let (user_account_rank, user_account_id) = if let Some(connected_accounts) =
+                            bot.xeon().get_resource::<ConnectedAccounts>(user_id).await
+                        {
+                            if let Some(near_account) = &connected_accounts.near {
+                                let rank = account_points
+                                    .iter()
+                                    .position(|(account_id, _)| account_id == &near_account.0)
+                                    .map(|pos| pos + 1);
+                                (rank, Some(near_account.0.clone()))
+                            } else {
+                                (None, None)
+                            }
+                        } else {
+                            (None, None)
+                        };
+
+                        let top_accounts = account_points.iter().take(10).collect::<Vec<_>>();
+
+                        let mut message_text = "🏆 *Raid Leaderboard*\n\n".to_string();
+
+                        for (rank, (account_id, points)) in top_accounts.iter().enumerate() {
+                            let emoji = match rank {
+                                0 => "🥇",
+                                1 => "🥈",
+                                2 => "🥉",
+                                _ => "  ",
+                            };
+
+                            message_text.push_str(&format!(
+                                "{emoji}  *{}\\.*  `{account_id}`  \\-  *{points} raids*\n",
+                                rank + 1,
+                            ));
+                        }
+
+                        if let Some(rank) = user_account_rank {
+                            if rank > 10 {
+                                if let Some(user_account_id) = &user_account_id {
+                                    let note =
+                                        if is_ascendant(&user_account_id).await.unwrap_or(false) {
+                                            ""
+                                        } else {
+                                            " \\(Not Ascendant\\)"
+                                        };
+                                    if let Some((_, points)) = account_points
+                                        .iter()
+                                        .find(|(account_id, _)| account_id == user_account_id)
+                                    {
+                                        message_text.push_str(&format!(
+                                            "\n\\.\\.\\.\\.\\.\\.\n\n  *{rank}\\.*  `{user_account_id}`  \\-  *{points} raids*{note}"
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                        let buttons = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        let response = bot
+                            .send_text_message(chat_id.into(), message_text, reply_markup)
+                            .await?;
+
+                        let deletion_time = Utc::now() + LEADERBOARD_COMMAND_AUTODELETE_SECONDS;
+                        bot.schedule_message_autodeletion(chat_id, message.id, deletion_time)
+                            .await?;
+                        bot.schedule_message_autodeletion(chat_id, response.id, deletion_time)
+                            .await?;
+
+                        return Ok(());
+                    }
+
                     let mut user_points = Vec::new();
                     for entry in bot_config.user_points.values().await? {
                         let user_in_chat = entry.key();
-                        let points = entry.value();
+                        let points_value = entry.value();
 
-                        if user_in_chat.chat_id == chat_id && *points > 0 {
-                            user_points.push((user_in_chat.user_id, *points));
+                        if user_in_chat.chat_id == chat_id && *points_value > 0 {
+                            user_points.push((user_in_chat.user_id, *points_value));
                         }
                     }
 
@@ -1817,7 +2088,7 @@ Or skip this step\\.",
 
 Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it before it ends\\. Users can use `/leaderboard` and `/points` to see their points\\."
                 );
-                let buttons = vec![
+                let mut buttons = vec![
                     vec![InlineKeyboardButton::callback(
                         if chat_config.enabled {
                             "✅ Enabled"
@@ -1848,7 +2119,10 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
                             })
                             .await,
                     )],
-                    vec![InlineKeyboardButton::callback(
+                ];
+
+                if !LEGION_CHAT_IDS.contains(&target_chat_id) {
+                    buttons.push(vec![InlineKeyboardButton::callback(
                         "📥 Download Leaderboard",
                         context
                             .bot()
@@ -1856,17 +2130,18 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
                                 target_chat_id,
                             })
                             .await,
-                    )],
-                    vec![InlineKeyboardButton::callback(
-                        "⬅️ Back",
-                        context
-                            .bot()
-                            .to_callback_data(&TgCommand::ChatSettings(
-                                NotificationDestination::Chat(target_chat_id),
-                            ))
-                            .await,
-                    )],
-                ];
+                    )]);
+                }
+
+                buttons.push(vec![InlineKeyboardButton::callback(
+                    "⬅️ Back",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::ChatSettings(NotificationDestination::Chat(
+                            target_chat_id,
+                        )))
+                        .await,
+                )]);
 
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
@@ -2220,6 +2495,9 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
                 if target_chat_id.is_user() {
                     return Ok(());
                 }
+                if LEGION_CHAT_IDS.contains(&target_chat_id) {
+                    return Ok(());
+                }
                 if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
                     .await
                 {
@@ -2230,15 +2508,25 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
                     return Ok(());
                 };
 
-                let mut user_points = Vec::new();
-                for entry in bot_config.user_points.values().await? {
-                    let user_in_chat = entry.key();
-                    let points = entry.value();
+                let user_points: Vec<(UserId, usize)> = if LEGION_CHAT_IDS.contains(&target_chat_id)
+                {
+                    get_legion_leaderboard(&self.raid_participation, context.bot())
+                        .await?
+                        .into_iter()
+                        .map(|(uid, points)| (uid, points as usize))
+                        .collect()
+                } else {
+                    let mut points = Vec::new();
+                    for entry in bot_config.user_points.values().await? {
+                        let user_in_chat = entry.key();
+                        let points_value = entry.value();
 
-                    if user_in_chat.chat_id == target_chat_id && *points > 0 {
-                        user_points.push((user_in_chat.user_id, *points));
+                        if user_in_chat.chat_id == target_chat_id && *points_value > 0 {
+                            points.push((user_in_chat.user_id, *points_value));
+                        }
                     }
-                }
+                    points
+                };
 
                 if user_points.is_empty() {
                     let message = "No participants in the leaderboard yet\\.".to_string();
@@ -2254,6 +2542,7 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
                     return Ok(());
                 }
 
+                let mut user_points = user_points;
                 user_points.sort_by(|a, b| b.1.cmp(&a.1));
 
                 let mut csv_content =
@@ -3102,26 +3391,36 @@ When should this raid end?"
 
                 let tweet_stats = get_tweet_stats(tweet_url.clone()).await.ok();
 
-                let message_text = create_raid_message(&raid_state, tweet_stats.as_ref());
+                let message_text = create_raid_message(
+                    &raid_state,
+                    tweet_stats.as_ref(),
+                    context.chat_id().chat_id(),
+                );
 
                 let buttons = if raid_state.points_per_comment.is_some()
                     || raid_state.points_per_repost.is_some()
                 {
-                    vec![vec![InlineKeyboardButton::url(
-                        "Connect X",
-                        format!(
-                            "tg://resolve?domain={}&start=connect-accounts",
-                            context
-                                .bot()
-                                .bot()
-                                .get_me()
-                                .await
-                                .map(|me| me.username.clone().unwrap_or_default())
-                                .unwrap_or_default()
-                        )
-                        .parse()
-                        .unwrap(),
-                    )]]
+                    vec![vec![
+                        InlineKeyboardButton::url(
+                            "Connect X",
+                            format!(
+                                "tg://resolve?domain={}&start=connect-accounts",
+                                context
+                                    .bot()
+                                    .bot()
+                                    .get_me()
+                                    .await
+                                    .map(|me| me.username.clone().unwrap_or_default())
+                                    .unwrap_or_default()
+                            )
+                            .parse()
+                            .unwrap(),
+                        ),
+                        InlineKeyboardButton::url(
+                            "Go to Post",
+                            raid_state.tweet_url.clone().parse().unwrap(),
+                        ),
+                    ]]
                 } else {
                     Vec::<Vec<_>>::new()
                 };
@@ -3208,7 +3507,7 @@ struct TweetApiTweet {
     quote_count: usize,
 }
 
-fn extract_tweet_id(tweet_url: &str) -> Option<String> {
+pub fn extract_tweet_id(tweet_url: &str) -> Option<String> {
     let re = Regex::new(r"x\.com/[^/]+/status/(\d+)").ok()?;
     re.captures(tweet_url)
         .and_then(|caps| caps.get(1))
@@ -3245,19 +3544,19 @@ async fn get_tweet_stats(tweet_url: String) -> Result<TweetStats, anyhow::Error>
     })
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct RetweetsPaginatedResponse {
     data: Vec<RetweetUser>,
     #[serde(default)]
     pagination: Option<PaginationInfo>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct RetweetUser {
     id: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct PaginationInfo {
     next_cursor: Option<String>,
@@ -3290,11 +3589,11 @@ async fn fetch_reposters_by_type(
             .send()
             .await?;
 
-        if !response.status().is_success() {
+        if !dbg!(response.status()).is_success() {
             break;
         }
 
-        let data: RetweetsPaginatedResponse = response.json().await?;
+        let data: RetweetsPaginatedResponse = dbg!(response.json().await)?;
         all_x_ids.extend(data.data.into_iter().map(|u| u.id));
 
         if let Some(pagination) = data.pagination {
@@ -3311,13 +3610,13 @@ async fn fetch_reposters_by_type(
     Ok(all_x_ids)
 }
 
-#[cached(
-    time = 60,
-    result = true,
-    key = "String",
-    convert = "{ tweet_id.clone() }"
-)]
-async fn get_tweet_reposts(
+// #[cached(
+//     time = 60,
+//     result = true,
+//     key = "String",
+//     convert = "{ tweet_id.clone() }"
+// )]
+pub async fn get_tweet_reposts(
     tweet_id: String,
     xeon: &XeonState,
 ) -> Result<Vec<UserId>, anyhow::Error> {
@@ -3328,6 +3627,8 @@ async fn get_tweet_reposts(
         fetch_reposters_by_type("retweets", &tweet_id, &api_key),
         fetch_reposters_by_type("quotes", &tweet_id, &api_key)
     );
+    log::info!("Retweets: {:?}", retweets);
+    log::info!("Quotes: {:?}", quotes);
 
     let mut all_x_ids = retweets.unwrap_or_default();
     all_x_ids.extend(quotes.unwrap_or_default());
@@ -3339,34 +3640,41 @@ async fn get_tweet_reposts(
         }
     }
 
+    telegram_user_ids.sort();
+    telegram_user_ids.dedup();
     Ok(telegram_user_ids)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct RepliesResponse {
     data: RepliesData,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct RepliesData {
-    replies: Vec<ReplyUser>,
+    replies: Vec<Reply>,
     #[serde(default)]
     next_cursor: Option<String>,
 }
 
-#[derive(Deserialize)]
-struct ReplyUser {
+#[derive(Deserialize, Debug)]
+struct Reply {
+    author: ReplyAuthor,
+}
+
+#[derive(Deserialize, Debug)]
+struct ReplyAuthor {
     id: String,
 }
 
-#[cached(
-    time = 60,
-    result = true,
-    key = "String",
-    convert = "{ tweet_id.clone() }"
-)]
-async fn get_tweet_replies(
+// #[cached(
+//     time = 60,
+//     result = true,
+//     key = "String",
+//     convert = "{ tweet_id.clone() }"
+// )]
+pub async fn get_tweet_replies(
     tweet_id: String,
     xeon: &XeonState,
 ) -> Result<Vec<UserId>, anyhow::Error> {
@@ -3393,12 +3701,12 @@ async fn get_tweet_replies(
             .send()
             .await?;
 
-        if !response.status().is_success() {
+        if !dbg!(response.status()).is_success() {
             break;
         }
 
-        let data: RepliesResponse = response.json().await?;
-        all_x_ids.extend(data.data.replies.into_iter().map(|u| u.id));
+        let data: RepliesResponse = dbg!(response.json().await)?;
+        all_x_ids.extend(data.data.replies.into_iter().map(|u| u.author.id));
 
         if let Some(next_cursor) = data.data.next_cursor {
             cursor = Some(next_cursor);
@@ -3414,6 +3722,8 @@ async fn get_tweet_replies(
         }
     }
 
+    telegram_user_ids.sort();
+    telegram_user_ids.dedup();
     Ok(telegram_user_ids)
 }
 

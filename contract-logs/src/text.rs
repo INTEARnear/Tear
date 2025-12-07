@@ -14,7 +14,7 @@ use tearbot_common::{
     },
     tgbot::NotificationDestination,
     utils::{
-        chat::{check_admin_permission_in_chat, get_chat_title_cached_5m, DM_CHAT},
+        chat::{DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m},
         store::PersistentCachedStore,
         tokens::format_account_id,
     },
