@@ -11,7 +11,8 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use log::warn;
 use near_api::signer::Signer;
-use near_api::{Contract, Tokens};
+use near_api::types::TxExecutionStatus;
+use near_api::{Contract, NetworkConfig, RPCEndpoint, Tokens};
 use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
 use near_primitives::types::AccountId;
@@ -44,10 +45,10 @@ use tokio::sync::RwLock;
 
 use crate::near_utils::FtBalance;
 use crate::utils::chat::ChatPermissionLevel;
-use crate::utils::format_duration;
 use crate::utils::requests::fetch_file_cached_1d;
 use crate::utils::store::PersistentCachedStore;
 use crate::utils::tokens::{StringifiedBalance, WRAP_NEAR};
+use crate::utils::{NETWORK_CONFIG, format_duration};
 use crate::xeon::XeonState;
 use crate::{
     bot_commands::{MessageCommand, PaymentReference, TgCommand},
@@ -458,7 +459,8 @@ impl BotData {
                     )
                     .unwrap(),
                 )
-                .send_to_mainnet()
+                .wait_until(TxExecutionStatus::ExecutedOptimistic)
+                .send_to(&NETWORK_CONFIG)
                 .await?
             } else {
                 Contract(token_id.clone())
@@ -485,7 +487,8 @@ impl BotData {
                         )
                         .unwrap(),
                     )
-                    .send_to_mainnet()
+                    .wait_until(TxExecutionStatus::ExecutedOptimistic)
+                    .send_to(&NETWORK_CONFIG)
                     .await?
             };
             log::info!("Paying {token_id}: {:?}", tx.into_result());

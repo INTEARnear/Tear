@@ -15,6 +15,7 @@ use near_api::signer::get_secret_key_from_seed;
 use near_api::signer::secret_key::SecretKeySigner;
 use near_api::types::AccessKeyPermission;
 use near_api::types::Action;
+use near_api::types::TxExecutionStatus;
 use near_api::types::storage::StorageBalanceInternal;
 use near_api::types::transaction::result::ExecutionSuccess;
 use near_api::{Account, Contract, NetworkConfig};
@@ -218,6 +219,7 @@ impl TipBotModule {
                 .transaction()
                 .deposit("0.00125 NEAR".parse().unwrap())
                 .with_signer(treasury_wallet.clone(), Arc::clone(&self.signer))
+                .wait_until(TxExecutionStatus::ExecutedOptimistic)
                 .send_to(&self.network)
                 .await?;
 
@@ -240,6 +242,7 @@ impl TipBotModule {
                 .send_to(recipient_account.clone())
                 .near(NearToken::from_yoctonear(amount))
                 .with_signer(Arc::clone(&self.signer))
+                .wait_until(TxExecutionStatus::ExecutedOptimistic)
                 .send_to(&self.network)
                 .await?
         } else {
@@ -255,6 +258,7 @@ impl TipBotModule {
                 .deposit(NearToken::from_yoctonear(1))
                 .gas(NearGas::from_tgas(9))
                 .with_signer(treasury_wallet.clone(), Arc::clone(&self.signer))
+                .wait_until(TxExecutionStatus::ExecutedOptimistic)
                 .send_to(&self.network)
                 .await?
         };
@@ -1125,6 +1129,7 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                     .fund_myself(self.parent_account_id.clone(), Default::default())
                     .with_public_key(self.secret_key.public_key())
                     .with_signer(Arc::clone(&self.signer))
+                    .wait_until(TxExecutionStatus::ExecutedOptimistic)
                     .send_to(&self.network)
                     .await
                 {
@@ -1492,6 +1497,7 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                                         .expect("Expect to have it signed"),
                                 )))
                                 .with_signer(Arc::clone(&self.signer))
+                                .wait_until(TxExecutionStatus::ExecutedOptimistic)
                                 .send_to(&self.network)
                                 .await
                         {

@@ -11,6 +11,7 @@ pub mod tokens;
 
 use std::time::Duration;
 
+use near_api::{NetworkConfig, RPCEndpoint};
 use near_primitives::{hash::CryptoHash, types::AccountId};
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::UserId, types::ChatId};
@@ -118,4 +119,28 @@ pub struct Media {
 pub struct UserInChat {
     pub chat_id: ChatId,
     pub user_id: UserId,
+}
+
+lazy_static::lazy_static! {
+    pub static ref NETWORK_CONFIG: NetworkConfig = {
+        let mut rpc_endpoints = vec![
+            RPCEndpoint::new("https://rpc.intea.rs".parse().unwrap()),
+            RPCEndpoint::new("https://rpc.shitzuapes.xyz".parse().unwrap()),
+            RPCEndpoint::new("https://rpc.near.org".parse().unwrap()),
+        ];
+        if let Ok(additional_rpc_endpoints) = std::env::var("RPC_URL") {
+            rpc_endpoints = [
+                additional_rpc_endpoints
+                    .split(',')
+                    .map(|s| RPCEndpoint::new(s.parse().unwrap()))
+                    .collect(),
+                rpc_endpoints,
+            ]
+            .concat();
+        }
+        NetworkConfig {
+            rpc_endpoints,
+            ..NetworkConfig::mainnet()
+        }
+    };
 }
