@@ -23,7 +23,6 @@ house-of-stake = { path = "../house-of-stake", optional = true }
 price-commands = { path = "../price-commands", optional = true }
 trading-bot = { path = "../xeon-private-modules/trading-bot", optional = true }
 wallet-tracking = { path = "../wallet-tracking", optional = true }
-agents = { path = "../agents", optional = true }
 tip-bot = { path = "../tip-bot", optional = true }
 raid-bot = { path = "../raid-bot", optional = true }
 subscription-lists = { path = "../subscription-lists", optional = true }
@@ -65,7 +64,6 @@ tear = [
     "house-of-stake-module",
     "price-commands-module",
     "wallet-tracking-module",
-    "agents-module",
     "explorer-module",
     "tip-bot-module",
     "raid-bot-module",
@@ -91,7 +89,6 @@ xeon = [
     "price-commands-module",
     "trading-bot-module",
     "wallet-tracking-module",
-    "agents-module",
     "explorer-module",
     "tip-bot-module",
     "raid-bot-module",
@@ -136,7 +133,6 @@ wallet-tracking-module = [
     "tearbot-common/wallet-tracking-module",
     "wallet-tracking",
 ]
-agents-module = ["tearbot-common/agents-module", "agents"]
 explorer-module = ["tearbot-common/explorer-module", "explorer"]
 tip-bot-module = ["tearbot-common/tip-bot-module", "tip-bot"]
 raid-bot-module = ["tearbot-common/raid-bot-module", "raid-bot"]

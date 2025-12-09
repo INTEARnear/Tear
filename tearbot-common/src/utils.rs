@@ -56,7 +56,7 @@ pub fn parse_duration(input: &str) -> Option<Duration> {
     let mut number = String::new();
 
     let mut chars = input.chars().peekable();
-    while let Some(ch) = chars.next() {
+    for ch in chars {
         if ch.is_ascii_digit() {
             number.push(ch);
         } else {

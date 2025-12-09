@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use near_primitives::types::{AccountId, Balance};
+use near_primitives::types::AccountId;
 use serde::{Deserialize, Serialize};
 use teloxide::{net::Download, prelude::Requester, types::PhotoSize};
 
 use crate::{
+    near_utils::FtBalance,
     tgbot::BotData,
     utils::ai::Model,
     xeon::{TokenInfo, TokenPartialMetadata, TokenScore},
@@ -72,9 +73,9 @@ pub async fn get_near_social_details(
 pub struct PartialTokenInfo {
     pub account_id: AccountId,
     pub metadata: TokenPartialMetadata,
-    pub total_supply: Balance,
-    pub circulating_supply: Balance,
-    pub circulating_supply_excluding_team: Balance,
+    pub total_supply: FtBalance,
+    pub circulating_supply: FtBalance,
+    pub circulating_supply_excluding_team: FtBalance,
     pub launched: bool,
     pub reputation: TokenScore,
 }

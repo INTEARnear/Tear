@@ -168,19 +168,19 @@ impl XeonBotModule for ContractLogsTextModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        ContractLogsTextSubscriberConfig {
-                            enabled: false,
-                            ..config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    ContractLogsTextSubscriberConfig {
+                        enabled: false,
+                        ..config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -190,19 +190,19 @@ impl XeonBotModule for ContractLogsTextModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        ContractLogsTextSubscriberConfig {
-                            enabled: true,
-                            ..chat_config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(chat_config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    ContractLogsTextSubscriberConfig {
+                        enabled: true,
+                        ..chat_config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -1668,40 +1668,40 @@ impl TextLogFilter {
             return false;
         }
 
-        if let Some(requires_testnet) = self.is_testnet {
-            if requires_testnet != is_testnet {
-                return false;
-            }
+        if let Some(requires_testnet) = self.is_testnet
+            && requires_testnet != is_testnet
+        {
+            return false;
         }
 
-        if let Some(predecessor_id) = &self.predecessor_id {
-            if predecessor_id != &event.predecessor_id {
-                return false;
-            }
+        if let Some(predecessor_id) = &self.predecessor_id
+            && predecessor_id != &event.predecessor_id
+        {
+            return false;
         }
 
-        if let Some(exact_match) = &self.exact_match {
-            if exact_match != &event.log_text {
-                return false;
-            }
+        if let Some(exact_match) = &self.exact_match
+            && exact_match != &event.log_text
+        {
+            return false;
         }
 
-        if let Some(text_starts_with) = &self.text_starts_with {
-            if !event.log_text.starts_with(text_starts_with) {
-                return false;
-            }
+        if let Some(text_starts_with) = &self.text_starts_with
+            && !event.log_text.starts_with(text_starts_with)
+        {
+            return false;
         }
 
-        if let Some(text_ends_with) = &self.text_ends_with {
-            if !event.log_text.ends_with(text_ends_with) {
-                return false;
-            }
+        if let Some(text_ends_with) = &self.text_ends_with
+            && !event.log_text.ends_with(text_ends_with)
+        {
+            return false;
         }
 
-        if let Some(text_contains) = &self.text_contains {
-            if !event.log_text.contains(text_contains) {
-                return false;
-            }
+        if let Some(text_contains) = &self.text_contains
+            && !event.log_text.contains(text_contains)
+        {
+            return false;
         }
 
         true

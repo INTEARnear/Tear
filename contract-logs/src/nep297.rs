@@ -185,19 +185,19 @@ impl XeonBotModule for ContractLogsNep297Module {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        ContractLogsNep297SubscriberConfig {
-                            enabled: false,
-                            ..config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    ContractLogsNep297SubscriberConfig {
+                        enabled: false,
+                        ..config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -207,19 +207,19 @@ impl XeonBotModule for ContractLogsNep297Module {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        ContractLogsNep297SubscriberConfig {
-                            enabled: true,
-                            ..chat_config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(chat_config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    ContractLogsNep297SubscriberConfig {
+                        enabled: true,
+                        ..chat_config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -1477,28 +1477,28 @@ impl Nep297LogFilter {
             return false;
         }
 
-        if let Some(requires_testnet) = self.is_testnet {
-            if requires_testnet != is_testnet {
-                return false;
-            }
+        if let Some(requires_testnet) = self.is_testnet
+            && requires_testnet != is_testnet
+        {
+            return false;
         }
 
-        if let Some(account_id) = &self.account_id {
-            if account_id != &event.account_id {
-                return false;
-            }
+        if let Some(account_id) = &self.account_id
+            && account_id != &event.account_id
+        {
+            return false;
         }
 
-        if let Some(predecessor_id) = &self.predecessor_id {
-            if predecessor_id != &event.predecessor_id {
-                return false;
-            }
+        if let Some(predecessor_id) = &self.predecessor_id
+            && predecessor_id != &event.predecessor_id
+        {
+            return false;
         }
 
-        if let Some(standard) = &self.standard {
-            if standard != &event.event_standard {
-                return false;
-            }
+        if let Some(standard) = &self.standard
+            && standard != &event.event_standard
+        {
+            return false;
         }
 
         if let Some(version_match) = &self.version {
@@ -1510,10 +1510,10 @@ impl Nep297LogFilter {
             }
         }
 
-        if let Some(event_event) = &self.event {
-            if event_event != &event.event_event {
-                return false;
-            }
+        if let Some(event_event) = &self.event
+            && event_event != &event.event_event
+        {
+            return false;
         }
 
         true

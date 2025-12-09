@@ -95,7 +95,8 @@ pub async fn has_permission_in_chat(
     } else {
         None
     };
-    let is_allowed = match level_required {
+
+    match level_required {
         ChatPermissionLevel::Owner => member.is_owner(),
         ChatPermissionLevel::Whitelist(_) => unreachable!(),
         ChatPermissionLevel::CanPromoteMembers => {
@@ -108,8 +109,7 @@ pub async fn has_permission_in_chat(
             member.is_owner() || administrator.is_some_and(|a| a.can_restrict_members)
         }
         ChatPermissionLevel::Admin => member.is_owner() || administrator.is_some(),
-    };
-    is_allowed
+    }
 }
 
 pub async fn check_admin_permission_in_chat(

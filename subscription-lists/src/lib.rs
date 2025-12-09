@@ -52,17 +52,9 @@ impl SubscriptionListsConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct UserSubscriptions {
     subscribed_lists: HashSet<NewsletterList>,
-}
-
-impl Default for UserSubscriptions {
-    fn default() -> Self {
-        Self {
-            subscribed_lists: HashSet::new(),
-        }
-    }
 }
 
 #[async_trait]
@@ -97,47 +89,48 @@ impl XeonBotModule for SubscriptionListsModule {
 
         match command {
             MessageCommand::None => {
-                if user_id == SLIME_USER_ID && chat_id.is_user() {
-                    if let Some(command_text) = text.strip_prefix("/announce") {
-                        if command_text.is_empty() {
-                            bot.send_text_message(
+                if user_id == SLIME_USER_ID
+                    && chat_id.is_user()
+                    && let Some(command_text) = text.strip_prefix("/announce")
+                {
+                    if command_text.is_empty() {
+                        bot.send_text_message(
                                 chat_id.into(),
                                 "Usage: /announce <newsletter id\\>\n\nValid IDs: ecosystem, events, irl, dev, validator".to_string(),
                                 InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
                             )
                             .await?;
-                            return Ok(());
-                        }
+                        return Ok(());
+                    }
 
-                        let list = match command_text.trim().to_lowercase().as_str() {
-                            "ecosystem" => NewsletterList::EcosystemNews,
-                            "events" => NewsletterList::EventsAirdrops,
-                            "irl" => NewsletterList::IRLEvents,
-                            "dev" => NewsletterList::DevUpdates,
-                            "validator" => NewsletterList::ValidatorUpdates,
-                            _ => {
-                                bot.send_text_message(
+                    let list = match command_text.trim().to_lowercase().as_str() {
+                        "ecosystem" => NewsletterList::EcosystemNews,
+                        "events" => NewsletterList::EventsAirdrops,
+                        "irl" => NewsletterList::IRLEvents,
+                        "dev" => NewsletterList::DevUpdates,
+                        "validator" => NewsletterList::ValidatorUpdates,
+                        _ => {
+                            bot.send_text_message(
                                     chat_id.into(),
                                     "Invalid newsletter ID\\. Valid IDs: ecosystem, events, irl, dev, validator".to_string(),
                                     InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
                                 )
                                 .await?;
-                                return Ok(());
-                            }
-                        };
+                            return Ok(());
+                        }
+                    };
 
-                        bot.set_message_command(
-                            user_id,
-                            MessageCommand::SubscriptionListsAnnounce { list },
-                        )
-                        .await?;
-                        bot.send_text_message(
+                    bot.set_message_command(
+                        user_id,
+                        MessageCommand::SubscriptionListsAnnounce { list },
+                    )
+                    .await?;
+                    bot.send_text_message(
                             chat_id.into(),
                             format!("Now send the message for *{}*\\. You can include text, photos, videos, documents, or any other attachments\\.", markdown::escape(list.list_display_name())),
                             InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
                         )
                         .await?;
-                    }
                 }
             }
             MessageCommand::SubscriptionListsAnnounce { list } => {
@@ -388,7 +381,7 @@ impl XeonBotModule for SubscriptionListsModule {
                         context
                             .bot()
                             .send_text_message(
-                                sender_chat_id.into(),
+                                sender_chat_id,
                                 progress_message,
                                 InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
                             )

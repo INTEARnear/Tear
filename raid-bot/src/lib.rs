@@ -149,7 +149,7 @@ fn format_reset_interval(interval: Option<Duration>) -> String {
             } else if secs == 300 {
                 "🪲 Every 5 Minutes".to_string()
             } else {
-                format!("{}", tearbot_common::utils::format_duration(d))
+                tearbot_common::utils::format_duration(d).to_string()
             }
         }
     }
@@ -207,15 +207,15 @@ fn format_preset(preset: &RaidPreset) -> String {
     if preset.pinned {
         parts.push("📌".to_string());
     }
-    if let Some(points) = preset.points_per_repost {
-        if points > 0 {
-            parts.push(format!("🔁🪙{}", points));
-        }
+    if let Some(points) = preset.points_per_repost
+        && points > 0
+    {
+        parts.push(format!("🔁🪙{}", points));
     }
-    if let Some(points) = preset.points_per_comment {
-        if points > 0 {
-            parts.push(format!("💬🪙{}", points));
-        }
+    if let Some(points) = preset.points_per_comment
+        && points > 0
+    {
+        parts.push(format!("💬🪙{}", points));
     }
 
     if parts.is_empty() {
@@ -321,34 +321,36 @@ async fn distribute_raid_points(
         raid_state.points_per_comment
     );
 
-    if let Some(points) = raid_state.points_per_repost {
-        if points > 0 && !reposters.is_empty() {
-            for user_id in &reposters {
-                *user_points_earned.entry(*user_id).or_insert(0) += points;
-            }
-            let total_repost_points = reposters.len() * points;
-            points_summary.push_str(&format!(
-                "\n🔁 {} reposts × {} pts = {} total pts",
-                reposters.len(),
-                points,
-                total_repost_points
-            ));
+    if let Some(points) = raid_state.points_per_repost
+        && points > 0
+        && !reposters.is_empty()
+    {
+        for user_id in &reposters {
+            *user_points_earned.entry(*user_id).or_insert(0) += points;
         }
+        let total_repost_points = reposters.len() * points;
+        points_summary.push_str(&format!(
+            "\n🔁 {} reposts × {} pts = {} total pts",
+            reposters.len(),
+            points,
+            total_repost_points
+        ));
     }
 
-    if let Some(points) = raid_state.points_per_comment {
-        if points > 0 && !repliers.is_empty() {
-            for user_id in &repliers {
-                *user_points_earned.entry(*user_id).or_insert(0) += points;
-            }
-            let total_reply_points = repliers.len() * points;
-            points_summary.push_str(&format!(
-                "\n💬 {} replies × {} pts = {} total pts",
-                repliers.len(),
-                points,
-                total_reply_points
-            ));
+    if let Some(points) = raid_state.points_per_comment
+        && points > 0
+        && !repliers.is_empty()
+    {
+        for user_id in &repliers {
+            *user_points_earned.entry(*user_id).or_insert(0) += points;
         }
+        let total_reply_points = repliers.len() * points;
+        points_summary.push_str(&format!(
+            "\n💬 {} replies × {} pts = {} total pts",
+            repliers.len(),
+            points,
+            total_reply_points
+        ));
     }
 
     if !user_points_earned.is_empty() {
@@ -378,7 +380,7 @@ Tweet: {}
 
 Your total points in this chat: *{} points*",
                 markdown::escape(
-                    &get_chat_title_cached_5m(bot.bot(), raid_key.chat_id.into(),)
+                    &get_chat_title_cached_5m(bot.bot(), raid_key.chat_id,)
                         .await?
                         .unwrap_or_else(|| "<error>".to_string())
                 ),
@@ -458,12 +460,10 @@ fn create_raid_message(
 🔥 Drop your likes, retweets, and replies\\!{}",
         markdown::escape(&raid_state.tweet_url),
         if LEGION_CHAT_IDS.contains(&chat_id) {
-            format!(
-                "\n\n🐉 **Legion Raider Mission**: Connect both X and NEAR accounts \\(the one with Ascendant SBT\\) to make your raids count"
-            )
+            "\n\n🐉 **Legion Raider Mission**: Connect both X and NEAR accounts \\(the one with Ascendant SBT\\) to make your raids count".to_string()
         } else if raid_state.points_per_comment.is_some() || raid_state.points_per_repost.is_some()
         {
-            format!("\n\nIf you haven't yet: connect your X account to make the points count\\!")
+            "\n\nIf you haven't yet: connect your X account to make the points count\\!".to_string()
         } else {
             "".to_string()
         }
@@ -497,10 +497,10 @@ fn create_raid_message(
                 .unwrap_or("\\-".to_string());
             if let Some(target) = raid_state.target_reposts {
                 message.push_str(&format!("\n🔁 Reposts: {}/{}", current, target));
-                if let Some(points) = raid_state.points_per_repost {
-                    if points > 0 {
-                        message.push_str(&format!(" \\(🪙 {points} points\\)"));
-                    }
+                if let Some(points) = raid_state.points_per_repost
+                    && points > 0
+                {
+                    message.push_str(&format!(" \\(🪙 {points} points\\)"));
                 }
             } else {
                 message.push_str(&format!("\n🔁 Reposts: {}", current));
@@ -513,10 +513,10 @@ fn create_raid_message(
                 .unwrap_or("\\-".to_string());
             if let Some(target) = raid_state.target_comments {
                 message.push_str(&format!("\n💬 Replies: {}/{}", current, target));
-                if let Some(points) = raid_state.points_per_comment {
-                    if points > 0 {
-                        message.push_str(&format!(" \\(🪙 {points} points\\)"));
-                    }
+                if let Some(points) = raid_state.points_per_comment
+                    && points > 0
+                {
+                    message.push_str(&format!(" \\(🪙 {points} points\\)"));
                 }
             } else {
                 message.push_str(&format!("\n💬 Replies: {}", current));
@@ -756,7 +756,7 @@ impl RaidBotModule {
                 for update in updates_to_process {
                     updates_by_raid
                         .entry((update.bot_id, update.key))
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(update.update_type);
                 }
 
@@ -859,7 +859,7 @@ impl RaidBotModule {
 
                         let _ = distribute_raid_points(
                             bot_config,
-                            &*bot,
+                            &bot,
                             &key,
                             &state,
                             &raid_participation_clone,
@@ -1046,7 +1046,7 @@ impl RaidBotModule {
                                     format_reset_interval(config.leaderboard_reset_interval);
 
                                 let message = format_leaderboard_message(
-                                    &*bot,
+                                    &bot,
                                     chat_id,
                                     user_points.clone(),
                                     &format!("{} Leaderboard Reset", reset_name),
@@ -1198,7 +1198,7 @@ impl XeonBotModule for RaidBotModule {
                             for user_id in reposts {
                                 message.push_str(&markdown::escape(&format!("- {}\n", user_id.0)));
                             }
-                            message.push_str("\n");
+                            message.push('\n');
                         }
 
                         if !replies.is_empty() {
@@ -1254,7 +1254,7 @@ impl XeonBotModule for RaidBotModule {
                             message.push_str("X Account: Not connected\n");
                         }
 
-                        message.push_str("\n");
+                        message.push('\n');
 
                         if let Some(near_account) = connected_accounts.near {
                             message.push_str(&format!("NEAR Wallet: `{}`\n", near_account.0));
@@ -1525,24 +1525,22 @@ impl XeonBotModule for RaidBotModule {
                             ));
                         }
 
-                        if let Some(rank) = user_account_rank {
-                            if rank > 10 {
-                                if let Some(user_account_id) = &user_account_id {
-                                    let note =
-                                        if is_ascendant(&user_account_id).await.unwrap_or(false) {
-                                            ""
-                                        } else {
-                                            " \\(Not Ascendant\\)"
-                                        };
-                                    if let Some((_, points)) = account_points
-                                        .iter()
-                                        .find(|(account_id, _)| account_id == user_account_id)
-                                    {
-                                        message_text.push_str(&format!(
+                        if let Some(rank) = user_account_rank
+                            && rank > 10
+                            && let Some(user_account_id) = &user_account_id
+                        {
+                            let note = if is_ascendant(user_account_id).await.unwrap_or(false) {
+                                ""
+                            } else {
+                                " \\(Not Ascendant\\)"
+                            };
+                            if let Some((_, points)) = account_points
+                                .iter()
+                                .find(|(account_id, _)| account_id == user_account_id)
+                            {
+                                message_text.push_str(&format!(
                                             "\n\\.\\.\\.\\.\\.\\.\n\n  *{rank}\\.*  `{user_account_id}`  \\-  *{points} raids*{note}"
                                         ));
-                                    }
-                                }
                             }
                         }
                         let buttons = Vec::<Vec<_>>::new();
@@ -1624,25 +1622,22 @@ impl XeonBotModule for RaidBotModule {
                         ));
                     }
 
-                    if let Some(rank) = user_rank {
-                        if rank > 10 {
-                            if let Some((_, user_points_value)) =
-                                user_points.iter().find(|(uid, _)| *uid == user_id)
-                            {
-                                let user_name = if let Ok(member) =
-                                    bot.bot().get_chat_member(chat_id, user_id).await
-                                {
-                                    markdown::escape(&member.user.full_name())
-                                } else {
-                                    "You".to_string()
-                                };
+                    if let Some(rank) = user_rank
+                        && rank > 10
+                        && let Some((_, user_points_value)) =
+                            user_points.iter().find(|(uid, _)| *uid == user_id)
+                    {
+                        let user_name =
+                            if let Ok(member) = bot.bot().get_chat_member(chat_id, user_id).await {
+                                markdown::escape(&member.user.full_name())
+                            } else {
+                                "You".to_string()
+                            };
 
-                                message_text.push_str(&format!(
-                                    "\n\\.\\.\\.\\.\\.\\.\n\n  *{}\\.*  {}  \\-  *{} pts*",
-                                    rank, user_name, user_points_value
-                                ));
-                            }
-                        }
+                        message_text.push_str(&format!(
+                            "\n\\.\\.\\.\\.\\.\\.\n\n  *{}\\.*  {}  \\-  *{} pts*",
+                            rank, user_name, user_points_value
+                        ));
                     }
 
                     let buttons = Vec::<Vec<_>>::new();
@@ -2559,10 +2554,7 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
                         format!("User {}", user_id)
                     };
 
-                    let escaped_name = user_name
-                        .replace('"', "\"\"")
-                        .replace('\n', " ")
-                        .replace('\r', " ");
+                    let escaped_name = user_name.replace('"', "\"\"").replace(['\n', '\r'], " ");
 
                     let connected_accounts = context
                         .bot()
@@ -3121,7 +3113,7 @@ When should this raid end?"
                     return Ok(());
                 }
 
-                let mut message = format!("*📋 Review Raid Configuration*\n\n");
+                let mut message = "*📋 Review Raid Configuration*\n\n".to_string();
                 message.push_str(&format!("*Tweet:* {}\n\n", markdown::escape(&tweet_url)));
 
                 if target_likes.is_some() || target_reposts.is_some() || target_comments.is_some() {
@@ -3135,7 +3127,7 @@ When should this raid end?"
                     if let Some(comments) = target_comments {
                         message.push_str(&format!("💬 Replies: {}\n", comments));
                     }
-                    message.push_str("\n");
+                    message.push('\n');
                 }
 
                 if let Some(interval) = repost_interval {
@@ -3186,15 +3178,15 @@ When should this raid end?"
 
                 if points_per_repost.is_some() || points_per_comment.is_some() {
                     message.push_str("\n*Points:*\n");
-                    if let Some(pts) = points_per_repost {
-                        if pts > 0 {
-                            message.push_str(&format!("🔁 Reposts: {} pts\n", pts));
-                        }
+                    if let Some(pts) = points_per_repost
+                        && pts > 0
+                    {
+                        message.push_str(&format!("🔁 Reposts: {} pts\n", pts));
                     }
-                    if let Some(pts) = points_per_comment {
-                        if pts > 0 {
-                            message.push_str(&format!("💬 Replies: {} pts\n", pts));
-                        }
+                    if let Some(pts) = points_per_comment
+                        && pts > 0
+                    {
+                        message.push_str(&format!("💬 Replies: {} pts\n", pts));
                     }
                 }
 
@@ -3312,7 +3304,7 @@ When should this raid end?"
                         .await?;
                 }
 
-                let message = format!("Preset saved");
+                let message = "Preset saved".to_string();
                 let buttons = vec![vec![InlineKeyboardButton::callback(
                     "⬅️ Back to Review",
                     context
@@ -3427,7 +3419,7 @@ When should this raid end?"
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 let sent = context
                     .bot()
-                    .send_text_message(context.chat_id().into(), message_text, reply_markup)
+                    .send_text_message(context.chat_id(), message_text, reply_markup)
                     .await?;
                 if let Some(message_id) = context.message_id() {
                     let _ = context

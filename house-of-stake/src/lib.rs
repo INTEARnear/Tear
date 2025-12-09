@@ -4,16 +4,14 @@ use async_trait::async_trait;
 use bigdecimal::{BigDecimal, ToPrimitive};
 use cached::proc_macro::cached;
 use chrono::Utc;
-use near_primitives::{
-    serialize::dec_format,
-    types::{AccountId, Balance},
-};
+use near_primitives::{serialize::dec_format, types::AccountId};
 use serde::{Deserialize, Serialize};
 use tearbot_common::{
     bot_commands::{MessageCommand, TgCommand},
     indexer_events::{IndexerEvent, IndexerEventHandler},
     intear_events::events::log::log_nep297::LogNep297Event,
     mongodb::Database,
+    near_utils::FtBalance,
     teloxide::{
         prelude::{ChatId, Message, UserId},
         types::{InlineKeyboardButton, InlineKeyboardMarkup},
@@ -59,13 +57,13 @@ struct AddVoteData {
     proposal_id: u64,
     vote: usize,
     #[serde(with = "dec_format")]
-    account_balance: Balance,
+    account_balance: FtBalance,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct Votes {
     #[serde(with = "dec_format")]
-    total_venear: Balance,
+    total_venear: FtBalance,
     total_votes: u64,
 }
 
@@ -92,7 +90,7 @@ async fn get_proposal_cached(proposal_id: u64) -> Result<ProposalInfo, anyhow::E
         }),
     )
     .await?;
-    Ok(result.ok_or(anyhow::anyhow!("Proposal {} not found", proposal_id))?)
+    result.ok_or(anyhow::anyhow!("Proposal {} not found", proposal_id))
 }
 
 async fn get_proposal(proposal_id: u64) -> Result<ProposalInfo, anyhow::Error> {
@@ -478,19 +476,19 @@ impl XeonBotModule for HouseOfStakeModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        HouseOfStakeSubscriberConfig {
-                            enabled: false,
-                            ..config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    HouseOfStakeSubscriberConfig {
+                        enabled: false,
+                        ..config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -500,19 +498,19 @@ impl XeonBotModule for HouseOfStakeModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        HouseOfStakeSubscriberConfig {
-                            enabled: true,
-                            ..chat_config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(chat_config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    HouseOfStakeSubscriberConfig {
+                        enabled: true,
+                        ..chat_config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }

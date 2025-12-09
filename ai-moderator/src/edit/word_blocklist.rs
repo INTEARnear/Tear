@@ -52,7 +52,7 @@ pub async fn handle_button(
     if !chat_config.word_blocklist.is_empty() {
         const WORDS_PER_PAGE: usize = 10;
         let total_words = chat_config.word_blocklist.len();
-        let total_pages = (total_words + WORDS_PER_PAGE - 1) / WORDS_PER_PAGE;
+        let total_pages = total_words.div_ceil(WORDS_PER_PAGE);
         let current_page = page.min(total_pages.saturating_sub(1));
 
         let start_idx = current_page * WORDS_PER_PAGE;
@@ -200,14 +200,14 @@ pub async fn handle_remove_word(
         return Ok(());
     }
 
-    if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
-        if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-            chat_config.word_blocklist.retain(|w| w != &word);
-            bot_config
-                .chat_configs
-                .insert_or_update(target_chat_id, chat_config)
-                .await?;
-        }
+    if let Some(bot_config) = bot_configs.get(&ctx.bot().id())
+        && let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await
+    {
+        chat_config.word_blocklist.retain(|w| w != &word);
+        bot_config
+            .chat_configs
+            .insert_or_update(target_chat_id, chat_config)
+            .await?;
     }
 
     handle_button(ctx, target_chat_id, bot_configs, 0).await?;

@@ -1,9 +1,9 @@
 use inindexer::near_utils::dec_format;
-use near_primitives::types::{AccountId, Balance};
+use near_primitives::types::AccountId;
 use serde::{Deserialize, Serialize};
 use teloxide::utils::markdown;
 
-use crate::{utils::badges::get_selected_badge, xeon::XeonState};
+use crate::{near_utils::FtBalance, utils::badges::get_selected_badge, xeon::XeonState};
 
 use super::{
     requests::get_cached_30s,
@@ -19,7 +19,7 @@ pub const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 pub const SOL_DECIMALS: u32 = 9;
 pub const SOL_CONTRACT_ON_NEAR: &str = "22.contract.portalbridge.near";
 
-pub async fn format_near_amount(amount: Balance, price_source: &XeonState) -> String {
+pub async fn format_near_amount(amount: FtBalance, price_source: &XeonState) -> String {
     if amount == 0 {
         "0 NEAR".to_string()
     } else if amount < 10u128.pow(6) {
@@ -36,7 +36,7 @@ pub async fn format_near_amount(amount: Balance, price_source: &XeonState) -> St
     }
 }
 
-pub fn format_near_amount_without_price(amount: Balance) -> String {
+pub fn format_near_amount_without_price(amount: FtBalance) -> String {
     if amount == 0 {
         "0 NEAR".to_string()
     } else if amount < 10u128.pow(6) {
@@ -76,7 +76,7 @@ pub fn format_sol_amount_without_price(amount: u64) -> String {
 }
 
 pub async fn format_tokens(
-    amount: Balance,
+    amount: FtBalance,
     token: &AccountId,
     include_price: Option<&XeonState>,
 ) -> String {
@@ -140,7 +140,7 @@ pub struct FungibleTokenMetadata {
     pub decimals: u32,
 }
 
-pub fn format_token_amount(amount: Balance, decimals: u32, symbol: &str) -> String {
+pub fn format_token_amount(amount: FtBalance, decimals: u32, symbol: &str) -> String {
     if decimals == 0 {
         return format!("{amount} {symbol}");
     }
@@ -231,7 +231,7 @@ pub async fn format_account_id(account_id: &AccountId) -> String {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Default)]
 #[serde(transparent)]
-pub struct StringifiedBalance(#[serde(with = "dec_format")] pub Balance);
+pub struct StringifiedBalance(#[serde(with = "dec_format")] pub FtBalance);
 
 pub fn format_price_change(price_change: f64) -> String {
     let price_change_percentage = (price_change * 100f64).abs();
@@ -274,29 +274,29 @@ pub struct MemeCookingInfo {
     pub icon: String,
     pub decimals: u32,
     #[serde(with = "dec_format")]
-    pub total_supply: Balance,
+    pub total_supply: FtBalance,
     pub reference: String,
     pub reference_hash: String,
     pub deposit_token_id: AccountId,
     #[serde(with = "dec_format")]
-    pub soft_cap: Balance,
+    pub soft_cap: FtBalance,
     #[serde(with = "dec_format")]
-    pub hard_cap: Option<Balance>,
+    pub hard_cap: Option<FtBalance>,
     pub team_allocation: Option<TeamAllocation>,
     #[serde(with = "dec_format")]
-    pub pool_amount: Balance,
+    pub pool_amount: FtBalance,
     #[serde(with = "dec_format")]
-    pub amount_to_be_distributed: Balance,
+    pub amount_to_be_distributed: FtBalance,
     #[serde(with = "dec_format")]
-    pub total_staked: Balance,
+    pub total_staked: FtBalance,
     #[serde(with = "dec_format")]
-    pub total_withdrawal_fees: Balance,
+    pub total_withdrawal_fees: FtBalance,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TeamAllocation {
     #[serde(with = "dec_format")]
-    pub amount: Balance,
+    pub amount: FtBalance,
     pub vesting_duration_ms: u64,
     pub cliff_duration_ms: u64,
 }
@@ -318,20 +318,20 @@ struct MemeCookingApiMeme {
     symbol: String,
     decimals: u32,
     #[serde(with = "dec_format")]
-    total_supply: Balance,
+    total_supply: FtBalance,
     reference: String,
     reference_hash: String,
     deposit_token_id: AccountId,
     #[serde(with = "dec_format")]
-    soft_cap: Balance,
+    soft_cap: FtBalance,
     #[serde(with = "dec_format")]
-    hard_cap: Balance,
+    hard_cap: FtBalance,
     #[serde(with = "dec_format")]
-    team_allocation: Option<Balance>,
+    team_allocation: Option<FtBalance>,
     vesting_duration_ms: Option<u64>,
     cliff_duration_ms: Option<u64>,
     #[serde(with = "dec_format")]
-    total_withdraw_fees: Balance,
+    total_withdraw_fees: FtBalance,
     image: String,
 }
 

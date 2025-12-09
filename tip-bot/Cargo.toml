@@ -12,7 +12,6 @@ log = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 near-api = { workspace = true }
-near-crypto = { workspace = true }
 near-primitives = { workspace = true }
 near-gas = { workspace = true }
 near-token = { workspace = true }

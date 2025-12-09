@@ -5,18 +5,21 @@ use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use bigdecimal::ToPrimitive;
 use near_api::RPCEndpoint;
+use near_api::SecretKey;
 use near_api::Tokens;
 use near_api::Transaction;
+use near_api::signer::DEFAULT_HD_PATH;
 use near_api::signer::Signer;
 use near_api::signer::SignerTrait;
+use near_api::signer::get_secret_key_from_seed;
 use near_api::signer::secret_key::SecretKeySigner;
+use near_api::types::AccessKeyPermission;
+use near_api::types::Action;
 use near_api::types::storage::StorageBalanceInternal;
+use near_api::types::transaction::result::ExecutionSuccess;
 use near_api::{Account, Contract, NetworkConfig};
-use near_crypto::SecretKey;
 
 use near_gas::NearGas;
-use near_primitives::account::AccessKeyPermission;
-use near_primitives::views::FinalExecutionStatus;
 use near_token::NearToken;
 use serde::{Deserialize, Serialize};
 use tearbot_common::bot_commands::ConnectedAccounts;
@@ -106,7 +109,7 @@ impl TipBotModule {
             .fetch_from(&self.network)
             .await
         {
-            Ok(account_view) => NearToken::from_yoctonear(account_view.data.amount),
+            Ok(account_view) => account_view.data.amount,
             Err(e) => {
                 log::error!("Failed to fetch treasury wallet balance: {:?}", e);
                 return Err("Failed to check treasury wallet balance".to_string());
@@ -135,7 +138,7 @@ impl TipBotModule {
                 .fetch_from(&self.network)
                 .await
             {
-                Ok(account_view) => NearToken::from_yoctonear(account_view.data.amount),
+                Ok(account_view) => account_view.data.amount,
                 Err(e) => {
                     log::error!("Failed to fetch tip wallet balance: {:?}", e);
                     return Err("Failed to check tip wallet balance".to_string());
@@ -164,7 +167,6 @@ impl TipBotModule {
                     "account_id": treasury_wallet,
                 }),
             )
-            .unwrap()
             .read_only::<StringifiedBalance>()
             .fetch_from(&self.network)
             .await
@@ -200,7 +202,6 @@ impl TipBotModule {
                     "account_id": recipient_account,
                 }),
             )
-            .unwrap()
             .read_only::<Option<StorageBalanceInternal>>()
             .fetch_from(&self.network)
             .await
@@ -214,14 +215,13 @@ impl TipBotModule {
                         "registration_only": true,
                     }),
                 )
-                .unwrap()
                 .transaction()
                 .deposit("0.00125 NEAR".parse().unwrap())
                 .with_signer(treasury_wallet.clone(), Arc::clone(&self.signer))
                 .send_to(&self.network)
                 .await?;
 
-            if matches!(tx_result.status, FinalExecutionStatus::Failure(_)) {
+            if tx_result.is_failure() {
                 return Ok(false);
             }
         }
@@ -234,7 +234,7 @@ impl TipBotModule {
         recipient_account: &AccountId,
         amount: u128,
         treasury_wallet: &AccountId,
-    ) -> Result<FinalExecutionStatus, anyhow::Error> {
+    ) -> Result<ExecutionSuccess, anyhow::Error> {
         let tx_result = if token_contract == "near" {
             Tokens::account(treasury_wallet.clone())
                 .send_to(recipient_account.clone())
@@ -251,7 +251,6 @@ impl TipBotModule {
                         "amount": amount.to_string(),
                     }),
                 )
-                .unwrap()
                 .transaction()
                 .deposit(NearToken::from_yoctonear(1))
                 .gas(NearGas::from_tgas(9))
@@ -260,7 +259,7 @@ impl TipBotModule {
                 .await?
         };
 
-        Ok(tx_result.status)
+        tx_result.into_result().map_err(anyhow::Error::msg)
     }
 }
 
@@ -344,15 +343,13 @@ impl XeonBotModule for TipBotModule {
                         chat_config.tokens.get(&ticker.to_lowercase())
                     {
                         token_contract.clone()
+                    } else if let Some(token_contract) = chat_config
+                        .tokens
+                        .get(ticker.to_lowercase().trim_start_matches('$'))
+                    {
+                        token_contract.clone()
                     } else {
-                        if let Some(token_contract) = chat_config
-                            .tokens
-                            .get(ticker.to_lowercase().trim_start_matches('$'))
-                        {
-                            token_contract.clone()
-                        } else {
-                            return Ok(());
-                        }
+                        return Ok(());
                     };
 
                     if !check_admin_permission_in_chat(bot, chat_id, user_id).await {
@@ -528,7 +525,7 @@ impl XeonBotModule for TipBotModule {
                             .await;
 
                         match tx_result {
-                            Ok(FinalExecutionStatus::SuccessValue(_)) => {
+                            Ok(_) => {
                                 let message = format!(
                                     "Sent {} to `{}`",
                                     markdown::escape(
@@ -546,29 +543,10 @@ impl XeonBotModule for TipBotModule {
                                     .parse_mode(ParseMode::MarkdownV2)
                                     .await?;
                             }
-                            Ok(status) => {
-                                log::warn!("Token transfer failed: {:?}", status);
-                                let message = format!(
-                                    "Failed to send {} to `{}`",
-                                    markdown::escape(
-                                        &format_tokens(
-                                            amount_balance,
-                                            &token_contract,
-                                            Some(bot.xeon()),
-                                        )
-                                        .await
-                                    ),
-                                    recipient_account_id
-                                );
-                                bot.bot()
-                                    .edit_message_text(chat_id, sent_message.id, message)
-                                    .parse_mode(ParseMode::MarkdownV2)
-                                    .await?;
-                            }
                             Err(e) => {
-                                log::error!("Token transfer error: {:?}", e);
+                                log::warn!("Token transfer failed: {e:?}");
                                 let message = format!(
-                                    "Error sending {} to `{}`",
+                                    "Failed to send {} to `{}`: {}",
                                     markdown::escape(
                                         &format_tokens(
                                             amount_balance,
@@ -578,6 +556,7 @@ impl XeonBotModule for TipBotModule {
                                         .await
                                     ),
                                     recipient_account_id,
+                                    markdown::escape(&e.to_string())
                                 );
                                 bot.bot()
                                     .edit_message_text(chat_id, sent_message.id, message)
@@ -699,90 +678,90 @@ impl XeonBotModule for TipBotModule {
                             .await?;
                     }
 
-                    if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
-                        if let Some(tip_treasury_wallet) = &chat_config.wallet {
-                            if let Err(err_msg) =
-                                self.check_treasury_near_balance(tip_treasury_wallet).await
+                    if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await
+                        && let Some(tip_treasury_wallet) = &chat_config.wallet
+                    {
+                        if let Err(err_msg) =
+                            self.check_treasury_near_balance(tip_treasury_wallet).await
+                        {
+                            success_message.push_str(&format!("\n\n⚠️ {}", err_msg));
+                            bot.bot()
+                                .edit_message_text(chat_id, msg.id, success_message)
+                                .await?;
+                            return Ok(());
+                        }
+
+                        for (token_contract, amount_balance) in unclaimed_tips.iter() {
+                            if let Err(_) = self
+                                .check_treasury_token_balance(
+                                    tip_treasury_wallet,
+                                    token_contract,
+                                    amount_balance.0,
+                                )
+                                .await
                             {
-                                success_message.push_str(&format!("\n\n⚠️ {}", err_msg));
-                                bot.bot()
-                                    .edit_message_text(chat_id, msg.id, success_message)
-                                    .await?;
-                                return Ok(());
+                                failed_tokens.push(
+                                    format_tokens(
+                                        amount_balance.0,
+                                        token_contract,
+                                        Some(bot.xeon()),
+                                    )
+                                    .await,
+                                );
+                                continue;
                             }
 
-                            for (token_contract, amount_balance) in unclaimed_tips.iter() {
-                                if let Err(_) = self
-                                    .check_treasury_token_balance(
-                                        tip_treasury_wallet,
-                                        token_contract,
+                            if let Ok(false) = self
+                                .ensure_storage_deposit(
+                                    token_contract,
+                                    &account_id,
+                                    tip_treasury_wallet,
+                                )
+                                .await
+                            {
+                                failed_tokens.push(
+                                    format_tokens(
                                         amount_balance.0,
-                                    )
-                                    .await
-                                {
-                                    failed_tokens.push(
-                                        format_tokens(
-                                            amount_balance.0,
-                                            token_contract,
-                                            Some(bot.xeon()),
-                                        )
-                                        .await,
-                                    );
-                                    continue;
-                                }
-
-                                if let Ok(false) = self
-                                    .ensure_storage_deposit(
                                         token_contract,
-                                        &account_id,
-                                        tip_treasury_wallet,
+                                        Some(bot.xeon()),
                                     )
-                                    .await
-                                {
-                                    failed_tokens.push(
-                                        format_tokens(
-                                            amount_balance.0,
-                                            token_contract,
-                                            Some(bot.xeon()),
-                                        )
-                                        .await,
-                                    );
-                                    continue;
-                                }
+                                    .await,
+                                );
+                                continue;
+                            }
 
-                                let tx_result = self
-                                    .transfer_tokens(
-                                        token_contract,
-                                        &account_id,
-                                        amount_balance.0,
-                                        tip_treasury_wallet,
-                                    )
-                                    .await;
+                            let tx_result = self
+                                .transfer_tokens(
+                                    token_contract,
+                                    &account_id,
+                                    amount_balance.0,
+                                    tip_treasury_wallet,
+                                )
+                                .await;
 
-                                match tx_result {
-                                    Ok(FinalExecutionStatus::SuccessValue(_)) => {
-                                        success_message.push_str(&format!(
-                                            "\n✅ {}",
-                                            markdown::escape(
-                                                &format_tokens(
-                                                    amount_balance.0,
-                                                    token_contract,
-                                                    Some(bot.xeon())
-                                                )
-                                                .await
-                                            )
-                                        ));
-                                    }
-                                    _ => {
-                                        failed_tokens.push(
-                                            format_tokens(
+                            match tx_result {
+                                Ok(_) => {
+                                    success_message.push_str(&format!(
+                                        "\n✅ {}",
+                                        markdown::escape(
+                                            &format_tokens(
                                                 amount_balance.0,
                                                 token_contract,
-                                                Some(bot.xeon()),
+                                                Some(bot.xeon())
                                             )
-                                            .await,
-                                        );
-                                    }
+                                            .await
+                                        )
+                                    ));
+                                }
+                                _ => {
+                                    failed_tokens.push(
+                                        format_tokens(
+                                            amount_balance.0,
+                                            token_contract,
+                                            Some(bot.xeon()),
+                                        )
+                                        .await,
+                                    );
                                 }
                             }
                         }
@@ -1144,14 +1123,13 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
 
                 match Account::create_account(wallet.clone())
                     .fund_myself(self.parent_account_id.clone(), Default::default())
-                    .public_key(self.secret_key.public_key())
-                    .unwrap()
+                    .with_public_key(self.secret_key.public_key())
                     .with_signer(Arc::clone(&self.signer))
                     .send_to(&self.network)
                     .await
                 {
                     Ok(tx) => {
-                        if matches!(tx.status, FinalExecutionStatus::SuccessValue(_)) {
+                        if tx.is_success() {
                             if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                                 let chat_config = bot_config
                                     .chat_configs
@@ -1233,63 +1211,62 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
 
                 let mut message = "Manage Tokens".to_string();
 
-                if let Some(treasury_wallet) = &chat_config.wallet {
-                    if !chat_config.tokens.is_empty() {
-                        message.push_str("\n\n💰 *Balances:*");
+                if let Some(treasury_wallet) = &chat_config.wallet
+                    && !chat_config.tokens.is_empty()
+                {
+                    message.push_str("\n\n💰 *Balances:*");
 
-                        for (ticker, token_contract) in &chat_config.tokens {
-                            let balance = if token_contract == "near" {
-                                match Account(treasury_wallet.clone())
-                                    .view()
-                                    .fetch_from(&self.network)
-                                    .await
-                                {
-                                    Ok(account_view) => Some(
-                                        format_near_amount(
-                                            account_view.data.amount,
-                                            context.bot().xeon(),
-                                        )
-                                        .await,
-                                    ),
-                                    Err(_) => None,
-                                }
-                            } else {
-                                match Contract(token_contract.clone())
-                                    .call_function(
-                                        "ft_balance_of",
-                                        serde_json::json!({
-                                            "account_id": treasury_wallet,
-                                        }),
+                    for (ticker, token_contract) in &chat_config.tokens {
+                        let balance = if token_contract == "near" {
+                            match Account(treasury_wallet.clone())
+                                .view()
+                                .fetch_from(&self.network)
+                                .await
+                            {
+                                Ok(account_view) => Some(
+                                    format_near_amount(
+                                        account_view.data.amount.as_yoctonear(),
+                                        context.bot().xeon(),
                                     )
-                                    .unwrap()
-                                    .read_only::<StringifiedBalance>()
-                                    .fetch_from(&self.network)
-                                    .await
-                                {
-                                    Ok(result) => Some(
-                                        format_tokens(
-                                            result.data.0,
-                                            token_contract,
-                                            Some(context.bot().xeon()),
-                                        )
-                                        .await,
-                                    ),
-                                    Err(_) => None,
-                                }
-                            };
-
-                            if let Some(formatted_balance) = balance {
-                                message.push_str(&format!(
-                                    "\n• {}: {}",
-                                    markdown::escape(&ticker.to_uppercase()),
-                                    markdown::escape(&formatted_balance)
-                                ));
-                            } else {
-                                message.push_str(&format!(
-                                    "\n• {}: ⚠️ Error fetching balance",
-                                    markdown::escape(&ticker.to_uppercase())
-                                ));
+                                    .await,
+                                ),
+                                Err(_) => None,
                             }
+                        } else {
+                            match Contract(token_contract.clone())
+                                .call_function(
+                                    "ft_balance_of",
+                                    serde_json::json!({
+                                        "account_id": treasury_wallet,
+                                    }),
+                                )
+                                .read_only::<StringifiedBalance>()
+                                .fetch_from(&self.network)
+                                .await
+                            {
+                                Ok(result) => Some(
+                                    format_tokens(
+                                        result.data.0,
+                                        token_contract,
+                                        Some(context.bot().xeon()),
+                                    )
+                                    .await,
+                                ),
+                                Err(_) => None,
+                            }
+                        };
+
+                        if let Some(formatted_balance) = balance {
+                            message.push_str(&format!(
+                                "\n• {}: {}",
+                                markdown::escape(&ticker.to_uppercase()),
+                                markdown::escape(&formatted_balance)
+                            ));
+                        } else {
+                            message.push_str(&format!(
+                                "\n• {}: ⚠️ Error fetching balance",
+                                markdown::escape(&ticker.to_uppercase())
+                            ));
                         }
                     }
                 }
@@ -1377,47 +1354,41 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                     .remove_message_command(&context.user_id())
                     .await?;
 
-                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
-                    if let Some(mut chat_config) =
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
+                    && let Some(mut chat_config) =
                         bot_config.chat_configs.get(&target_chat_id).await
-                    {
-                        if let Ok(metadata) = get_ft_metadata(&contract).await {
-                            chat_config
-                                .tokens
-                                .insert(metadata.symbol.to_lowercase(), contract.clone());
-                            bot_config
-                                .chat_configs
-                                .insert_or_update(target_chat_id, chat_config)
-                                .await?;
+                {
+                    if let Ok(metadata) = get_ft_metadata(&contract).await {
+                        chat_config
+                            .tokens
+                            .insert(metadata.symbol.to_lowercase(), contract.clone());
+                        bot_config
+                            .chat_configs
+                            .insert_or_update(target_chat_id, chat_config)
+                            .await?;
 
-                            let message =
-                                format!("Token **{}** added", markdown::escape(&metadata.symbol));
-                            let buttons = vec![vec![InlineKeyboardButton::callback(
-                                "⬅️ Back",
-                                context
-                                    .bot()
-                                    .to_callback_data(&TgCommand::TipBotManageTokens {
-                                        target_chat_id,
-                                    })
-                                    .await,
-                            )]];
-                            let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            context.edit_or_send(message, reply_markup).await?;
-                        } else {
-                            let message =
-                                format!("Could not fetch token metadata for `{contract}`\\.");
-                            let buttons = vec![vec![InlineKeyboardButton::callback(
-                                "⬅️ Back",
-                                context
-                                    .bot()
-                                    .to_callback_data(&TgCommand::TipBotManageTokens {
-                                        target_chat_id,
-                                    })
-                                    .await,
-                            )]];
-                            let reply_markup = InlineKeyboardMarkup::new(buttons);
-                            context.edit_or_send(message, reply_markup).await?;
-                        }
+                        let message =
+                            format!("Token **{}** added", markdown::escape(&metadata.symbol));
+                        let buttons = vec![vec![InlineKeyboardButton::callback(
+                            "⬅️ Back",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::TipBotManageTokens { target_chat_id })
+                                .await,
+                        )]];
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        context.edit_or_send(message, reply_markup).await?;
+                    } else {
+                        let message = format!("Could not fetch token metadata for `{contract}`\\.");
+                        let buttons = vec![vec![InlineKeyboardButton::callback(
+                            "⬅️ Back",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::TipBotManageTokens { target_chat_id })
+                                .await,
+                        )]];
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        context.edit_or_send(message, reply_markup).await?;
                     }
                 }
             }
@@ -1434,16 +1405,15 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                     return Ok(());
                 }
 
-                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
-                    if let Some(mut chat_config) =
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
+                    && let Some(mut chat_config) =
                         bot_config.chat_configs.get(&target_chat_id).await
-                    {
-                        chat_config.tokens.remove(&ticker);
-                        bot_config
-                            .chat_configs
-                            .insert_or_update(target_chat_id, chat_config)
-                            .await?;
-                    }
+                {
+                    chat_config.tokens.remove(&ticker);
+                    bot_config
+                        .chat_configs
+                        .insert_or_update(target_chat_id, chat_config)
+                        .await?;
                 }
 
                 self.handle_callback(
@@ -1499,7 +1469,10 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                     let mnemonic = bip39::Mnemonic::generate(12).unwrap();
                     let phrase = mnemonic.words().collect::<Vec<&str>>().join(" ");
 
-                    let signer = Signer::from_seed_phrase(&phrase, None).unwrap();
+                    let signer = SecretKeySigner::new(
+                        get_secret_key_from_seed(DEFAULT_HD_PATH.parse().unwrap(), &phrase, None)
+                            .unwrap(),
+                    );
                     if let Ok(signed) = Account(wallet.clone())
                         .add_key(
                             AccessKeyPermission::FullAccess,
@@ -1512,14 +1485,17 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                     {
                         if let Ok(tx) =
                             Transaction::construct(self.parent_account_id.clone(), wallet.clone())
-                                .add_action(
-                                    signed.tr.signed().expect("Expect to have it signed").into(),
-                                )
+                                .add_action(Action::Delegate(Box::new(
+                                    signed
+                                        .transaction
+                                        .signed()
+                                        .expect("Expect to have it signed"),
+                                )))
                                 .with_signer(Arc::clone(&self.signer))
                                 .send_to(&self.network)
                                 .await
                         {
-                            if matches!(tx.status, FinalExecutionStatus::SuccessValue(_)) {
+                            if tx.is_success() {
                                 let message = format!(
                                     "Here's your NEAR seed phrase for the tip treasury wallet\\. Please write it down somewhere and delete this message\\.\n\n||{phrase}||\n\n",
                                 );
@@ -1529,7 +1505,7 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                                         format!(
                                             "https://wallet.intear.tech/auto-import-secret-key#{}/{}",
                                             wallet,
-                                            signer.get_secret_key(&wallet, &signer.get_public_key().unwrap()).await.unwrap()
+                                            signer.get_secret_key(&wallet, signer.get_public_key().unwrap()).await.unwrap()
                                         )
                                         .parse()
                                         .unwrap(),

@@ -16,43 +16,43 @@ pub async fn handle_greeting(
     message: &tearbot_common::teloxide::prelude::Message,
     bot_config: &AiModeratorBotConfig,
 ) -> Result<(), anyhow::Error> {
-    if let MessageKind::NewChatMembers(new_members) = &message.kind {
-        if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
-            if !chat_config.enabled {
-                return Ok(());
-            }
-            if let Some((greeting_text, attachment)) = &chat_config.greeting {
-                for new_member in &new_members.new_chat_members {
-                    if !new_member.is_bot {
-                        let greeting_with_mention = markdown::escape(greeting_text).replace(
-                            "\\{user\\}",
-                            &format!(
-                                "[{}](tg://user?id={})",
-                                markdown::escape(&new_member.full_name()),
-                                new_member.id
-                            ),
-                        );
+    if let MessageKind::NewChatMembers(new_members) = &message.kind
+        && let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await
+    {
+        if !chat_config.enabled {
+            return Ok(());
+        }
+        if let Some((greeting_text, attachment)) = &chat_config.greeting {
+            for new_member in &new_members.new_chat_members {
+                if !new_member.is_bot {
+                    let greeting_with_mention = markdown::escape(greeting_text).replace(
+                        "\\{user\\}",
+                        &format!(
+                            "[{}](tg://user?id={})",
+                            markdown::escape(&new_member.full_name()),
+                            new_member.id
+                        ),
+                    );
 
-                        match bot
-                            .send(
+                    match bot
+                        .send(
+                            chat_id,
+                            greeting_with_mention,
+                            InlineKeyboardMarkup::default(),
+                            attachment.clone(),
+                        )
+                        .await
+                    {
+                        Ok(message) => {
+                            bot.schedule_message_autodeletion(
                                 chat_id,
-                                greeting_with_mention,
-                                InlineKeyboardMarkup::default(),
-                                attachment.clone(),
+                                message.id,
+                                Utc::now() + Duration::from_secs(20),
                             )
-                            .await
-                        {
-                            Ok(message) => {
-                                bot.schedule_message_autodeletion(
-                                    chat_id,
-                                    message.id,
-                                    Utc::now() + Duration::from_secs(20),
-                                )
-                                .await?;
-                            }
-                            Err(err) => {
-                                log::warn!("Failed to send greeting message: {err:?}");
-                            }
+                            .await?;
+                        }
+                        Err(err) => {
+                            log::warn!("Failed to send greeting message: {err:?}");
                         }
                     }
                 }

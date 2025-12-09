@@ -159,12 +159,12 @@ pub async fn handle_edit_prompt_input(
     if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
         return Ok(());
     }
-    if let Some(bot_config) = bot_configs.get(&bot.id()) {
-        if let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-            if !chat_id.is_user() && chat_config.moderator_chat != Some(chat_id) {
-                return Ok(());
-            }
-        }
+    if let Some(bot_config) = bot_configs.get(&bot.id())
+        && let Some(chat_config) = bot_config.chat_configs.get(&target_chat_id).await
+        && !chat_id.is_user()
+        && chat_config.moderator_chat != Some(chat_id)
+    {
+        return Ok(());
     }
     let enhancement_prompt = text.to_string();
 

@@ -119,43 +119,40 @@ pub async fn get_message_rating(
             .mute_flood_data
             .check_flood(chat_id, user.id, &message_text, message.id)
             .await
+            && config.mute_flood
         {
-            if config.mute_flood {
-                return MessageRating::Ok {
+            return MessageRating::Ok {
                     judgement: ModerationJudgement::JustMute(Some(Duration::from_secs(3 * 60))),
                     reasoning: "User exceeded flood limits (too many messages too quickly, or repeated messages)".to_string(),
                     message_text: message_text.clone(),
                     image_jpeg: None,
                 };
-            }
         }
     }
 
-    if config.mute_impersonators {
-        if let Some(user) = message.from.as_ref() {
-            let mut admin_names = HashSet::new();
-            for bot in xeon.bots() {
-                if let Ok(names) = get_admin_names(chat_id, &*bot).await {
-                    admin_names.extend(names);
-                }
+    if config.mute_impersonators
+        && let Some(user) = message.from.as_ref()
+    {
+        let mut admin_names = HashSet::new();
+        for bot in xeon.bots() {
+            if let Ok(names) = get_admin_names(chat_id, &bot).await {
+                admin_names.extend(names);
             }
-            if admin_names.into_iter().any(|admin| {
-                skeleton(&admin.trim()).collect::<String>()
-                    == skeleton(&user.full_name().trim()).collect::<String>()
-                    || skeleton(&admin.trim()).collect::<String>()
-                        == skeleton(
-                            &user.full_name()[..user.full_name().len().saturating_sub(1)].trim(),
-                        )
+        }
+        if admin_names.into_iter().any(|admin| {
+            skeleton(admin.trim()).collect::<String>()
+                == skeleton(user.full_name().trim()).collect::<String>()
+                || skeleton(admin.trim()).collect::<String>()
+                    == skeleton(user.full_name()[..user.full_name().len().saturating_sub(1)].trim())
                         .collect::<String>()
-            }) {
-                return MessageRating::Ok {
+        }) {
+            return MessageRating::Ok {
                     judgement: ModerationJudgement::Suspicious,
                     reasoning: format!("This message was sent by someone named {} (similar to name of one of the administrators), and the bot was configured to mute impersonators.", user.full_name()),
                     message_text: "[This message was sent by an admin, and the bot was configured to mute impersonators]"
                         .to_string(),
                     image_jpeg: None,
                 };
-            }
         }
     }
     let mut message_text = message
@@ -196,8 +193,8 @@ pub async fn get_message_rating(
             image_jpeg: None,
         };
     }
-    if config.block_links {
-        if message
+    if config.block_links
+        && message
             .parse_entities()
             .unwrap_or_default()
             .into_iter()
@@ -207,15 +204,14 @@ pub async fn get_message_rating(
                 MessageEntityKind::TextLink { .. } => true,
                 _ => false,
             })
-        {
-            return MessageRating::Ok {
-                judgement: ModerationJudgement::Suspicious,
-                reasoning: "This message contains a link, which was configured to be blocked"
-                    .to_string(),
-                message_text,
-                image_jpeg: None,
-            };
-        }
+    {
+        return MessageRating::Ok {
+            judgement: ModerationJudgement::Suspicious,
+            reasoning: "This message contains a link, which was configured to be blocked"
+                .to_string(),
+            message_text,
+            image_jpeg: None,
+        };
     }
     if !config.word_blocklist.is_empty() {
         let text_to_check = message_text.to_lowercase();

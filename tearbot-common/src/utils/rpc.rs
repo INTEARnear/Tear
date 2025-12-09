@@ -1,14 +1,14 @@
+use crate::near_utils::{FtBalance, dec_format};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use cached::proc_macro::cached;
 use chrono::{DateTime, Utc};
-use inindexer::near_utils::dec_format;
 use near_jsonrpc_primitives::types::blocks::RpcBlockResponse;
 use near_primitives::account::id::AccountIdRef;
 use near_primitives::types::BlockId;
 use near_primitives::utils::account_is_implicit;
 use near_primitives::{
     hash::CryptoHash,
-    types::{AccountId, Balance, BlockHeight},
+    types::{AccountId, BlockHeight},
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -382,9 +382,9 @@ pub async fn historical_view_not_cached<I: Serialize, O: DeserializeOwned>(
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccountInfo {
     #[serde(with = "dec_format")]
-    pub amount: Balance,
+    pub amount: FtBalance,
     #[serde(with = "dec_format")]
-    pub locked: Balance,
+    pub locked: FtBalance,
     pub code_hash: CryptoHash,
     pub storage_usage: u64,
     pub storage_paid_at: BlockHeight,

@@ -115,19 +115,19 @@ impl XeonBotModule for PriceCommandsModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(config) = bot_config.chat_configs.get(&chat_id).await {
-                bot_config
-                    .chat_configs
-                    .insert_or_update(
-                        chat_id.chat_id(),
-                        PriceCommandsChatConfig {
-                            enabled: false,
-                            ..config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(config) = bot_config.chat_configs.get(&chat_id).await
+        {
+            bot_config
+                .chat_configs
+                .insert_or_update(
+                    chat_id.chat_id(),
+                    PriceCommandsChatConfig {
+                        enabled: false,
+                        ..config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -137,19 +137,19 @@ impl XeonBotModule for PriceCommandsModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
-                bot_config
-                    .chat_configs
-                    .insert_or_update(
-                        chat_id.chat_id(),
-                        PriceCommandsChatConfig {
-                            enabled: true,
-                            ..chat_config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await
+        {
+            bot_config
+                .chat_configs
+                .insert_or_update(
+                    chat_id.chat_id(),
+                    PriceCommandsChatConfig {
+                        enabled: true,
+                        ..chat_config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -302,13 +302,13 @@ impl XeonBotModule for PriceCommandsModule {
                         bot.bot().get_me().await?.username.as_ref().unwrap(),
                     ),
                 ];
-                if let Some(meme) = token.as_str().strip_suffix(".meme-cooking.near") {
-                    if let Some(meme_id) = meme.split('-').next_back() {
-                        exchanges.push(format!(
-                            "[Meme Cooking](https://meme.cooking/meme/{meme_id})"
-                        ))
-                    };
-                }
+                if let Some(meme) = token.as_str().strip_suffix(".meme-cooking.near")
+                    && let Some(meme_id) = meme.split('-').next_back()
+                {
+                    exchanges.push(format!(
+                        "[Meme Cooking](https://meme.cooking/meme/{meme_id})"
+                    ))
+                };
                 if token.as_str().ends_with(".aidols.near") {
                     exchanges.push(format!("[AIdols](https://aidols.bot/agents/{token})"));
                 }

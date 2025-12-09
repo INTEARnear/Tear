@@ -1899,7 +1899,7 @@ Sign up on [Imminent\\.build](https://imminent.build) to start collecting badges
                         Some((*target_chat_id).into()),
                     )
                     .await?;
-                } else {
+                } else if text != CANCEL_TEXT {
                     let message = "Please use the 'Choose a chat' button".to_string();
                     let buttons = vec![vec![InlineKeyboardButton::callback(
                         "Cancel",

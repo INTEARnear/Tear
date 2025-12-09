@@ -4,8 +4,6 @@ mod modules;
 use std::sync::Arc;
 use std::time::Duration;
 
-#[cfg(feature = "agents-module")]
-use agents::AgentsModule;
 #[cfg(feature = "ai-moderator-module")]
 use ai_moderator::AiModeratorModule;
 #[cfg(feature = "burrow-liquidations")]
@@ -327,12 +325,6 @@ fn main() -> Result<(), anyhow::Error> {
                         .add_indexer_event_handler::<WalletTrackingModule>(Arc::clone(
                             &wallet_tracking_module,
                         ))
-                        .await;
-                }
-                #[cfg(feature = "agents-module")]
-                {
-                    xeon.state()
-                        .add_bot_module(AgentsModule::new(xeon.arc_clone_state()).await?)
                         .await;
                 }
                 #[cfg(feature = "tip-bot-module")]

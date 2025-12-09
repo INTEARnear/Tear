@@ -13,6 +13,7 @@ use crate::{
     utils::{requests::get_not_cached, tokens::WRAP_NEAR},
 };
 
+use crate::near_utils::{FtBalance, dec_format};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use dashmap::{
@@ -20,9 +21,8 @@ use dashmap::{
     mapref::{multiple::RefMulti, one::Ref},
 };
 use futures_util::FutureExt;
-use inindexer::near_utils::dec_format;
 use mongodb::Database;
-use near_primitives::types::{AccountId, Balance};
+use near_primitives::types::AccountId;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
 use teloxide::prelude::{ChatId, Message, UserId};
@@ -128,11 +128,11 @@ pub struct TokenInfo {
     pub main_pool: Option<PoolId>,
     pub metadata: TokenPartialMetadata,
     #[serde(with = "dec_format")]
-    pub total_supply: Balance,
+    pub total_supply: FtBalance,
     #[serde(with = "dec_format")]
-    pub circulating_supply: Balance,
+    pub circulating_supply: FtBalance,
     #[serde(with = "dec_format")]
-    pub circulating_supply_excluding_team: Balance,
+    pub circulating_supply_excluding_team: FtBalance,
     pub reputation: TokenScore,
     pub socials: HashMap<String, String>,
     pub slug: Vec<String>,
@@ -329,10 +329,10 @@ impl XeonState {
 
     pub async fn get_resource<R: Resource>(&self, key: R::Key) -> Option<R> {
         let mut result = None;
-        if let Some(provider) = self.resource_providers.read().await.get(&TypeId::of::<R>()) {
-            if let Some(resource) = provider(Box::new(key) as Box<dyn Any>).await {
-                result = Some(*resource.downcast::<R>().unwrap());
-            }
+        if let Some(provider) = self.resource_providers.read().await.get(&TypeId::of::<R>())
+            && let Some(resource) = provider(Box::new(key) as Box<dyn Any>).await
+        {
+            result = Some(*resource.downcast::<R>().unwrap());
         }
         result
     }

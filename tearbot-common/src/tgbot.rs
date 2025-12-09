@@ -14,7 +14,7 @@ use near_api::signer::Signer;
 use near_api::{Contract, Tokens};
 use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
-use near_primitives::types::{AccountId, Balance};
+use near_primitives::types::AccountId;
 use near_token::NearToken;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,7 @@ use teloxide::{dispatching::UpdateFilterExt, types::ReplyParameters};
 use teloxide::{payloads::SendAnimationSetters, prelude::PreCheckoutQuery};
 use tokio::sync::RwLock;
 
+use crate::near_utils::FtBalance;
 use crate::utils::chat::ChatPermissionLevel;
 use crate::utils::format_duration;
 use crate::utils::requests::fetch_file_cached_1d;
@@ -357,7 +358,7 @@ impl BotData {
         self.referred_by.get(&user_id).await
     }
 
-    pub async fn user_spent(&self, user_id: UserId, token_id: AccountId, amount: Balance) {
+    pub async fn user_spent(&self, user_id: UserId, token_id: AccountId, amount: FtBalance) {
         self.give_referrer_share(user_id, token_id, amount).await;
     }
 
@@ -374,19 +375,19 @@ impl BotData {
         &self,
         referral_id: UserId,
         token_id: AccountId,
-        amount: Balance,
+        amount: FtBalance,
     ) {
         if let Some(referrer_id) = self.get_referrer(referral_id).await {
             self.give_to(
                 referrer_id,
                 token_id,
-                (amount as f64 * self.get_referral_share(referrer_id)) as Balance,
+                (amount as f64 * self.get_referral_share(referrer_id)) as FtBalance,
             )
             .await;
         }
     }
 
-    pub async fn give_to(&self, referrer_id: UserId, token_id: AccountId, amount: Balance) {
+    pub async fn give_to(&self, referrer_id: UserId, token_id: AccountId, amount: FtBalance) {
         let mut referal_balance = self
             .referral_balance
             .get(&referrer_id)
@@ -402,7 +403,7 @@ impl BotData {
             .expect("Failed to update referrer balance");
     }
 
-    pub async fn get_referral_balance(&self, user_id: UserId) -> HashMap<AccountId, Balance> {
+    pub async fn get_referral_balance(&self, user_id: UserId) -> HashMap<AccountId, FtBalance> {
         self.referral_balance
             .get(&user_id)
             .await
@@ -412,7 +413,7 @@ impl BotData {
             .collect()
     }
 
-    pub async fn take_referral_balance(&self, user_id: UserId) -> HashMap<AccountId, Balance> {
+    pub async fn take_referral_balance(&self, user_id: UserId) -> HashMap<AccountId, FtBalance> {
         self.referral_balance
             .remove(&user_id)
             .await
@@ -449,12 +450,12 @@ impl BotData {
                 .send_to(account_id.clone())
                 .near(NearToken::from_yoctonear(amount.0))
                 .with_signer(
-                    Signer::new(Signer::from_secret_key(
+                    Signer::from_secret_key(
                         std::env::var("REFERRAL_PRIVATE_KEY")
                             .expect("REFERRAL_PRIVATE_KEY not set")
                             .parse()
                             .expect("Invalid REFERRAL_PRIVATE_KEY"),
-                    ))
+                    )
                     .unwrap(),
                 )
                 .send_to_mainnet()
@@ -468,7 +469,6 @@ impl BotData {
                             "amount": amount.0,
                         }),
                     )
-                    .unwrap()
                     .transaction()
                     .deposit(NearToken::from_yoctonear(1))
                     .gas(NearGas::from_tgas(300))
@@ -477,18 +477,18 @@ impl BotData {
                             .expect("REFERRAL_ACCOUNT_ID not set")
                             .parse()
                             .expect("Invalid REFERRAL_ACCOUNT_ID"),
-                        Signer::new(Signer::from_secret_key(
+                        Signer::from_secret_key(
                             std::env::var("REFERRAL_PRIVATE_KEY")
                                 .expect("REFERRAL_PRIVATE_KEY not set")
                                 .parse()
                                 .expect("Invalid REFERRAL_PRIVATE_KEY"),
-                        ))
+                        )
                         .unwrap(),
                     )
                     .send_to_mainnet()
                     .await?
             };
-            log::info!("Paying {token_id}: {:?}", tx.status);
+            log::info!("Paying {token_id}: {:?}", tx.into_result());
         }
         Ok(())
     }
@@ -1384,10 +1384,10 @@ impl BotData {
         duration: Duration,
         messages: usize,
     ) {
-        if let Some(last_notification) = self.last_message_limit_notification.get(&chat_id) {
-            if last_notification.elapsed() < duration {
-                return;
-            }
+        if let Some(last_notification) = self.last_message_limit_notification.get(&chat_id)
+            && last_notification.elapsed() < duration
+        {
+            return;
         }
         self.last_message_limit_notification
             .insert(chat_id, Instant::now());

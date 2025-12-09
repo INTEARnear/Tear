@@ -108,19 +108,19 @@ impl XeonBotModule for AiModeratorModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
-                bot_config
-                    .chat_configs
-                    .insert_or_update(
-                        chat_id.chat_id(),
-                        AiModeratorChatConfig {
-                            enabled: false,
-                            ..chat_config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await
+        {
+            bot_config
+                .chat_configs
+                .insert_or_update(
+                    chat_id.chat_id(),
+                    AiModeratorChatConfig {
+                        enabled: false,
+                        ..chat_config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -130,19 +130,19 @@ impl XeonBotModule for AiModeratorModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await {
-                bot_config
-                    .chat_configs
-                    .insert_or_update(
-                        chat_id.chat_id(),
-                        AiModeratorChatConfig {
-                            enabled: true,
-                            ..chat_config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(chat_config) = bot_config.chat_configs.get(&chat_id).await
+        {
+            bot_config
+                .chat_configs
+                .insert_or_update(
+                    chat_id.chat_id(),
+                    AiModeratorChatConfig {
+                        enabled: true,
+                        ..chat_config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -1081,10 +1081,10 @@ impl AiModeratorModule {
                 is_admin = true;
             }
             let chat = get_chat_cached_5m(bot.bot(), chat_id).await?;
-            if let Some(linked_chat_id) = chat.linked_chat_id() {
-                if ChatId(linked_chat_id) == sender_chat.id {
-                    is_admin = true;
-                }
+            if let Some(linked_chat_id) = chat.linked_chat_id()
+                && ChatId(linked_chat_id) == sender_chat.id
+            {
+                is_admin = true;
             }
         } else {
             let chat_member = bot.bot().get_chat_member(chat_id, user_id).await?;
@@ -1203,7 +1203,7 @@ impl AiModeratorModule {
                         .actions
                         .get(&ModerationJudgement::Inform)
                         .cloned()
-                        .unwrap_or_else(|| ModerationAction::Delete(true)),
+                        .unwrap_or(ModerationAction::Delete(true)),
                     ModerationJudgement::Suspicious => chat_config
                         .actions
                         .get(&ModerationJudgement::Suspicious)
@@ -1571,8 +1571,8 @@ impl AiModeratorModule {
                             .await?;
                     }
                     ModerationAction::Delete(send_message) => {
-                        if !chat_config.debug_mode {
-                            if let Err(RequestError::Api(err)) =
+                        if !chat_config.debug_mode
+                            && let Err(RequestError::Api(err)) =
                                 bot.bot().delete_message(chat_id, message.id).await
                             {
                                 let err = match err {
@@ -1589,7 +1589,6 @@ impl AiModeratorModule {
                                         .await?;
                                 }
                             }
-                        }
                         if send_message {
                             let message_to_send = format!(
                                 "{sender_link} sent a message in {chat_name} and it was flagged, was deleted:\n\n{original_message_text}{note}"

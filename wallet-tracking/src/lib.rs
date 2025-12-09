@@ -502,19 +502,19 @@ impl XeonBotModule for WalletTrackingModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        WalletTrackingSubscriberConfig {
-                            enabled: false,
-                            ..config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    WalletTrackingSubscriberConfig {
+                        enabled: false,
+                        ..config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -524,19 +524,19 @@ impl XeonBotModule for WalletTrackingModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        WalletTrackingSubscriberConfig {
-                            enabled: true,
-                            ..chat_config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(chat_config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    WalletTrackingSubscriberConfig {
+                        enabled: true,
+                        ..chat_config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -926,17 +926,16 @@ impl XeonBotModule for WalletTrackingModule {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
-                    if let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
-                    {
-                        if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
-                            tracked_wallet.ft = value;
-                        }
-                        bot_config
-                            .subscribers
-                            .insert_or_update(target_chat_id, subscriber)
-                            .await?;
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
+                    && let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
+                {
+                    if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
+                        tracked_wallet.ft = value;
                     }
+                    bot_config
+                        .subscribers
+                        .insert_or_update(target_chat_id, subscriber)
+                        .await?;
                 }
                 self.handle_callback(
                     TgCallbackContext::new(
@@ -962,17 +961,16 @@ impl XeonBotModule for WalletTrackingModule {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
-                    if let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
-                    {
-                        if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
-                            tracked_wallet.nft = value;
-                        }
-                        bot_config
-                            .subscribers
-                            .insert_or_update(target_chat_id, subscriber)
-                            .await?;
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
+                    && let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
+                {
+                    if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
+                        tracked_wallet.nft = value;
                     }
+                    bot_config
+                        .subscribers
+                        .insert_or_update(target_chat_id, subscriber)
+                        .await?;
                 }
                 self.handle_callback(
                     TgCallbackContext::new(
@@ -998,17 +996,16 @@ impl XeonBotModule for WalletTrackingModule {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
-                    if let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
-                    {
-                        if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
-                            tracked_wallet.swaps = value;
-                        }
-                        bot_config
-                            .subscribers
-                            .insert_or_update(target_chat_id, subscriber)
-                            .await?;
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
+                    && let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
+                {
+                    if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
+                        tracked_wallet.swaps = value;
                     }
+                    bot_config
+                        .subscribers
+                        .insert_or_update(target_chat_id, subscriber)
+                        .await?;
                 }
                 self.handle_callback(
                     TgCallbackContext::new(
@@ -1038,17 +1035,16 @@ impl XeonBotModule for WalletTrackingModule {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
-                    if let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
-                    {
-                        if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
-                            tracked_wallet.transactions = value;
-                        }
-                        bot_config
-                            .subscribers
-                            .insert_or_update(target_chat_id, subscriber)
-                            .await?;
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
+                    && let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
+                {
+                    if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
+                        tracked_wallet.transactions = value;
                     }
+                    bot_config
+                        .subscribers
+                        .insert_or_update(target_chat_id, subscriber)
+                        .await?;
                 }
                 self.handle_callback(
                     TgCallbackContext::new(
@@ -1074,17 +1070,16 @@ impl XeonBotModule for WalletTrackingModule {
                 {
                     return Ok(());
                 }
-                if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
-                    if let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
-                    {
-                        if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
-                            tracked_wallet.staking = value;
-                        }
-                        bot_config
-                            .subscribers
-                            .insert_or_update(target_chat_id, subscriber)
-                            .await?;
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
+                    && let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
+                {
+                    if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
+                        tracked_wallet.staking = value;
                     }
+                    bot_config
+                        .subscribers
+                        .insert_or_update(target_chat_id, subscriber)
+                        .await?;
                 }
                 self.handle_callback(
                     TgCallbackContext::new(

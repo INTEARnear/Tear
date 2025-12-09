@@ -60,6 +60,12 @@ pub struct MuteFloodData {
     user_messages: Arc<RwLock<HashMap<ChatUser, VecDeque<UserMessage>>>>,
 }
 
+impl Default for MuteFloodData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MuteFloodData {
     pub fn new() -> Self {
         Self {

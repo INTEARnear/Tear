@@ -375,7 +375,7 @@ Message that appears when a message is deleted:
         vec![InlineKeyboardButton::callback(
             "⬅️ Back",
             ctx.bot()
-                .to_callback_data(&TgCommand::AiModerator(target_chat_id.into()))
+                .to_callback_data(&TgCommand::AiModerator(target_chat_id))
                 .await,
         )],
     ];
@@ -571,7 +571,7 @@ pub async fn open_non_ai(
         vec![InlineKeyboardButton::callback(
             "⬅️ Back",
             ctx.bot()
-                .to_callback_data(&TgCommand::AiModerator(target_chat_id.into()))
+                .to_callback_data(&TgCommand::AiModerator(target_chat_id))
                 .await,
         )],
     ];

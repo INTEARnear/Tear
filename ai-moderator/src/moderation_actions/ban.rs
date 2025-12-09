@@ -34,23 +34,23 @@ pub async fn handle_button(
             .revoke_messages(true)
             .await;
 
-        if ban_result.is_ok() {
-            if let Some(bot_config) = bot_configs.get(&ctx.bot().id()) {
-                let message_ids = bot_config
-                    .mute_flood_data
-                    .get_user_message_ids(target_chat_id, user_id)
-                    .await;
-                if !message_ids.is_empty() {
-                    // Delete messages in batches of 100 (Telegram API limit)
-                    for chunk in message_ids.chunks(100) {
-                        if let Err(err) = ctx
-                            .bot()
-                            .bot()
-                            .delete_messages(target_chat_id, chunk.to_vec())
-                            .await
-                        {
-                            log::warn!("Failed to delete cached messages: {err}");
-                        }
+        if ban_result.is_ok()
+            && let Some(bot_config) = bot_configs.get(&ctx.bot().id())
+        {
+            let message_ids = bot_config
+                .mute_flood_data
+                .get_user_message_ids(target_chat_id, user_id)
+                .await;
+            if !message_ids.is_empty() {
+                // Delete messages in batches of 100 (Telegram API limit)
+                for chunk in message_ids.chunks(100) {
+                    if let Err(err) = ctx
+                        .bot()
+                        .bot()
+                        .delete_messages(target_chat_id, chunk.to_vec())
+                        .await
+                    {
+                        log::warn!("Failed to delete cached messages: {err}");
                     }
                 }
             }

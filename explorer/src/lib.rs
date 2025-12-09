@@ -92,22 +92,22 @@ impl XeonBotModule for ExplorerModule {
             return vec![];
         }
 
-        if let Some(account_id) = query.query.strip_suffix(" swaps") {
-            if let Ok(account_id) = AccountId::from_str(account_id) {
-                return self.get_recent_account_trades(bot, account_id).await;
-            }
+        if let Some(account_id) = query.query.strip_suffix(" swaps")
+            && let Ok(account_id) = AccountId::from_str(account_id)
+        {
+            return self.get_recent_account_trades(bot, account_id).await;
         }
 
-        if let Some(account_id) = query.query.strip_suffix(" trades") {
-            if let Ok(account_id) = AccountId::from_str(account_id) {
-                return self.get_recent_token_trades(bot, account_id).await;
-            }
+        if let Some(account_id) = query.query.strip_suffix(" trades")
+            && let Ok(account_id) = AccountId::from_str(account_id)
+        {
+            return self.get_recent_token_trades(bot, account_id).await;
         }
 
-        if let Some(account_id) = query.query.strip_suffix(" tx") {
-            if let Ok(account_id) = AccountId::from_str(account_id) {
-                return self.get_transactions(bot, account_id).await;
-            }
+        if let Some(account_id) = query.query.strip_suffix(" tx")
+            && let Ok(account_id) = AccountId::from_str(account_id)
+        {
+            return self.get_transactions(bot, account_id).await;
         }
 
         let mut results = Vec::new();
@@ -556,7 +556,9 @@ CA: `{ca}`
                             format!("`{}`", outcome.transaction_outcome.block_hash)
                         },
                         fees_burnt = markdown::escape(&format_near_amount(
-                            outcome.tokens_burnt(),
+                            outcome.transaction_outcome.outcome.tokens_burnt.saturating_add(
+                                outcome.receipts_outcome.iter().map(|receipt| receipt.outcome.tokens_burnt).reduce(|a, b| a.saturating_add(b)).unwrap_or_default()
+                            ).as_yoctonear(),
                             bot.xeon(),
                         )
                         .await),
@@ -825,11 +827,12 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
         } => format!(
             "Call `{method_name}` with {gas} and {deposit} deposit: {args}",
             method_name = markdown::escape_code(method_name),
-            gas = match gas {
-                ..1_000_000_000_000 => format!("{} GGas", gas / 1_000_000_000),
-                1_000_000_000_000.. => format!("{} TGas", gas / 1_000_000_000_000),
+            gas = match gas.as_gas() {
+                ..1_000_000_000_000 => format!("{} GGas", gas.as_gigagas()),
+                1_000_000_000_000.. => format!("{} TGas", gas.as_teragas()),
             },
-            deposit = markdown::escape(&format_near_amount(*deposit, bot.xeon()).await),
+            deposit =
+                markdown::escape(&format_near_amount(deposit.as_yoctonear(), bot.xeon()).await),
             args = if let Ok(string) = String::from_utf8(args.to_vec()) {
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(&string) {
                     format!(
@@ -845,14 +848,15 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
         ),
         ActionView::Transfer { deposit } => format!(
             "Transfer {deposit}",
-            deposit = markdown::escape(&format_near_amount(*deposit, bot.xeon()).await),
+            deposit =
+                markdown::escape(&format_near_amount(deposit.as_yoctonear(), bot.xeon()).await),
         ),
         ActionView::Stake {
             stake,
             public_key: _,
         } => format!(
             "Stake {stake}",
-            stake = markdown::escape(&format_near_amount(*stake, bot.xeon()).await),
+            stake = markdown::escape(&format_near_amount(stake.as_yoctonear(), bot.xeon()).await),
         ),
         ActionView::AddKey {
             public_key,
@@ -922,6 +926,11 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
         }
         ActionView::UseGlobalContractByAccountId { account_id } => {
             format!("Use global contract by account id `{account_id}`")
+        }
+        ActionView::DeterministicStateInit { code, deposit, .. } => {
+            format!(
+                "Deterministic state init with code referenced as {code:?} and deposit {deposit}"
+            )
         }
     }
 }

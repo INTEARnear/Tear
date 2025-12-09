@@ -214,19 +214,19 @@ impl XeonBotModule for BurrowLiquidationsModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        BurrowLiqudationsSubscriberConfig {
-                            enabled: false,
-                            ..config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    BurrowLiqudationsSubscriberConfig {
+                        enabled: false,
+                        ..config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }
@@ -236,19 +236,19 @@ impl XeonBotModule for BurrowLiquidationsModule {
         bot_id: UserId,
         chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
-        if let Some(bot_config) = self.bot_configs.get(&bot_id) {
-            if let Some(chat_config) = bot_config.subscribers.get(&chat_id).await {
-                bot_config
-                    .subscribers
-                    .insert_or_update(
-                        chat_id,
-                        BurrowLiqudationsSubscriberConfig {
-                            enabled: true,
-                            ..chat_config.clone()
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(bot_config) = self.bot_configs.get(&bot_id)
+            && let Some(chat_config) = bot_config.subscribers.get(&chat_id).await
+        {
+            bot_config
+                .subscribers
+                .insert_or_update(
+                    chat_id,
+                    BurrowLiqudationsSubscriberConfig {
+                        enabled: true,
+                        ..chat_config.clone()
+                    },
+                )
+                .await?;
         }
         Ok(())
     }

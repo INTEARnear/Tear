@@ -42,11 +42,11 @@ pub async fn handle_commands(
             can_delete = true;
         }
         let chat = get_chat_cached_5m(bot.bot(), chat_id).await?;
-        if let Some(linked_chat_id) = chat.linked_chat_id() {
-            if ChatId(linked_chat_id) == sender_chat.id {
-                can_restrict = true;
-                can_delete = true;
-            }
+        if let Some(linked_chat_id) = chat.linked_chat_id()
+            && ChatId(linked_chat_id) == sender_chat.id
+        {
+            can_restrict = true;
+            can_delete = true;
         }
     }
 

@@ -31,6 +31,7 @@ use solana_sdk::signature::Keypair as SolanaKeypair;
 use teloxide::{prelude::UserId, types::ChatId};
 
 use crate::{
+    near_utils::FtBalance,
     tgbot::{Attachment, MigrationData, NotificationDestination},
     utils::{
         chat::ChatPermissionLevel,
@@ -539,7 +540,7 @@ pub enum TgCommand {
     #[cfg(feature = "house-of-stake-module")]
     HouseOfStakeSetVoteAmount(NotificationDestination),
     #[cfg(feature = "house-of-stake-module")]
-    HouseOfStakeSetVoteAmountConfirm(NotificationDestination, Balance),
+    HouseOfStakeSetVoteAmountConfirm(NotificationDestination, FtBalance),
     MigrateToNewBot(NotificationDestination),
     MigrateConfirm(MigrationData),
     ReferralDashboard,
@@ -614,7 +615,7 @@ pub enum TgCommand {
     TradingBotPositionReduce {
         token_id: AccountId,
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         selected_account_id: AccountId,
         #[serde(default)]
         with_100_slippage: bool,
@@ -626,13 +627,13 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawNearAmount {
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawNearAmountAccount {
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         withdraw_to: AccountId,
         selected_account_id: AccountId,
     },
@@ -681,7 +682,7 @@ pub enum TgCommand {
         token_id: AccountId,
         /// Amount of NEAR if buy, or <token> if sell
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         is_buy: bool,
         selected_account_id: AccountId,
     },
@@ -690,7 +691,7 @@ pub enum TgCommand {
         token_id: AccountId,
         /// Amount of NEAR if buy, or <token> if sell
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         is_buy: bool,
         price: BigDecimal,
         selected_account_id: AccountId,
@@ -720,7 +721,7 @@ pub enum TgCommand {
         token_id: AccountId,
         /// Amount of NEAR
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
@@ -828,7 +829,7 @@ pub enum TgCommand {
         is_buy: bool,
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
-        order_amount: Balance,
+        order_amount: FtBalance,
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
@@ -837,7 +838,7 @@ pub enum TgCommand {
         is_buy: bool,
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
-        order_amount: Balance,
+        order_amount: FtBalance,
         interval: Duration,
         selected_account_id: AccountId,
     },
@@ -847,7 +848,7 @@ pub enum TgCommand {
         is_buy: bool,
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
-        order_amount: Balance,
+        order_amount: FtBalance,
         interval: Duration,
         orders: u32,
         selected_account_id: AccountId,
@@ -858,7 +859,7 @@ pub enum TgCommand {
         is_buy: bool,
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
-        order_amount: Balance,
+        order_amount: FtBalance,
         interval: Duration,
         orders: u32,
         price_range: Option<(f64, f64)>,
@@ -881,7 +882,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAllConfirm {
         #[serde(with = "dec_format")]
-        amount: Option<Balance>,
+        amount: Option<FtBalance>,
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
@@ -891,7 +892,7 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotSnipeAllMCConfirm {
         #[serde(with = "dec_format")]
-        amount: Option<Balance>,
+        amount: Option<FtBalance>,
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
@@ -1040,7 +1041,7 @@ pub enum TgCommand {
     TradingBotBridgeSwap {
         defuse_asset_identifier: String,
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         destination: BridgeDestination,
     },
     #[cfg(feature = "trading-bot-module")]
@@ -1048,7 +1049,7 @@ pub enum TgCommand {
         quotes: Vec<IntentQuote>,
         defuse_asset_identifier: String,
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         destination: BridgeDestination,
     },
     #[cfg(feature = "trading-bot-module")]
@@ -1105,7 +1106,7 @@ pub enum TgCommand {
     TradingBotPositionReduceSolana {
         token_address: String,
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositionReducePromptSolana {
@@ -1125,7 +1126,7 @@ pub enum TgCommand {
         destination: BridgeDestination,
         from_account_id: AccountId,
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotBridgeFromSolanaAccount {
@@ -1184,54 +1185,6 @@ pub enum TgCommand {
     WalletTrackingAccountToggleStaking(NotificationDestination, AccountId, bool),
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAccountRemove(NotificationDestination, AccountId),
-    #[cfg(feature = "agents-module")]
-    Agents,
-    #[cfg(feature = "agents-module")]
-    AgentsBitte {
-        page: usize,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsBitteCreateThread {
-        agent_id: String,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsNearAI {
-        page: usize,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsNearAICreateThread {
-        agent_id: String,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsChatSettings {
-        target_chat_id: ChatId,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsChatSettingsRemoveAgent {
-        target_chat_id: ChatId,
-        command: String,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsAddToChatStep1 {
-        agent_type: AgentType,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsAddToChatStep2 {
-        agent_type: AgentType,
-        target_chat_id: ChatId,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsAddToChatStep3 {
-        agent_type: AgentType,
-        target_chat_id: ChatId,
-        command: String,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsBitteSendTransaction {
-        transactions: BitteTransactions,
-        agent_id: String,
-        thread_id: String,
-    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotStaking,
     #[cfg(feature = "trading-bot-module")]
@@ -1242,31 +1195,25 @@ pub enum TgCommand {
     TradingBotStakeAmount {
         selected_account_id: AccountId,
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotUnstake {
         selected_account_id: AccountId,
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawStaked {
         selected_account_id: AccountId,
         #[serde(with = "dec_format")]
-        amount: Balance,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsNearAISendMessage {
-        agent_id: String,
-        thread_id: Option<String>,
-        user_message: String,
+        amount: FtBalance,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotTeardropCreate {
         token: TokenType,
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         from_user: UserId,
         id: CryptoHash,
         drops_count: u32,
@@ -1508,7 +1455,7 @@ pub enum BitteAction {
 #[serde(rename_all = "camelCase")]
 pub struct BitteTransferParams {
     #[serde(with = "dec_format")]
-    pub deposit: Balance,
+    pub deposit: FtBalance,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1519,18 +1466,7 @@ pub struct BitteFunctionCallParams {
     #[serde(with = "dec_format")]
     pub gas: u64,
     #[serde(with = "dec_format")]
-    pub deposit: Balance,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum AgentType {
-    Bitte {
-        agent_id: String,
-    },
-    NearAI {
-        namespace: AccountId,
-        agent_name: String,
-    },
+    pub deposit: FtBalance,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -1714,7 +1650,7 @@ pub enum MessageCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotWithdrawAskForAccount {
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
@@ -1740,7 +1676,7 @@ pub enum MessageCommand {
         token_id: AccountId,
         /// Amount of NEAR if buy, or <token> if sell
         #[serde(with = "dec_format")]
-        amount: Balance,
+        amount: FtBalance,
         is_buy: bool,
         selected_account_id: AccountId,
     },
@@ -1788,7 +1724,7 @@ pub enum MessageCommand {
         is_buy: bool,
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
-        order_amount: Balance,
+        order_amount: FtBalance,
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
@@ -1797,7 +1733,7 @@ pub enum MessageCommand {
         is_buy: bool,
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
-        order_amount: Balance,
+        order_amount: FtBalance,
         interval: Duration,
         selected_account_id: AccountId,
     },
@@ -1907,39 +1843,16 @@ pub enum MessageCommand {
     },
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAddAccount(NotificationDestination),
-    #[cfg(feature = "agents-module")]
-    AgentsBitteSearch,
-    #[cfg(feature = "agents-module")]
-    AgentsBitteUse {
-        agent_id: String,
-        thread_id: Option<String>,
-    },
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirectionAmountIntervalOrders {
         token_id: AccountId,
         is_buy: bool,
         /// NEAR if is_buy is true, <token> if is_buy is false
         #[serde(with = "dec_format")]
-        order_amount: Balance,
+        order_amount: FtBalance,
         interval: Duration,
         orders: u32,
         selected_account_id: AccountId,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsNearAISearch,
-    #[cfg(feature = "agents-module")]
-    AgentsNearAIUse {
-        agent_id: String,
-        thread_id: Option<String>,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsAddToChatAskForChat {
-        agent_type: AgentType,
-    },
-    #[cfg(feature = "agents-module")]
-    AgentsAddToChatAskForCommand {
-        agent_type: AgentType,
-        target_chat_id: ChatId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotStake {
@@ -2488,14 +2401,14 @@ impl<'de> Deserialize<'de> for Token {
 #[cfg(feature = "trading-bot-module")]
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BuyAmount {
-    Near(#[serde(with = "dec_format")] Balance),
-    Token(#[serde(with = "dec_format")] Balance),
+    Near(#[serde(with = "dec_format")] FtBalance),
+    Token(#[serde(with = "dec_format")] FtBalance),
 }
 
 #[cfg(feature = "trading-bot-module")]
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 pub enum BuyButtonAmount {
-    Near(#[serde(with = "dec_format")] Balance),
+    Near(#[serde(with = "dec_format")] FtBalance),
     Percentage(f64),
 }
 
