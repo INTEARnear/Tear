@@ -851,10 +851,7 @@ impl RaidBotModule {
                         }
 
                         let _ = bot
-                            .bot()
-                            .send_message(key.chat_id.chat_id(), message_text.clone())
-                            .parse_mode(ParseMode::MarkdownV2)
-                            .reply_markup(reply_markup.clone())
+                            .send_text_message(key.chat_id, message_text.clone(), reply_markup)
                             .await;
 
                         let _ = distribute_raid_points(
@@ -874,10 +871,7 @@ impl RaidBotModule {
                             .await;
 
                         match bot
-                            .bot()
-                            .send_message(key.chat_id.chat_id(), message_text)
-                            .parse_mode(ParseMode::MarkdownV2)
-                            .reply_markup(reply_markup)
+                            .send_text_message(key.chat_id, message_text.clone(), reply_markup)
                             .await
                         {
                             Ok(sent) => {
@@ -1539,15 +1533,23 @@ impl XeonBotModule for RaidBotModule {
                                 .find(|(account_id, _)| account_id == user_account_id)
                             {
                                 message_text.push_str(&format!(
-                                            "\n\\.\\.\\.\\.\\.\\.\n\n  *{rank}\\.*  `{user_account_id}`  \\-  *{points} raids*{note}"
-                                        ));
+                                    "\n\\.\\.\\.\\.\\.\\.\n\n  *{rank}\\.*  `{user_account_id}`  \\-  *{points} raids*{note}"
+                                ));
                             }
                         }
                         let buttons = Vec::<Vec<_>>::new();
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
-                        let response = bot
-                            .send_text_message(chat_id.into(), message_text, reply_markup)
-                            .await?;
+                        let response = if let Some(thread_id) = message.thread_id {
+                            bot.bot()
+                                .send_message(chat_id, &message_text)
+                                .message_thread_id(thread_id)
+                        } else {
+                            bot.bot().send_message(chat_id, &message_text)
+                        }
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .reply_markup(reply_markup)
+                        .disable_notification(true)
+                        .await?;
 
                         let deletion_time = Utc::now() + LEADERBOARD_COMMAND_AUTODELETE_SECONDS;
                         bot.schedule_message_autodeletion(chat_id, message.id, deletion_time)
@@ -1642,9 +1644,17 @@ impl XeonBotModule for RaidBotModule {
 
                     let buttons = Vec::<Vec<_>>::new();
                     let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    let response = bot
-                        .send_text_message(chat_id.into(), message_text, reply_markup)
-                        .await?;
+                    let response = if let Some(thread_id) = message.thread_id {
+                        bot.bot()
+                            .send_message(chat_id, &message_text)
+                            .message_thread_id(thread_id)
+                    } else {
+                        bot.bot().send_message(chat_id, &message_text)
+                    }
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .reply_markup(reply_markup)
+                    .disable_notification(true)
+                    .await?;
 
                     let deletion_time = Utc::now() + LEADERBOARD_COMMAND_AUTODELETE_SECONDS;
                     bot.schedule_message_autodeletion(chat_id, message.id, deletion_time)

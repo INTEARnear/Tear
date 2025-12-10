@@ -12,7 +12,7 @@ use dashmap::DashMap;
 use log::warn;
 use near_api::signer::Signer;
 use near_api::types::TxExecutionStatus;
-use near_api::{Contract, NetworkConfig, RPCEndpoint, Tokens};
+use near_api::{Contract, Tokens};
 use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
 use near_primitives::types::AccountId;
@@ -31,8 +31,8 @@ use teloxide::prelude::Update;
 use teloxide::prelude::UserId;
 use teloxide::prelude::{LoggingErrorHandler, dptree};
 use teloxide::types::{
-    InlineKeyboardMarkup, InlineQuery, InputFile, LinkPreviewOptions, MessageId, ParseMode,
-    ReplyMarkup, ThreadId,
+    InlineKeyboardMarkup, InlineQuery, InputFile, LinkPreviewOptions, MaybeInaccessibleMessage,
+    MessageId, ParseMode, ReplyMarkup, ThreadId,
 };
 use teloxide::update_listeners::webhooks;
 use teloxide::utils::markdown;
@@ -735,7 +735,20 @@ impl BotData {
                                 let context = TgCallbackContext::new(
                                     bot.value(),
                                     callback_query.from.id,
-                                    message.chat().id,
+                                    match &message {
+                                        MaybeInaccessibleMessage::Regular(message) => match message
+                                            .thread_id
+                                        {
+                                            Some(thread_id) => NotificationDestination::Topic {
+                                                chat_id: message.chat.id,
+                                                thread_id,
+                                            },
+                                            None => NotificationDestination::Chat(message.chat.id),
+                                        },
+                                        MaybeInaccessibleMessage::Inaccessible(message) => {
+                                            NotificationDestination::Chat(message.chat.id)
+                                        }
+                                    },
                                     Some(message.id()),
                                     &data,
                                 );
