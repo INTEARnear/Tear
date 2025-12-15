@@ -3965,9 +3965,9 @@ checksum = "7aedcccd01fc5fe81e6b489c15b247b8b0690feb23304303a9e560f37efc560a"
 
 [[package]]
 name = "icu_properties"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e93fcd3157766c0c8da2f8cff6ce651a31f0810eaa1c51ec363ef790bbb5fb99"
+checksum = "020bfc02fe870ec3a66d93e677ccca0562506e5872c650f893269e08615d74ec"
 dependencies = [
  "icu_collections",
  "icu_locale_core",
@@ -3979,9 +3979,9 @@ dependencies = [
 
 [[package]]
 name = "icu_properties_data"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02845b3647bb045f1100ecd6480ff52f34c35f82d9880e029d329c21d1054899"
+checksum = "616c294cf8d725c6afcd8f55abc17c56464ef6211f9ed59cccffe534129c77af"
 
 [[package]]
 name = "icu_provider"
@@ -4342,7 +4342,7 @@ dependencies = [
 [[package]]
 name = "intear-events"
 version = "0.1.0"
-source = "git+https://github.com/INTEARnear/intear-events#7fe7a4af5e06e9f1aba69d0790c786dfa1a0297d"
+source = "git+https://github.com/INTEARnear/intear-events#f588caaf00fd3a0bbda7af84ce2a83a2fec05f5e"
 dependencies = [
  "actix",
  "async-trait",
@@ -5221,9 +5221,9 @@ dependencies = [
 
 [[package]]
 name = "near-account-id"
-version = "2.2.0"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d895dcfceb6eeec6c76c0ed861b9422cb918ad857fa321c78eaa577a90514707"
+checksum = "359c8ca02a3d0ef676a5baf9474b16a50b4137360664b15031977708989342ef"
 dependencies = [
  "borsh 1.6.0",
  "serde",
@@ -5266,7 +5266,7 @@ dependencies = [
  "bs58 0.5.1",
  "ed25519-dalek 2.2.0",
  "near-abi",
- "near-account-id 2.2.0",
+ "near-account-id 2.3.0",
  "near-gas",
  "near-openapi-types",
  "near-token",
@@ -5485,7 +5485,7 @@ dependencies = [
  "derive_more 2.1.0",
  "ed25519-dalek 2.2.0",
  "hex",
- "near-account-id 2.2.0",
+ "near-account-id 2.3.0",
  "near-config-utils 0.34.1",
  "near-schema-checker-lib",
  "near-stdx 0.34.1",
@@ -5659,7 +5659,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a8d5398e4fa9931e9d1639e36f80b3f0a365a93773d5e92b6094c6d6198d24b"
 dependencies = [
  "chrono",
- "near-account-id 2.2.0",
+ "near-account-id 2.3.0",
  "near-gas",
  "near-token",
  "serde",
@@ -5694,7 +5694,7 @@ checksum = "99bf2f0e9bfaa5b7410feac9470d27661a9fcbedcda961f11efbb04d0b5ec068"
 dependencies = [
  "borsh 1.6.0",
  "enum-map",
- "near-account-id 2.2.0",
+ "near-account-id 2.3.0",
  "near-primitives-core 0.34.1",
  "near-schema-checker-lib",
  "num-rational 0.3.2",
@@ -5839,7 +5839,7 @@ dependencies = [
  "bs58 0.4.0",
  "derive_more 2.1.0",
  "enum-map",
- "near-account-id 2.2.0",
+ "near-account-id 2.3.0",
  "near-gas",
  "near-schema-checker-lib",
  "near-token",
@@ -8503,9 +8503,9 @@ checksum = "45bb67a18fa91266cc7807181f62f9178a6873bfad7dc788c42e6430db40184f"
 
 [[package]]
 name = "shell-words"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24188a676b6ae68c3b2cb3a01be17fbf7240ce009799bb56d5b1409051e78fde"
+checksum = "dc6fe69c597f9c37bfeeeeeb33da3530379845f10be461a66d16d03eca2ded77"
 
 [[package]]
 name = "shellexpand"

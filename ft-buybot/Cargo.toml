@@ -1,18 +1,18 @@
 [package]
-name = "house-of-stake"
+name = "ft-buybot"
 version = { workspace = true }
 edition = { workspace = true }
 license = "MIT"
 
 [dependencies]
-tearbot-common = { path = "../tearbot-common", features = [ "house-of-stake-module" ] }
+tearbot-common = { path = "../tearbot-common", features = [ "ft-buybot-module" ] }
 async-trait = { workspace = true }
+dashmap = { workspace = true }
+itertools = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }
-near-primitives = { workspace = true }
-bigdecimal = { workspace = true }
-cached = { workspace = true }
-chrono = { workspace = true }
+reqwest = { workspace = true }
+futures-util = { workspace = true }

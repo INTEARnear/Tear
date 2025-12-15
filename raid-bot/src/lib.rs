@@ -991,6 +991,7 @@ impl RaidBotModule {
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_secs(60 * 10)).await;
+                log::info!("Checking leaderboard resets");
 
                 let now = Utc::now();
 
@@ -1013,14 +1014,15 @@ impl RaidBotModule {
                         let mut config = entry.value().clone();
 
                         if !config.enabled {
+                            log::info!("Chat {chat_id} is not enabled");
                             continue;
                         }
 
-                        if should_reset_leaderboard(
-                            config.leaderboard_reset_interval,
-                            config.last_reset,
-                            now,
-                        ) {
+                        if dbg!(should_reset_leaderboard(
+                            dbg!(config.leaderboard_reset_interval),
+                            dbg!(config.last_reset),
+                            dbg!(now),
+                        )) {
                             let mut user_points = Vec::new();
                             if let Ok(points_entries) = bot_config.user_points.values().await {
                                 for points_entry in points_entries {

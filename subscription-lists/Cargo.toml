@@ -2,7 +2,7 @@
 name = "subscription-lists"
 version = { workspace = true }
 edition = { workspace = true }
-license = { workspace = true }
+license = "MIT"
 
 [dependencies]
 tearbot-common = { path = "../tearbot-common", features = [ "subscription-lists-module" ] }

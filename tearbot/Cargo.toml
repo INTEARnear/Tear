@@ -2,13 +2,13 @@
 name = "tearbot"
 version = { workspace = true }
 edition = { workspace = true }
-license = { workspace = true }
+license = "MIT"
 
 [dependencies]
 tearbot-common = { path = "../tearbot-common" }
 explorer = { path = "../explorer", optional = true }
 contract-logs = { path = "../contract-logs", optional = true }
-ft-buybot = { path = "../xeon-private-modules/ft-buybot", optional = true }
+ft-buybot = { path = "../ft-buybot", optional = true }
 new-liquidity-pools = { path = "../xeon-private-modules/new-liquidity-pools", optional = true }
 nft-buybot = { path = "../xeon-private-modules/nft-buybot", optional = true }
 potlock = { path = "../xeon-private-modules/potlock", optional = true }
