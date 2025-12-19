@@ -10,6 +10,7 @@ use cached::proc_macro::cached;
 use chrono::Timelike;
 use chrono::{DateTime, Utc};
 use regex::Regex;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tearbot_common::bot_commands::UsersByXAccount;
 use tearbot_common::bot_commands::XId;
@@ -53,8 +54,7 @@ pub struct RaidState {
     pub message_id: MessageId,
     pub created_by: UserId,
     pub created_at: DateTime<Utc>,
-    #[serde(default)]
-    pub tweet_url: String,
+    pub tweet_url: Url,
     pub pinned: bool,
     pub repost_interval: Option<Duration>,
     pub target_likes: Option<usize>,
@@ -385,7 +385,7 @@ Your total points in this chat: *{} points*",
                         .unwrap_or_else(|| "<error>".to_string())
                 ),
                 points_earned,
-                markdown::escape(&raid_state.tweet_url),
+                markdown::escape(raid_state.tweet_url.as_str()),
                 new_total
             );
 
@@ -458,7 +458,7 @@ fn create_raid_message(
 {}
 
 🔥 Drop your likes, retweets, and replies\\!{}",
-        markdown::escape(&raid_state.tweet_url),
+        markdown::escape(raid_state.tweet_url.as_str()),
         if LEGION_CHAT_IDS.contains(&chat_id) {
             "\n\n🐉 **Legion Raider Mission**: Connect both X and NEAR accounts \\(the one with Ascendant SBT\\) to make your raids count".to_string()
         } else if raid_state.points_per_comment.is_some() || raid_state.points_per_repost.is_some()
@@ -535,7 +535,7 @@ fn create_raid_success_message(raid_state: &RaidState, stats: &TweetStats) -> St
 Tweet: {}
 
 *Final Stats:*",
-        markdown::escape(&raid_state.tweet_url)
+        markdown::escape(raid_state.tweet_url.as_str())
     );
 
     if let Some(target) = raid_state.target_likes {
@@ -560,7 +560,7 @@ fn create_raid_failed_message(raid_state: &RaidState, stats: Option<&TweetStats>
 Tweet: {}
 
 The raid has failed to reach its targets\\.",
-        markdown::escape(&raid_state.tweet_url)
+        markdown::escape(raid_state.tweet_url.as_str())
     );
 
     let has_targets = raid_state.target_likes.is_some()
@@ -615,7 +615,7 @@ fn create_raid_stopped_message(
 Tweet: {}
 
 This raid has been stopped by [{}](tg://user?id={})\\.",
-        markdown::escape(&raid_state.tweet_url),
+        markdown::escape(raid_state.tweet_url.as_str()),
         markdown::escape(stopped_by_name),
         stopped_by_id,
     );
@@ -820,10 +820,7 @@ impl RaidBotModule {
                         Vec::<Vec<_>>::new()
                     } else {
                         vec![vec![
-                            InlineKeyboardButton::url(
-                                "Go to Post",
-                                state.tweet_url.clone().parse().unwrap(),
-                            ),
+                            InlineKeyboardButton::url("Go to Post", state.tweet_url.clone()),
                             InlineKeyboardButton::url(
                                 "Connect X",
                                 format!(
@@ -1155,10 +1152,19 @@ impl XeonBotModule for RaidBotModule {
             MessageCommand::None => {
                 // Debug commands
                 if user_id == SLIME_USER_ID && chat_id.is_user() {
-                    // /stats <X link>
-                    if let Some(link) = text.strip_prefix("/stats ") {
+                    // /xstats <X link>
+                    if let Some(link) = text.strip_prefix("/xstats ") {
                         let link = link.trim();
-                        let tweet_id = extract_tweet_id(link);
+                        let Ok(link) = link.parse::<Url>() else {
+                            bot.send_text_message(
+                                chat_id.into(),
+                                "Invalid tweet URL format".to_string(),
+                                InlineKeyboardMarkup::new(Vec::<Vec<_>>::new()),
+                            )
+                            .await?;
+                            return Ok(());
+                        };
+                        let tweet_id = extract_tweet_id(&link);
                         let Some(tweet_id) = tweet_id else {
                             bot.send_text_message(
                                 chat_id.into(),
@@ -1780,9 +1786,18 @@ impl XeonBotModule for RaidBotModule {
                         return Ok(());
                     }
 
-                    let extract_tweet_url = |text: &str| -> Option<String> {
+                    let extract_tweet_url = |text: &str| -> Option<Url> {
                         let re = Regex::new(r"(?:https?://)?x\.com/[^\s]+").ok()?;
-                        re.find(text).map(|m| m.as_str().to_string())
+                        re.find(text)
+                            .map(|m| {
+                                if m.as_str().starts_with("http") {
+                                    m.as_str().parse::<Url>()
+                                } else {
+                                    format!("https://{}", m.as_str()).parse::<Url>()
+                                }
+                            })
+                            .transpose()
+                            .ok()?
                     };
 
                     let tweet_url = if let Some(reply) = message.reply_to_message() {
@@ -1841,7 +1856,7 @@ Reply with numbers in format: `likes reposts replies`
 Example: `100 50 20`
 
 Or skip this step\\.",
-                        markdown::escape(&tweet_url)
+                        markdown::escape(tweet_url.as_str())
                     );
 
                     let mut buttons = Vec::new();
@@ -1889,8 +1904,9 @@ Or skip this step\\.",
                         .send_text_message(chat_id.into(), message_text, reply_markup)
                         .await?;
 
-                    bot.set_message_command(
+                    bot.set_message_command_in_chat(
                         user_id,
+                        chat_id,
                         MessageCommand::RaidConfigureTargets {
                             tweet_url,
                             setup_message_id: message.id,
@@ -1905,7 +1921,8 @@ Or skip this step\\.",
                 tweet_url,
                 setup_message_id,
             } => {
-                bot.remove_message_command(&user_id).await?;
+                bot.remove_message_command_in_chat(&user_id, &chat_id)
+                    .await?;
 
                 if !check_admin_permission_in_chat(bot, chat_id, user_id).await {
                     return Ok(());
@@ -1977,7 +1994,8 @@ Or skip this step\\.",
                 repost_interval,
                 setup_message_id,
             } => {
-                bot.remove_message_command(&user_id).await?;
+                bot.remove_message_command_in_chat(&user_id, &chat_id)
+                    .await?;
 
                 if !check_admin_permission_in_chat(bot, chat_id, user_id).await {
                     return Ok(());
@@ -2067,7 +2085,10 @@ Or skip this step\\.",
                 }
                 context
                     .bot()
-                    .remove_message_command(&context.user_id())
+                    .remove_message_command_in_chat(
+                        &context.user_id(),
+                        &context.chat_id().chat_id(),
+                    )
                     .await?;
 
                 let for_chat_name = markdown::escape(
@@ -2708,7 +2729,10 @@ Use `/raid <tweet_url>` in the chat to create a raid, and `/stop` to stop it bef
             } => {
                 context
                     .bot()
-                    .remove_message_command(&context.user_id())
+                    .remove_message_command_in_chat(
+                        &context.user_id(),
+                        &context.chat_id().chat_id(),
+                    )
                     .await?;
                 if !check_admin_permission_in_chat(
                     context.bot(),
@@ -2855,7 +2879,10 @@ How often should the raid message be reposted?"
             } => {
                 context
                     .bot()
-                    .remove_message_command(&context.user_id())
+                    .remove_message_command_in_chat(
+                        &context.user_id(),
+                        &context.chat_id().chat_id(),
+                    )
                     .await?;
                 if !check_admin_permission_in_chat(
                     context.bot(),
@@ -2910,8 +2937,9 @@ Or skip this step\\."
 
                 context
                     .bot()
-                    .set_message_command(
+                    .set_message_command_in_chat(
                         context.user_id(),
+                        context.chat_id().chat_id(),
                         MessageCommand::RaidConfigurePoints {
                             tweet_url,
                             target_likes,
@@ -2934,7 +2962,10 @@ Or skip this step\\."
             } => {
                 context
                     .bot()
-                    .remove_message_command(&context.user_id())
+                    .remove_message_command_in_chat(
+                        &context.user_id(),
+                        &context.chat_id().chat_id(),
+                    )
                     .await?;
                 if !check_admin_permission_in_chat(
                     context.bot(),
@@ -3113,7 +3144,10 @@ When should this raid end?"
             } => {
                 context
                     .bot()
-                    .remove_message_command(&context.user_id())
+                    .remove_message_command_in_chat(
+                        &context.user_id(),
+                        &context.chat_id().chat_id(),
+                    )
                     .await?;
                 if !check_admin_permission_in_chat(
                     context.bot(),
@@ -3126,7 +3160,10 @@ When should this raid end?"
                 }
 
                 let mut message = "*📋 Review Raid Configuration*\n\n".to_string();
-                message.push_str(&format!("*Tweet:* {}\n\n", markdown::escape(&tweet_url)));
+                message.push_str(&format!(
+                    "*Tweet:* {}\n\n",
+                    markdown::escape(tweet_url.as_str())
+                ));
 
                 if target_likes.is_some() || target_reposts.is_some() || target_comments.is_some() {
                     message.push_str("*Targets:*\n");
@@ -3420,10 +3457,7 @@ When should this raid end?"
                             .parse()
                             .unwrap(),
                         ),
-                        InlineKeyboardButton::url(
-                            "Go to Post",
-                            raid_state.tweet_url.clone().parse().unwrap(),
-                        ),
+                        InlineKeyboardButton::url("Go to Post", raid_state.tweet_url.clone()),
                     ]]
                 } else {
                     Vec::<Vec<_>>::new()
@@ -3511,15 +3545,15 @@ struct TweetApiTweet {
     quote_count: usize,
 }
 
-pub fn extract_tweet_id(tweet_url: &str) -> Option<String> {
+pub fn extract_tweet_id(tweet_url: &Url) -> Option<String> {
     let re = Regex::new(r"x\.com/[^/]+/status/(\d+)").ok()?;
-    re.captures(tweet_url)
+    re.captures(tweet_url.as_str())
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().to_string())
 }
 
 #[cached(time = 20, result = true)]
-async fn get_tweet_stats(tweet_url: String) -> Result<TweetStats, anyhow::Error> {
+async fn get_tweet_stats(tweet_url: Url) -> Result<TweetStats, anyhow::Error> {
     let tweet_id =
         extract_tweet_id(&tweet_url).ok_or_else(|| anyhow::anyhow!("Invalid tweet URL format"))?;
 

@@ -16,3 +16,4 @@ chrono = { workspace = true }
 regex = { workspace = true }
 cached = { workspace = true }
 axum = { workspace = true }
+reqwest = { workspace = true }

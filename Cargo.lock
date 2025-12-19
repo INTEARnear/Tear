@@ -7192,6 +7192,7 @@ dependencies = [
  "chrono",
  "log",
  "regex",
+ "reqwest 0.11.27",
  "serde",
  "serde_json",
  "tearbot-common",

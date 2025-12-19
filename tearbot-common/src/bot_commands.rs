@@ -1310,14 +1310,14 @@ pub enum TgCommand {
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigFrequency {
-        tweet_url: String,
+        tweet_url: Url,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigSetRepostFrequency {
-        tweet_url: String,
+        tweet_url: Url,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,
@@ -1325,7 +1325,7 @@ pub enum TgCommand {
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigPoints {
-        tweet_url: String,
+        tweet_url: Url,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,
@@ -1333,7 +1333,7 @@ pub enum TgCommand {
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigDeadline {
-        tweet_url: String,
+        tweet_url: Url,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,
@@ -1343,7 +1343,7 @@ pub enum TgCommand {
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigReview {
-        tweet_url: String,
+        tweet_url: Url,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,
@@ -1355,7 +1355,7 @@ pub enum TgCommand {
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigSavePreset {
-        tweet_url: String,
+        tweet_url: Url,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,
@@ -1367,7 +1367,7 @@ pub enum TgCommand {
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigConfirm {
-        tweet_url: String,
+        tweet_url: Url,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,
@@ -1868,12 +1868,12 @@ pub enum MessageCommand {
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigureTargets {
-        tweet_url: String,
+        tweet_url: Url,
         setup_message_id: teloxide::types::MessageId,
     },
     #[cfg(feature = "raid-bot-module")]
     RaidConfigurePoints {
-        tweet_url: String,
+        tweet_url: Url,
         target_likes: Option<usize>,
         target_reposts: Option<usize>,
         target_comments: Option<usize>,

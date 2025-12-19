@@ -313,7 +313,7 @@ impl FtBuybotModule {
                                         },
                                     );
                                     let referrer_prefix = match referrer.as_deref() {
-                                        Some("intear.near") | Some("dex-aggregator.intear.near") => "💦 ",
+                                        Some("intear.near" | "dex-aggregator.intear.near") => "💦 ",
                                         Some("owner.herewallet.near") => "🔥 ",
                                         Some("shitzu.sputnik-dao.near") => "🐶 ",
                                         Some("meteor-swap.near") => "☄️ ",

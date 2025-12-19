@@ -48,7 +48,7 @@ use crate::utils::chat::ChatPermissionLevel;
 use crate::utils::requests::fetch_file_cached_1d;
 use crate::utils::store::PersistentCachedStore;
 use crate::utils::tokens::{StringifiedBalance, WRAP_NEAR};
-use crate::utils::{NETWORK_CONFIG, format_duration};
+use crate::utils::{NETWORK_CONFIG, UserInChat, format_duration};
 use crate::xeon::XeonState;
 use crate::{
     bot_commands::{MessageCommand, PaymentReference, TgCommand},
@@ -124,7 +124,7 @@ pub struct BotData {
     audio_file_id_cache: PersistentCachedStore<String, String>,
     callback_data_cache: PersistentCachedStore<String, String>,
     global_callback_data_storage: PersistentUncachedStore<String, String>,
-    message_commands: PersistentCachedStore<UserId, MessageCommand>, // TODO make this per-(chat,user), not per-user
+    message_commands: PersistentCachedStore<UserInChat, MessageCommand>,
     messages_sent_in_5m: Arc<DashMap<ChatId, AtomicUsize>>,
     messages_sent_in_1h: Arc<DashMap<ChatId, AtomicUsize>>,
     messages_sent_in_1d: Arc<DashMap<ChatId, AtomicUsize>>,
@@ -662,7 +662,9 @@ impl BotData {
                                     };
                                 log::debug!("Payment {} handled", payment.invoice_payload);
                                 res
-                            } else if let Some(command) = bot.get_message_command(&from_id).await {
+                            } else if let Some(command) =
+                                bot.get_message_command(&from_id, &msg.chat.id).await
+                            {
                                 log::debug!(
                                     "chat={:?} user={:?} message={:?} (command {command:?}): {text}, module: {}",
                                     msg.chat.id,
@@ -1142,8 +1144,17 @@ impl BotData {
         Ok(serde_json::from_str(&data)?)
     }
 
-    pub async fn get_message_command(&self, user_id: &UserId) -> Option<MessageCommand> {
-        self.message_commands.get(user_id).await
+    pub async fn get_message_command(
+        &self,
+        user_id: &UserId,
+        in_chat_id: &ChatId,
+    ) -> Option<MessageCommand> {
+        self.message_commands
+            .get(&UserInChat {
+                user_id: *user_id,
+                chat_id: *in_chat_id,
+            })
+            .await
     }
 
     pub async fn set_message_command(
@@ -1152,13 +1163,50 @@ impl BotData {
         command: MessageCommand,
     ) -> Result<(), anyhow::Error> {
         self.message_commands
-            .insert_or_update(user_id, command)
+            .insert_or_update(
+                UserInChat {
+                    user_id,
+                    chat_id: ChatId(user_id.0 as i64),
+                },
+                command,
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn set_message_command_in_chat(
+        &self,
+        user_id: UserId,
+        chat_id: ChatId,
+        command: MessageCommand,
+    ) -> Result<(), anyhow::Error> {
+        self.message_commands
+            .insert_or_update(UserInChat { user_id, chat_id }, command)
             .await?;
         Ok(())
     }
 
     pub async fn remove_message_command(&self, user_id: &UserId) -> Result<(), anyhow::Error> {
-        self.message_commands.remove(user_id).await?;
+        self.message_commands
+            .remove(&UserInChat {
+                user_id: *user_id,
+                chat_id: ChatId(user_id.0 as i64),
+            })
+            .await?;
+        Ok(())
+    }
+
+    pub async fn remove_message_command_in_chat(
+        &self,
+        user_id: &UserId,
+        chat_id: &ChatId,
+    ) -> Result<(), anyhow::Error> {
+        self.message_commands
+            .remove(&UserInChat {
+                user_id: *user_id,
+                chat_id: *chat_id,
+            })
+            .await?;
         Ok(())
     }
 
