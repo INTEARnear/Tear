@@ -514,6 +514,7 @@ impl BotData {
     pub async fn start_polling(&self) -> Result<(), anyhow::Error> {
         let bot = self.bot.clone();
         let (msg_sender, mut msg_receiver) = tokio::sync::mpsc::channel(1000);
+        let (edited_msg_sender, mut edited_msg_receiver) = tokio::sync::mpsc::channel(1000);
         let (callback_query_sender, mut callback_query_receiver) = tokio::sync::mpsc::channel(1000);
         let (inline_query_sender, mut inline_query_receiver) = tokio::sync::mpsc::channel(1000);
 
@@ -524,6 +525,13 @@ impl BotData {
                     let msg_sender = msg_sender.clone();
                     async move {
                         msg_sender.send(msg).await.unwrap();
+                        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+                    }
+                }))
+                .branch(Update::filter_edited_message().endpoint(move |msg: Message| {
+                    let edited_msg_sender = edited_msg_sender.clone();
+                    async move {
+                        edited_msg_sender.send(msg).await.unwrap();
                         Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
                     }
                 }))
@@ -715,6 +723,46 @@ impl BotData {
                                 module.name(),
                                 err
                             );
+                        }
+                    }
+                });
+            }
+        });
+
+        let xeon = Arc::clone(&self.xeon);
+        tokio::spawn(async move {
+            while let Some(msg) = edited_msg_receiver.recv().await {
+                let xeon = Arc::clone(&xeon);
+                tokio::spawn(async move {
+                    let text = msg.text().or(msg.caption()).unwrap_or_default();
+                    if let Some(ref from_id) = msg.from.as_ref().map(|u| u.id.0).or_else(|| {
+                        if msg.chat.id.is_user() {
+                            Some(msg.chat.id.0.try_into().unwrap())
+                        } else {
+                            None
+                        }
+                    }) {
+                        let from_id = UserId(*from_id);
+                        for module in xeon.bot_modules().await.iter() {
+                            let bot = xeon.bot(&me).unwrap();
+                            log::debug!(
+                                "chat={:?} user={:?} message={:?} edited message: {text}, module: {}",
+                                msg.chat.id,
+                                from_id,
+                                msg.id,
+                                module.name()
+                            );
+                            if let Err(err) = module
+                                .handle_edit_message(&bot, Some(from_id), msg.chat.id, text, &msg)
+                                .await
+                            {
+                                warn!(
+                                    "Error handling edited message {} in module {}: {:?}",
+                                    text,
+                                    module.name(),
+                                    err
+                                );
+                            }
                         }
                     }
                 });

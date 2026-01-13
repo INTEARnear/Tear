@@ -2727,62 +2727,9 @@ impl HubModule {
             .await?;
         #[cfg(feature = "xeon")]
         let message = {
-            use rand::prelude::SliceRandom;
-            let messages = [
-                "Welcome to Bettear, a bot created to power the next billion web3 users ⚡️
+            "Welcome to BettearBot
 
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that knows more about you than a stalker 🕵️‍♂️
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that can do better than your average buybot 🤖
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that is free until we monopolize the market 😈
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that can make you a better trader \\(maybe\\) 📈
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that won't let you miss when your 💩coin goes to 0 📉
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that gives you unfair advantage in the market 🤫
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that was made because dev couldn't afford an existing bot 🤖
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot born from a memecoin 🚀
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that makes moderation bot industry obsolete 🤖
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that doesn't delve in its whitepaper 📜
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot with open\\-source infrastructure 🛠
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot made of crabs, green dogs, and PC parts 🦀
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that doesn't lie \\(most of the time\\) 🤥
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                "Welcome to Bettear, a bot that lets you have information faster than insiders 🕵️‍♂️
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-                format!("Welcome to Bettear, a bot that notifies when you get rekt \\(but has a limit of {} notifications per hour for free users\\) 📉
-
-Developed by [Intear](tg://resolve?domain=intearchat)", tearbot_common::tgbot::NOTIFICATION_LIMIT_1H),
-                "Welcome to Bettear, a bot that notifies about trades faster than your wallet closes
-
-Developed by [Intear](tg://resolve?domain=intearchat)".to_string(),
-            ];
-            messages.choose(&mut rand::thread_rng()).unwrap().clone()
-                + "\n\nClick the button to get started, or paste Token Contract, Account ID, /buy, /positions, /pricealerts, or /near for quick access"
+Developed by [Intear](tg://resolve?domain=intearchat)\n\nClick the button to get started, or paste Token Contract, Account ID, /buy, /positions, /pricealerts, or /near for quick access"
         };
         #[cfg(feature = "tear")]
         let message = "

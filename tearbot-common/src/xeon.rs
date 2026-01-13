@@ -364,19 +364,32 @@ pub trait XeonBotModule: Send + Sync + 'static {
         message: &Message,
     ) -> Result<(), anyhow::Error>;
 
+    #[allow(unused_variables)]
+    async fn handle_edit_message(
+        &self,
+        bot: &BotData,
+        user_id: Option<UserId>,
+        chat_id: ChatId,
+        text: &str,
+        message: &Message,
+    ) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
     async fn handle_callback<'a>(
         &'a self,
         mut ctx: TgCallbackContext<'a>,
         query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error>;
 
+    #[allow(unused_variables)]
     async fn handle_inline_callback<'a>(
         &'a self,
-        _bot: &BotData,
-        _user_id: UserId,
-        _inline_message_id: String,
-        _data: &str,
-        _query: &mut Option<MustAnswerCallbackQuery>,
+        bot: &BotData,
+        user_id: UserId,
+        inline_message_id: String,
+        data: &str,
+        query: &mut Option<MustAnswerCallbackQuery>,
     ) -> Result<(), anyhow::Error> {
         Ok(())
     }
@@ -399,19 +412,21 @@ pub trait XeonBotModule: Send + Sync + 'static {
     /// If true, implement `export_settings` and `import_settings` methods
     fn supports_migration(&self) -> bool;
 
+    #[allow(unused_variables)]
     async fn export_settings(
         &self,
-        _bot_id: UserId,
-        _chat_id: NotificationDestination,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
     ) -> Result<serde_json::Value, anyhow::Error> {
         unimplemented!("supports_migration is true, but export_settings is not implemented")
     }
 
+    #[allow(unused_variables)]
     async fn import_settings(
         &self,
-        _bot_id: UserId,
-        _chat_id: NotificationDestination,
-        _settings: serde_json::Value,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
+        settings: serde_json::Value,
     ) -> Result<(), anyhow::Error> {
         unimplemented!("supports_migration is true, but import_settings is not implemented")
     }
@@ -419,26 +434,29 @@ pub trait XeonBotModule: Send + Sync + 'static {
     /// If true, implement `pause` and `resume` methods
     fn supports_pause(&self) -> bool;
 
+    #[allow(unused_variables)]
     async fn pause(
         &self,
-        _bot_id: UserId,
-        _chat_id: NotificationDestination,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
         unimplemented!("supports_pause is true, but pause is not implemented")
     }
 
+    #[allow(unused_variables)]
     async fn resume(
         &self,
-        _bot_id: UserId,
-        _chat_id: NotificationDestination,
+        bot_id: UserId,
+        chat_id: NotificationDestination,
     ) -> Result<(), anyhow::Error> {
         unimplemented!("supports_pause is true, but resume is not implemented")
     }
 
+    #[allow(unused_variables)]
     async fn handle_inline_query(
         &self,
-        _bot: &BotData,
-        _inline_query: &InlineQuery,
+        bot: &BotData,
+        inline_query: &InlineQuery,
     ) -> Vec<InlineQueryResult> {
         Vec::new()
     }

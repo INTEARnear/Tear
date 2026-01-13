@@ -309,6 +309,30 @@ impl XeonBotModule for AiModeratorModule {
         Ok(())
     }
 
+    async fn handle_edit_message(
+        &self,
+        bot: &BotData,
+        user_id: Option<UserId>,
+        chat_id: ChatId,
+        _text: &str,
+        message: &Message,
+    ) -> Result<(), anyhow::Error> {
+        if bot.bot_type() != BotType::Main {
+            return Ok(());
+        }
+        let Some(user_id) = user_id else {
+            return Ok(());
+        };
+
+        if !chat_id.is_user() {
+            log::debug!("Moderating edited message {}", message.id);
+            self.moderate_message(bot, chat_id, user_id, message.clone())
+                .await?;
+            log::debug!("Edited message {} moderated", message.id);
+        }
+        Ok(())
+    }
+
     async fn handle_callback<'a>(
         &'a self,
         mut ctx: TgCallbackContext<'a>,
