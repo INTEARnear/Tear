@@ -24,7 +24,7 @@ use futures_util::FutureExt;
 use mongodb::Database;
 use near_primitives::types::AccountId;
 use serde::{Deserialize, Serialize};
-use serde_with::{DisplayFromStr, serde_as};
+use serde_with::DisplayFromStr;
 use teloxide::prelude::{ChatId, Message, UserId};
 use teloxide::types::{InlineQuery, InlineQueryResult};
 use tokio::sync::{RwLock, RwLockReadGuard};

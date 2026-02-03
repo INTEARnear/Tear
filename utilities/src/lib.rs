@@ -346,6 +346,7 @@ Data provided by [FASTNEAR](https://fastnear.com) 💚
                             PoolId::RefDcl(token1, token2, fee) => format!(
                                 "[Rhea CLMM](https://app.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee})"
                             ),
+                            PoolId::IntearPlach(_id) => format!("Intear Plach"),
                         }
                     } else {
                         "No chart available".to_string()

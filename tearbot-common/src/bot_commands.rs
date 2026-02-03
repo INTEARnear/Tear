@@ -1966,6 +1966,8 @@ pub enum PoolId {
     Aidols(AccountId),
     /// (token1, token2, fee)
     RefDcl(AccountId, AccountId, u64),
+    /// Pool ID
+    IntearPlach(u32),
 }
 
 impl PoolId {
@@ -1976,6 +1978,7 @@ impl PoolId {
             PoolId::RefDcl(token1, token2, fee) => {
                 format!("https://app.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee}")
             }
+            PoolId::IntearPlach(_id) => format!("https://intea.rs"),
         }
     }
 
@@ -1987,6 +1990,7 @@ impl PoolId {
                 "Rhea DCL: {token1} <-> {token2} @ {fee:.02}%",
                 fee = *fee as f64 / 100.0
             ),
+            PoolId::IntearPlach(id) => format!("Intear Plach #{id}"),
         }
     }
 
@@ -1995,6 +1999,7 @@ impl PoolId {
             PoolId::Ref(_) => Exchange::RefFinance,
             PoolId::Aidols(_) => Exchange::Aidols,
             PoolId::RefDcl(_, _, _) => Exchange::RefDcl,
+            PoolId::IntearPlach(_) => Exchange::IntearPlach,
         }
     }
 }
@@ -2042,7 +2047,15 @@ impl FromStr for PoolId {
                 };
                 PoolId::RefDcl(token1, token2, fee)
             }
-
+            "INTEARPLACH" => {
+                if let Ok(id) = exchange_pool_id.parse::<u32>() {
+                    PoolId::IntearPlach(id)
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Invalid Intear Plach pool id: {exchange_pool_id}"
+                    ));
+                }
+            }
             _ => {
                 return Err(anyhow::anyhow!("Unknown exchange: {exchange_id}"));
             }
@@ -2059,6 +2072,7 @@ impl Display for PoolId {
             PoolId::RefDcl(token1, token2, fee) => {
                 write!(f, "REFDCL-{token1}|{token2}|{fee}")
             }
+            PoolId::IntearPlach(id) => write!(f, "INTEARPLACH-{id}"),
         }
     }
 }
@@ -2068,6 +2082,7 @@ pub enum Exchange {
     RefFinance,
     Aidols,
     RefDcl,
+    IntearPlach,
 }
 
 impl Exchange {
@@ -2076,6 +2091,7 @@ impl Exchange {
             Exchange::RefFinance => "Rhea Finance",
             Exchange::Aidols => "AIdols",
             Exchange::RefDcl => "Rhea DCL",
+            Exchange::IntearPlach => "Intear Plach",
         }
     }
 }
