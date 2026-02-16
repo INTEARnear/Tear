@@ -80,7 +80,7 @@ struct ProposalInfo {
     link: String,
 }
 
-#[cached(result = true)]
+#[cached(result = true, time = 10)]
 async fn get_proposal_cached(proposal_id: u64) -> Result<ProposalInfo, anyhow::Error> {
     let result: Option<ProposalInfo> = view_not_cached(
         HOUSE_OF_STAKE_CONTRACT_ID,

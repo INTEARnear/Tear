@@ -1978,7 +1978,7 @@ impl PoolId {
             PoolId::RefDcl(token1, token2, fee) => {
                 format!("https://app.rhea.finance/poolV2/{token1}%3C%3E{token2}@{fee}")
             }
-            PoolId::IntearPlach(_id) => format!("https://intea.rs"),
+            PoolId::IntearPlach(id) => format!("https://dex.intea.rs/pool?id=PLACH-{id}"),
         }
     }
 

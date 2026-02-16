@@ -393,18 +393,29 @@ impl FtBuybotModule {
                                                 .unwrap(),
                                             )],
                                             vec![InlineKeyboardButton::url(
-                                                "💦 Buy in Wallet",
-                                                format!(
-                                                    "https://wallet.intear.tech/swap?from=near&to={token}",
+                                                "💧 Buy in Wallet",
+                                                format!("https://wallet.intear.tech/swap?from=near&to={token}",
                                                     token = if let Token::TokenId(token_id) = &token {
                                                         token_id.to_string()
                                                     } else {
                                                         unreachable!()
                                                     }
                                                 )
-                                                .parse()
-                                                .unwrap(),
-                                            )]
+                                                    .parse::<Url>()
+                                                    .unwrap(),
+                                            )],
+                                            vec![InlineKeyboardButton::url(
+                                                "💦 Buy on DEX",
+                                                format!("https://dex.intea.rs/swap?from=near&to=nep141:{token}",
+                                                    token = if let Token::TokenId(token_id) = &token {
+                                                        token_id.to_string()
+                                                    } else {
+                                                        unreachable!()
+                                                    }
+                                                )
+                                                    .parse::<Url>()
+                                                    .unwrap(),
+                                            )],
                                         ]
                                     } else if chat_id.is_user() {
                                         vec![vec![InlineKeyboardButton::callback(
@@ -4023,6 +4034,8 @@ Examples:
                     let amount = 100_000_000i128 * 1e18 as i128;
                     let message = format!(
                         "
+Message Preview:
+
 *NEW {token_name} {action_name}*
 
 {components}
@@ -6935,8 +6948,14 @@ impl FtBuybotModule {
                             .unwrap(),
                         )],
                         vec![(
-                            "💦 Buy in Wallet".to_owned(),
+                            "💧 Buy in Wallet".to_owned(),
                             format!("https://wallet.intear.tech/swap?from=near&to={token}")
+                                .parse::<Url>()
+                                .unwrap(),
+                        )],
+                        vec![(
+                            "💦 Buy on DEX".to_owned(),
+                            format!("https://dex.intea.rs/swap?from=near&to=nep141:{token}")
                                 .parse::<Url>()
                                 .unwrap(),
                         )],
