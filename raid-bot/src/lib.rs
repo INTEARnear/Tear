@@ -1051,9 +1051,12 @@ impl RaidBotModule {
 
                                 let buttons = Vec::<Vec<_>>::new();
                                 let reply_markup = InlineKeyboardMarkup::new(buttons);
-                                let _ = bot
-                                    .send_text_message(chat_id.into(), message, reply_markup)
-                                    .await;
+                                let xeon = Arc::clone(&xeon);
+                                let _ = tokio::spawn(async move {
+                                    let bot2 = xeon.bot(&bot_id).unwrap();
+                                    bot2.send_text_message(chat_id.into(), message, reply_markup)
+                                        .await
+                                });
 
                                 for (user_id, _) in user_points {
                                     let user_in_chat = UserInChat { chat_id, user_id };
@@ -1076,6 +1079,7 @@ impl RaidBotModule {
                         }
                     }
                 }
+                log::info!("Leaderboard resets checked");
             }
         });
 

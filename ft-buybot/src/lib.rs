@@ -7147,7 +7147,6 @@ async fn account_net_worth(account_id: &AccountId) -> Option<f64> {
     ))
     .await
     .ok()?;
-    log::info!("user_tokens: {user_tokens:?}");
     let tokens_balance_usd: f64 = user_tokens
         .iter()
         // only include liquid tokens
