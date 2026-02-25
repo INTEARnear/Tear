@@ -143,8 +143,14 @@ pub async fn get_message_rating(
             skeleton(admin.trim()).collect::<String>()
                 == skeleton(user.full_name().trim()).collect::<String>()
                 || skeleton(admin.trim()).collect::<String>()
-                    == skeleton(user.full_name()[..user.full_name().len().saturating_sub(1)].trim())
-                        .collect::<String>()
+                    == skeleton(
+                        user.full_name()
+                            .chars()
+                            .take(user.full_name().chars().count().saturating_sub(1))
+                            .collect::<String>()
+                            .trim(),
+                    )
+                    .collect::<String>()
         }) {
             return MessageRating::Ok {
                     judgement: ModerationJudgement::Suspicious,
