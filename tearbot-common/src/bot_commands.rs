@@ -702,8 +702,6 @@ pub enum TgCommand {
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotPromo,
-    #[cfg(feature = "trading-bot-module")]
     TradingBotSnipe {
         selected_account_id: Option<AccountId>,
     },
@@ -896,12 +894,6 @@ pub enum TgCommand {
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotVote,
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotVoteConfirm {
-        option: VoteOption,
-    },
-    #[cfg(feature = "trading-bot-module")]
     TradingBotCreateMeme {
         selected_account_id: AccountId,
     },
@@ -1022,37 +1014,6 @@ pub enum TgCommand {
         selected_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
-    TradingBotBridge {
-        destination: Option<BridgeDestination>,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeNetwork {
-        network_id: String,
-        chain_id: String,
-        destination: BridgeDestination,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeCheck {
-        network_id: String,
-        chain_id: String,
-        destination: BridgeDestination,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeSwap {
-        defuse_asset_identifier: String,
-        #[serde(with = "dec_format")]
-        amount: FtBalance,
-        destination: BridgeDestination,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgePublishIntent {
-        quotes: Vec<IntentQuote>,
-        defuse_asset_identifier: String,
-        #[serde(with = "dec_format")]
-        amount: FtBalance,
-        destination: BridgeDestination,
-    },
-    #[cfg(feature = "trading-bot-module")]
     TradingBotAccounts {
         page: usize,
     },
@@ -1111,36 +1072,6 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositionReducePromptSolana {
         token_address: String,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeFromNear {
-        destination: BridgeDestination,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeFromNearAccount {
-        destination: BridgeDestination,
-        from_account_id: AccountId,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeFromNearAccountAmount {
-        destination: BridgeDestination,
-        from_account_id: AccountId,
-        #[serde(with = "dec_format")]
-        amount: FtBalance,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeFromSolanaAccount {
-        destination: BridgeDestination,
-        relay_account: Pubkey,
-        from_account: SerializableKeypair,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeFromSolanaAccountAmount {
-        destination: BridgeDestination,
-        relay_account: Pubkey,
-        from_account: SerializableKeypair,
-        #[serde(with = "dec_format")]
-        amount: u64,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotAccountsSolana {
@@ -1221,11 +1152,6 @@ pub enum TgCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotTeardropClaim {
         drop_id: CryptoHash,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotRheaAirdropClaim {
-        account_id: AccountId,
-        airdrop_id: i64,
     },
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorSetBlockMostlyEmojiMessages(ChatId, bool),
@@ -1467,20 +1393,6 @@ pub struct BitteFunctionCallParams {
     pub gas: u64,
     #[serde(with = "dec_format")]
     pub deposit: FtBalance,
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum BridgeDestination {
-    Near(AccountId),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct IntentQuote {
-    pub quote_hash: CryptoHash,
-    /// Key is the asset id, value is the amount i128 stringified
-    pub token_diff: HashMap<String, String>,
-    pub expiration_time: DateTime<Utc>,
 }
 
 #[cfg(feature = "subscription-lists-module")]
@@ -1824,11 +1736,6 @@ pub enum MessageCommand {
     #[cfg(feature = "trading-bot-module")]
     TradingBotBuySolanaAskForAmount {
         token_address: String,
-    },
-    #[cfg(feature = "trading-bot-module")]
-    TradingBotBridgeFromNearAccount {
-        destination: BridgeDestination,
-        from_account_id: AccountId,
     },
     #[cfg(feature = "trading-bot-module")]
     TradingBotPositionReducePromptSolana {

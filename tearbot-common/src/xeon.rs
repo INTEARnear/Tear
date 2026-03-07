@@ -5,7 +5,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::bot_commands::PoolId;
 use crate::tgbot::NotificationDestination;
-use crate::utils::store::PersistentCachedStore;
 use crate::{
     bot_commands::{MessageCommand, PaymentReference},
     indexer_events::IndexerEventHandler,
@@ -67,7 +66,6 @@ pub struct XeonState {
     db: Database,
     prices: Arc<RwLock<HashMap<AccountId, TokenInfo>>>,
     spamlist: Arc<RwLock<Vec<AccountId>>>,
-    airdrop_state: PersistentCachedStore<UserId, AirdropState>,
     resource_providers: RwLock<
         HashMap<
             TypeId,
@@ -84,28 +82,11 @@ pub struct XeonState {
     >,
 }
 
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct AirdropState {
-    pub trading_points: f64,
-    #[serde(default = "default_trading_points_cap")]
-    pub trading_points_cap: (f64, u32), // earned today, day of year from 1 to 366
-    #[serde(default)]
-    pub special_events_points: f64,
-    #[serde(default)]
-    pub vote: Option<VoteOption>,
-    pub RRRdRR_points: f64,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum VoteOption {
     Intear,
     Tear,
-}
-
-fn default_trading_points_cap() -> (f64, u32) {
-    (0.0, 0)
 }
 
 fn float_as_string<'de, D>(deserializer: D) -> Result<f64, D::Error>
@@ -199,9 +180,6 @@ impl XeonState {
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             }
         });
-        let airdrop_state = PersistentCachedStore::new(db.clone(), "global_airdrop_state")
-            .await
-            .unwrap();
         Self {
             bots: DashMap::new(),
             bot_modules: RwLock::new(Vec::new()),
@@ -209,7 +187,6 @@ impl XeonState {
             db,
             prices,
             spamlist,
-            airdrop_state,
             resource_providers: RwLock::new(HashMap::new()),
         }
     }
@@ -294,16 +271,6 @@ impl XeonState {
 
     pub async fn get_spamlist<'a>(&'a self) -> RwLockReadGuard<'a, Vec<AccountId>> {
         self.spamlist.read().await
-    }
-
-    pub async fn get_airdrop_state(&self, user_id: UserId) -> AirdropState {
-        self.airdrop_state.get(&user_id).await.unwrap_or_default()
-    }
-
-    pub async fn set_airdrop_state(&self, user_id: UserId, state: AirdropState) {
-        if let Err(err) = self.airdrop_state.insert_or_update(user_id, state).await {
-            log::warn!("Failed to update airdrop state: {err:?}");
-        }
     }
 
     pub async fn provide_resource<R: Resource>(

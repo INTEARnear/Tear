@@ -273,7 +273,7 @@ impl FtBuybotModule {
                                             // Can be partially converted to shitzu on meme.cooking
                                             tokens.retain(|token| token != "token.0xshitzu.near");
                                         }
-                                        tokens.retain(|token| token != WRAP_NEAR);
+                                        tokens.retain(|token| token != WRAP_NEAR && token != "near");
                                         match &tokens[..] {
                                             [token] => Token::TokenId(token.clone()),
                                             _ => return Ok(()),
@@ -394,7 +394,7 @@ impl FtBuybotModule {
                                             )],
                                             vec![InlineKeyboardButton::url(
                                                 "💧 Buy in Wallet",
-                                                format!("https://wallet.intear.tech/swap?from=near&to={token}",
+                                                format!("https://wallet.intear.tech/?from=near&to={token}",
                                                     token = if let Token::TokenId(token_id) = &token {
                                                         token_id.to_string()
                                                     } else {
@@ -406,7 +406,7 @@ impl FtBuybotModule {
                                             )],
                                             vec![InlineKeyboardButton::url(
                                                 "💦 Buy on DEX",
-                                                format!("https://dex.intea.rs/swap?from=near&to=nep141:{token}",
+                                                format!("https://dex.intea.rs/?from=near&to=nep141:{token}",
                                                     token = if let Token::TokenId(token_id) = &token {
                                                         token_id.to_string()
                                                     } else {
@@ -6949,13 +6949,13 @@ impl FtBuybotModule {
                         )],
                         vec![(
                             "💧 Buy in Wallet".to_owned(),
-                            format!("https://wallet.intear.tech/swap?from=near&to={token}")
+                            format!("https://wallet.intear.tech/?from=near&to={token}")
                                 .parse::<Url>()
                                 .unwrap(),
                         )],
                         vec![(
                             "💦 Buy on DEX".to_owned(),
-                            format!("https://dex.intea.rs/swap?from=near&to=nep141:{token}")
+                            format!("https://dex.intea.rs/?from=near&to=nep141:{token}")
                                 .parse::<Url>()
                                 .unwrap(),
                         )],

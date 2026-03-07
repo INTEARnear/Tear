@@ -313,7 +313,7 @@ impl XeonBotModule for PriceCommandsModule {
                     exchanges.push(format!("[AIdols](https://aidols.bot/agents/{token})"));
                 }
                 exchanges.push(format!(
-                    "[Intear Wallet](https://wallet.intear.tech/swap?from=near&to={token})"
+                    "[Intear Wallet](https://wallet.intear.tech/?from=near&to={token})"
                 ));
                 let exchanges = exchanges.join(", ");
                 let message = format!("Click to copy CA: `{token}`\n\nBuy on: {exchanges}");
@@ -1187,7 +1187,7 @@ async fn get_chart(
     }
     let _ = client
         .wait()
-        .at_most(Duration::from_secs(30))
+        .at_most(Duration::from_secs(60))
         .for_element(Locator::Id("ready"))
         .await;
     let screenshot = match client.screenshot().await {

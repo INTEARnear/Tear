@@ -2778,22 +2778,13 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
             ),
         ]);
         #[cfg(feature = "trading-bot-module")]
-        buttons.push(vec![
-            InlineKeyboardButton::callback(
-                "🔥 $TEAR Airdrop",
-                context
-                    .bot()
-                    .to_callback_data(&TgCommand::TradingBotPromo)
-                    .await,
-            ),
-            InlineKeyboardButton::callback(
-                "🔗 Referral",
-                context
-                    .bot()
-                    .to_callback_data(&TgCommand::ReferralDashboard)
-                    .await,
-            ),
-        ]);
+        buttons.push(vec![InlineKeyboardButton::callback(
+            "🔗 Referral",
+            context
+                .bot()
+                .to_callback_data(&TgCommand::ReferralDashboard)
+                .await,
+        )]);
         #[cfg(not(feature = "trading-bot-module"))]
         buttons.push(vec![InlineKeyboardButton::callback(
             "🔗 Referral",

@@ -8,10 +8,6 @@ use std::time::Duration;
 use ai_moderator::AiModeratorModule;
 #[cfg(feature = "burrow-liquidations")]
 use burrow_liquidations::BurrowLiquidationsModule;
-#[cfg(feature = "house-of-stake-module")]
-use house_of_stake::HouseOfStakeModule;
-// #[cfg(feature = "airdrops")]
-// use airdrops::AirdropsModule;
 #[cfg(feature = "contract-logs-module")]
 use contract_logs::ContractLogsModule;
 #[cfg(feature = "contract-logs-module")]
@@ -22,6 +18,8 @@ use contract_logs::text::ContractLogsTextModule;
 use explorer::ExplorerModule;
 #[cfg(feature = "ft-buybot-module")]
 use ft_buybot::FtBuybotModule;
+#[cfg(feature = "house-of-stake-module")]
+use house_of_stake::HouseOfStakeModule;
 use log::info;
 #[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
 use modules::hub::HubModule;
