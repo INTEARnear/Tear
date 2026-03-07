@@ -194,7 +194,7 @@ impl ExplorerModule {
 
 *Trader*: {trader}
 *Block*: {block}
-[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
+[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://nearblocks.io/txns/{tx_hash})
                             ",
                             balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
                                 [(token1, amount1), (token2, amount2)] => {
@@ -316,7 +316,7 @@ impl ExplorerModule {
 *Trader*: {trader}
 *Block*: {block}
 
-[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
+[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://nearblocks.io/txns/{tx_hash})
                             ",
                             balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
                                 [(token1, amount1), (token2, amount2)] => {
@@ -546,7 +546,7 @@ CA: `{ca}`
 *Actions*:
 {actions}
 
-[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
+[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://nearblocks.io/txns/{tx_hash})
                         ",
                         signer = outcome.transaction.signer_id,
                         receiver = outcome.transaction.receiver_id,
@@ -588,7 +588,7 @@ CA: `{ca}`
 *Transaction*: `{tx_hash}`
 *Status*: {status}
 
-[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://pikespeak.ai/transaction-viewer/{tx_hash})
+[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://nearblocks.io/txns/{tx_hash})
                         ",
                         status = match tx.final_execution_status {
                             TxExecutionStatus::None => "⏳ Pending",

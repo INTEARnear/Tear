@@ -325,7 +325,7 @@ impl FtBuybotModule {
 
 {components}
 
-[*Tx*](https://pikespeak.ai/transaction-viewer/{tx_hash}){links}
+[*Tx*](https://nearblocks.io/txns/{tx_hash}){links}
                                         ",
                                         emoji = if chat_id.is_user() {
                                             if amount > 0 {
@@ -654,7 +654,7 @@ impl FtBuybotModule {
 {emoji_other} *{token_name_other}*: {amount_other_str}
 👤 *LP provider*: {lp_provider}
 
-[*Tx*](https://pikespeak.ai/transaction-viewer/{tx_hash}){links}
+[*Tx*](https://nearblocks.io/txns/{tx_hash}){links}
 "
                                 );
                                 let buttons = if chat_id.is_user() {
@@ -796,7 +796,7 @@ impl FtBuybotModule {
 
 {components}
 
-[*Tx*](https://pikespeak.ai/transaction-viewer/{tx_hash}){links}
+[*Tx*](https://nearblocks.io/txns/{tx_hash}){links}
                                         ",
                                     action_name = if near_amount > 0 { "BUY" } else { "SELL" },
                                     components = {
@@ -4040,7 +4040,7 @@ Message Preview:
 
 {components}
 
-[*Tx*](https://pikespeak.ai/transaction-viewer/{tx_hash}){links}
+[*Tx*](https://nearblocks.io/txns/{tx_hash}){links}
                         ",
                         action_name = if amount > 0 { "BUY" } else { "SELL" },
                         components = {

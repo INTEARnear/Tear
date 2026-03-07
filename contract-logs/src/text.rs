@@ -86,7 +86,7 @@ impl ContractLogsTextModule {
                                 return;
                             }
                             let message = format!(
-                                "Text log from {account_id}:\n```\n{log}\n```\n[Tx](https://pikespeak.ai/transaction-viewer/{tx_id}/detailed)",
+                                "Text log from {account_id}:\n```\n{log}\n```\n[Tx](https://nearblocks.io/txns/{tx_id}/detailed)",
                                 account_id = format_account_id(&account_id).await,
                                 log = markdown::escape_code(&log_text),
                                 tx_id = transaction_id,

@@ -96,7 +96,7 @@ impl ContractLogsNep297Module {
                                 return;
                             }
                             let message = format!(
-                                "{standard} {version} {event} event from {account_id}:\n```\n{log}\n```\n[Tx](https://pikespeak.ai/transaction-viewer/{tx_id}/detailed)",
+                                "{standard} {version} {event} event from {account_id}:\n```\n{log}\n```\n[Tx](https://nearblocks.io/txns/{tx_id}/detailed)",
                                 standard = markdown::escape(&standard),
                                 version = markdown::escape(&version),
                                 event = markdown::escape(&event),

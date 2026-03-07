@@ -105,7 +105,7 @@ impl WalletTrackingModule {
                             "
 *`{old_account_id}` ➡️ `{new_account_id}`*: {amount}
 
-[Tx](https://pikespeak.ai/transaction-viewer/{tx_hash})
+[Tx](https://nearblocks.io/txns/{tx_hash})
                                 ",
                             old_account_id = old_owner_id,
                             new_account_id = new_owner_id,
@@ -195,7 +195,7 @@ impl WalletTrackingModule {
 *NFT {action_word}*
 *`{old_account_id}` ➡️ `{new_account_id}`*: `{token_id}`{price_text}
 
-[Tx](https://pikespeak.ai/transaction-viewer/{tx_hash}) \\| [Token](https://nearblocks.io/nft-token/{contract_id}/{token_id})
+[Tx](https://nearblocks.io/txns/{tx_hash}) \\| [Token](https://nearblocks.io/nft-token/{contract_id}/{token_id})
                                 ",
                                 old_account_id = old_owner_id,
                                 new_account_id = new_owner_id,
@@ -279,7 +279,7 @@ impl WalletTrackingModule {
 
 {changes}
 
-[Tx](https://pikespeak.ai/transaction-viewer/txns/{tx_hash})
+[Tx](https://nearblocks.io/txns/txns/{tx_hash})
                             ",
                             changes = markdown::escape(&changes.join("\n")),
                         );
@@ -339,7 +339,7 @@ impl WalletTrackingModule {
 *Transaction by* `{signer_id}`
 *Contract / Receiver:* `{receiver_id}`
 
-[Tx](https://pikespeak.ai/transaction-viewer/{tx_hash})
+[Tx](https://nearblocks.io/txns/{tx_hash})
                             ",
                         );
 
@@ -417,7 +417,7 @@ impl WalletTrackingModule {
 *Staking*
 *`{account_id}` {action_text} `{pool_id}`*: {}
 
-[Tx](https://pikespeak.ai/transaction-viewer/{tx_hash})
+[Tx](https://nearblocks.io/txns/{tx_hash})
                             ",
                             markdown::escape(
                                 &format_tokens(amount, &"near".parse().unwrap(), Some(&xeon)).await
