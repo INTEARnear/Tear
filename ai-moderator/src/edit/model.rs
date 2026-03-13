@@ -23,19 +23,20 @@ pub async fn handle_rotate_model_button(
             (bot_config.chat_configs.get(&target_chat_id).await).unwrap_or_default();
         chat_config.model = match chat_config.model {
             Model::RecommendedBest => Model::RecommendedFast,
-            Model::RecommendedFast => Model::Gpt5,
-            Model::Gpt5 => Model::Gpt5Mini,
+            Model::RecommendedFast => Model::Gpt5_4,
+            Model::Gpt5_4 => Model::Gpt5Mini,
             Model::Gpt5Mini => Model::Gpt5Nano,
-            Model::Gpt5Nano => Model::Gpt4_1,
-            Model::Gpt4_1 => Model::Gpt4_1Mini,
-            Model::Gpt4_1Mini => Model::Gpt4_1Nano,
-            Model::Gpt4_1Nano => Model::GPTO4Mini,
-            Model::GPTO4Mini => Model::Llama4Scout,
-            Model::Llama4Scout => Model::RecommendedBest,
+            Model::Gpt5Nano => Model::RecommendedBest,
             // deprecated models
-            Model::Gpt4o => Model::Gpt4_1,
-            Model::Gpt4oMini => Model::Gpt4_1Mini,
-            Model::Llama70B => Model::Llama4Scout,
+            Model::Gpt4o => Model::RecommendedBest,
+            Model::Gpt4oMini => Model::RecommendedFast,
+            Model::Llama70B => Model::RecommendedFast,
+            Model::Llama4Scout => Model::RecommendedFast,
+            Model::Gpt4_1 => Model::RecommendedBest,
+            Model::Gpt4_1Mini => Model::RecommendedBest,
+            Model::Gpt4_1Nano => Model::RecommendedFast,
+            Model::GPTO4Mini => Model::RecommendedFast,
+            Model::Gpt5 => Model::RecommendedBest,
         };
         bot_config
             .chat_configs

@@ -23,6 +23,7 @@ pub enum Model {
     Gpt5,
     Gpt5Mini,
     Gpt5Nano,
+    Gpt5_4,
 }
 
 pub const SCHEMA_STRING: &str = "string";
@@ -43,6 +44,7 @@ impl Model {
             Self::Gpt5 => "GPT 5",
             Self::Gpt5Mini => "GPT 5 Mini",
             Self::Gpt5Nano => "GPT 5 Nano",
+            Self::Gpt5_4 => "GPT 5.4",
         }
     }
 
@@ -54,7 +56,8 @@ impl Model {
             | Self::Gpt4oMini
             | Self::Gpt5
             | Self::Gpt5Mini
-            | Self::Gpt5Nano => true,
+            | Self::Gpt5Nano
+            | Self::Gpt5_4 => true,
             Self::Llama70B
             | Self::Llama4Scout
             | Self::Gpt4_1
@@ -76,7 +79,8 @@ impl Model {
             | Self::GPTO4Mini
             | Self::Gpt5
             | Self::Gpt5Mini
-            | Self::Gpt5Nano => true,
+            | Self::Gpt5Nano
+            | Self::Gpt5_4 => true,
             Self::Llama70B | Self::Llama4Scout => false,
         }
     }
@@ -100,6 +104,7 @@ impl Model {
             Self::Gpt5 => "gpt-5",
             Self::Gpt5Mini => "gpt-5-mini",
             Self::Gpt5Nano => "gpt-5-nano",
+            Self::Gpt5_4 => "gpt-5.4",
         }
     }
 
@@ -118,6 +123,7 @@ impl Model {
             Self::Gpt5 => 3,
             Self::Gpt5Mini => 1,
             Self::Gpt5Nano => 1,
+            Self::Gpt5_4 => 3,
         }
     }
 
@@ -175,7 +181,7 @@ impl Model {
         match self {
             Model::RecommendedBest => {
                 Box::pin(async move {
-                    Self::Gpt5Mini
+                    Self::Gpt5_4
                         .get_completion_response(
                             prompt,
                             schema,
@@ -188,29 +194,13 @@ impl Model {
                 .await
             }
             Model::RecommendedFast => {
-                Box::pin(async move {
-                    if image_jpeg.is_some() {
-                        Self::Gpt5Nano
-                            .get_completion_response(
-                                prompt,
-                                schema,
-                                message,
-                                image_jpeg,
-                                high_quality_image,
-                            )
-                            .await
-                    } else {
-                        Self::Llama4Scout
-                            .get_completion_response(
-                                prompt,
-                                schema,
-                                message,
-                                image_jpeg,
-                                high_quality_image,
-                            )
-                            .await
-                    }
-                })
+                Box::pin(Self::Gpt5Nano.get_completion_response(
+                    prompt,
+                    schema,
+                    message,
+                    image_jpeg,
+                    high_quality_image,
+                ))
                 .await
             }
             Model::Llama70B | Model::Llama4Scout => {
@@ -228,7 +218,8 @@ impl Model {
                 )
                 .await
             }
-            Model::Gpt5
+            Model::Gpt5_4
+            | Model::Gpt5
             | Model::Gpt5Mini
             | Model::Gpt5Nano
             | Model::Gpt4oMini
