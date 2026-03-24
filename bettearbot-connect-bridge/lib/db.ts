@@ -12,6 +12,18 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pnl_records (
+    id TEXT PRIMARY KEY,
+    timestamp TEXT NOT NULL,
+    address TEXT NOT NULL,
+    telegram_username TEXT,
+    token_id TEXT NOT NULL,
+    price_open REAL NOT NULL,
+    price_close REAL NOT NULL
+  )
+`);
+
 export function saveXConnection(telegramUserId: string, xUserId: string): void {
   const stmt = db.prepare(
     'INSERT INTO connections (telegram_user_id, x_user_id) VALUES (?, ?) ON CONFLICT(telegram_user_id) DO UPDATE SET x_user_id = ?'
@@ -49,6 +61,36 @@ export function deleteNearConnection(telegramUserId: string): void {
     'UPDATE connections SET near_account_id = NULL WHERE telegram_user_id = ?'
   );
   stmt.run(telegramUserId);
+}
+
+export interface PnlRecord {
+  id: string;
+  timestamp: string;
+  address: string;
+  telegram_username: string | null;
+  token_id: string;
+  price_open: number;
+  price_close: number;
+}
+
+export function savePnlRecord(record: PnlRecord): void {
+  const stmt = db.prepare(
+    'INSERT INTO pnl_records (id, timestamp, address, telegram_username, token_id, price_open, price_close) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  stmt.run(
+    record.id,
+    record.timestamp,
+    record.address,
+    record.telegram_username,
+    record.token_id,
+    record.price_open,
+    record.price_close
+  );
+}
+
+export function getPnlRecord(id: string): PnlRecord | null {
+  const stmt = db.prepare('SELECT * FROM pnl_records WHERE id = ?');
+  return (stmt.get(id) as PnlRecord | undefined) ?? null;
 }
 
 export function getAllConnections(): Array<{

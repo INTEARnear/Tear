@@ -11,14 +11,15 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@hot-labs/near-connect": "^0.6.8",
+    "@hot-labs/near-connect": "^0.11.1",
     "@near-js/crypto": "^2.4.0",
     "better-sqlite3": "^12.4.1",
     "borsh": "^2.0.0",
     "bs58": "^6.0.0",
+    "nanoid": "^5.1.7",
     "next": ">=16.0.7",
-    "react": "^19.2.1",
-    "react-dom": "19.2.0"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

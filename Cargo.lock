@@ -12691,6 +12691,7 @@ dependencies = [
  "log",
  "mpl-token-metadata",
  "near-api",
+ "near-crypto 0.34.5",
  "near-gas",
  "near-openapi-types",
  "near-primitives 0.34.5",
