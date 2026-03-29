@@ -1226,6 +1226,12 @@ pub enum TgCommand {
     AiModeratorReportDelete(ChatId, teloxide::types::MessageId),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorReportBan(ChatId, UserId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorBilling(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorTopUp(ChatId),
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorTopUpAmount(ChatId, u32),
     #[cfg(feature = "raid-bot-module")]
     RaidBotChatSettings {
         target_chat_id: ChatId,
@@ -1794,7 +1800,10 @@ pub enum MessageCommand {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PaymentReference {}
+pub enum PaymentReference {
+    #[cfg(feature = "ai-moderator-module")]
+    AiModeratorCredits { chat_id: ChatId, credits: u32 },
+}
 
 impl From<MessageCommand> for Bson {
     fn from(command: MessageCommand) -> Self {

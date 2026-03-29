@@ -4,18 +4,19 @@ mod edit;
 mod features;
 mod moderation_actions;
 mod moderator;
+mod payments;
 mod setup;
 mod utils;
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use tearbot_common::{
-    bot_commands::{MessageCommand, ModerationAction, ModerationJudgement, TgCommand},
-    mongodb::Database,
-    teloxide::{
+    bot_commands::{
+        MessageCommand, ModerationAction, ModerationJudgement, PaymentReference, TgCommand,
+    }, indexer_events::{IndexerEvent, IndexerEventHandler}, intear_events::events::log::log_nep297::LogNep297Event, mongodb::Database, near_primitives::types::AccountId, teloxide::{
         ApiError, RequestError,
         payloads::{RestrictChatMemberSetters, SendMessageSetters},
         prelude::{ChatId, Message, Requester, UserId},
@@ -24,10 +25,7 @@ use tearbot_common::{
             ReplyParameters,
         },
         utils::markdown,
-    },
-    tgbot::{Attachment, BotType},
-    utils::{chat::expandable_blockquote, store::PersistentCachedStore},
-    xeon::{XeonBotModule, XeonState},
+    }, tgbot::{Attachment, BotType}, utils::{SLIME_USER_ID, chat::expandable_blockquote, store::PersistentCachedStore}, xeon::{XeonBotModule, XeonState}
 };
 use tearbot_common::{
     teloxide::payloads::BanChatMemberSetters,
@@ -57,6 +55,19 @@ impl XeonBotModule for AiModeratorModule {
 2. By using AI Moderator, you agree to abide by this license: https://github.com/INTEARnear/Tear/blob/main/LICENSE
         "#,
         )
+    }
+
+    async fn start(&self) -> Result<(), anyhow::Error> {
+        let bot_configs = Arc::clone(&self.bot_configs);
+        let xeon = Arc::clone(&self.xeon);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60 * 60));
+            loop {
+                payments::run_billing_cycle(&bot_configs, &xeon).await;
+                interval.tick().await;
+            }
+        });
+        Ok(())
     }
 
     fn supports_migration(&self) -> bool {
@@ -147,6 +158,35 @@ impl XeonBotModule for AiModeratorModule {
         Ok(())
     }
 
+    async fn handle_payment(
+        &self,
+        bot: &BotData,
+        _user_id: UserId,
+        chat_id: ChatId,
+        _subscription_expiration_time: Option<DateTime<Utc>>,
+        _telegram_payment_charge_id: String,
+        _is_recurring: bool,
+        _is_first_recurring: bool,
+        payment: PaymentReference,
+    ) -> Result<(), anyhow::Error> {
+        match payment {
+            PaymentReference::AiModeratorCredits {
+                chat_id: target_chat_id,
+                credits,
+            } => {
+                payments::handle_stars_payment(
+                    bot,
+                    chat_id,
+                    target_chat_id,
+                    credits,
+                    &self.bot_configs,
+                )
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
     async fn handle_message(
         &self,
         bot: &BotData,
@@ -166,6 +206,91 @@ impl XeonBotModule for AiModeratorModule {
         let Some(user_id) = user_id else {
             return Ok(());
         };
+
+        if chat_id.is_user() && text.starts_with('/') {
+            if text == "/support" || text == "/paysupport" {
+                let message = "For support, please contact @slimytentacles".to_string();
+                let buttons = Vec::<Vec<_>>::new();
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                bot.send_text_message(chat_id.into(), message, reply_markup)
+                    .await?;
+                return Ok(());
+            }
+            if let Some(announcement) = text.strip_prefix("/announce-ai-moderator") {
+                if user_id != SLIME_USER_ID {
+                    return Ok(());
+                }
+                let announcement = announcement.trim().to_string();
+                if announcement.is_empty() {
+                    let message = "Usage: /announce\\-ai\\-moderator <message>".to_string();
+                    let buttons = Vec::<Vec<_>>::new();
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
+                        .await?;
+                    return Ok(());
+                }
+                let bot_configs = Arc::clone(&self.bot_configs);
+                let xeon = Arc::clone(&self.xeon);
+                let bot_id = bot.id();
+                tokio::spawn(async move {
+                    let Some(bot_config) = bot_configs.get(&bot_id) else {
+                        return;
+                    };
+                    let chats = match bot_config.chat_configs.values().await {
+                        Ok(entries) => entries.map(|e| *e.key()).collect::<Vec<_>>(),
+                        Err(e) => {
+                            log::error!("Failed to get chat configs for announcement: {e:?}");
+                            return;
+                        }
+                    };
+                    let bot = xeon.bot(&bot_id).unwrap();
+                    let mut interval = tokio::time::interval(Duration::from_millis(100));
+                    for (i, target_chat) in chats.iter().copied().enumerate() {
+                        interval.tick().await;
+                        let buttons = Vec::<Vec<_>>::new();
+                        let reply_markup = InlineKeyboardMarkup::new(buttons);
+                        match bot
+                            .send_text_message(
+                                target_chat.into(),
+                                announcement.clone(),
+                                reply_markup,
+                            )
+                            .await
+                        {
+                            Ok(_) => {
+                                if i % 10 == 0 {
+                                    let _ = bot
+                                        .send_text_message(
+                                            chat_id.into(),
+                                            format!(
+                                                "Sent announcement to {}/{}",
+                                                i + 1,
+                                                chats.len()
+                                            ),
+                                            InlineKeyboardMarkup::new(Vec::<
+                                                Vec<InlineKeyboardButton>,
+                                            >::new(
+                                            )),
+                                        )
+                                        .await;
+                                }
+                            }
+                            Err(err) => {
+                                log::warn!("Failed to send announcement to {target_chat}: {err:?}");
+                            }
+                        }
+                    }
+                    let _ = bot
+                        .send_text_message(
+                            chat_id.into(),
+                            format!("Sent announcement to all {} groups", chats.len()),
+                            InlineKeyboardMarkup::new(Vec::<Vec<InlineKeyboardButton>>::new()),
+                        )
+                        .await;
+                });
+                return Ok(());
+            }
+        }
 
         if text.starts_with('/') && !chat_id.is_user() {
             let Some(bot_config) = self.bot_configs.get(&bot.id()) else {
@@ -898,8 +1023,80 @@ impl XeonBotModule for AiModeratorModule {
                 )
                 .await?;
             }
+            TgCommand::AiModeratorBilling(target_chat_id) => {
+                payments::open_billing(&mut ctx, target_chat_id, &self.bot_configs).await?;
+            }
+            TgCommand::AiModeratorTopUp(target_chat_id) => {
+                payments::open_topup(&mut ctx, target_chat_id, &self.bot_configs).await?;
+            }
+            TgCommand::AiModeratorTopUpAmount(target_chat_id, credits) => {
+                payments::send_stars_invoice(
+                    ctx.bot(),
+                    ctx.chat_id().chat_id(),
+                    target_chat_id,
+                    credits,
+                )
+                .await?;
+            }
             _ => {}
         }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ChatCredits {
+    pub balance: u32,
+    pub last_charged: Option<DateTime<Utc>>,
+}
+
+const TEARPAY_CONTRACT: &str = "pay.intear.near";
+const TEARPAY_FORWARD_TO: &str = "aimod.intear.near";
+const USDC_TOKEN_ID: &str = "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1";
+
+#[async_trait]
+impl IndexerEventHandler for AiModeratorModule {
+    async fn handle_event(&self, event: &IndexerEvent) -> Result<(), anyhow::Error> {
+        if let IndexerEvent::LogNep297(event) = event {
+            self.handle_tearpay_event(event).await?;
+        }
+        Ok(())
+    }
+}
+
+impl AiModeratorModule {
+    async fn handle_tearpay_event(&self, event: &LogNep297Event) -> Result<(), anyhow::Error> {
+        if event.account_id.as_str() != TEARPAY_CONTRACT {
+            return Ok(());
+        }
+        if event.event_standard != "tearpay" || event.event_event != "payment" {
+            return Ok(());
+        }
+
+        let Some(data) = &event.event_data else {
+            return Ok(());
+        };
+
+        #[derive(Deserialize)]
+        struct TearpayData {
+            token_id: AccountId,
+            amount: String,
+            invoice_id: String,
+            forward_to: AccountId,
+        }
+
+        let parsed: TearpayData = serde_json::from_value(data.clone())?;
+
+        if parsed.forward_to != TEARPAY_FORWARD_TO || parsed.token_id != USDC_TOKEN_ID {
+            return Ok(());
+        }
+
+        let amount: u128 = parsed.amount.parse()?;
+        let chat_id_raw: i64 = parsed.invoice_id.parse()?;
+        let chat_id = ChatId(chat_id_raw);
+
+        payments::handle_usdc_payment(chat_id, amount, &self.bot_configs, &self.xeon).await?;
+
         Ok(())
     }
 }
@@ -907,6 +1104,7 @@ impl XeonBotModule for AiModeratorModule {
 pub struct AiModeratorBotConfig {
     chat_configs: PersistentCachedStore<ChatId, AiModeratorChatConfig>,
     messages_sent: PersistentCachedStore<ChatUser, usize>,
+    credits: PersistentCachedStore<ChatId, ChatCredits>,
     pub mute_flood_data: MuteFloodData,
 }
 
@@ -996,6 +1194,8 @@ struct AiModeratorChatConfig {
     block_links: bool,
     #[serde(default)]
     word_blocklist: Vec<String>,
+    #[serde(default)]
+    suspended_for_billing: bool,
 }
 
 fn default_true() -> bool {
@@ -1036,6 +1236,7 @@ impl Default for AiModeratorChatConfig {
             greeting: None,
             block_links: false,
             word_blocklist: Vec::new(),
+            suspended_for_billing: false,
         }
     }
 }
@@ -1055,9 +1256,13 @@ impl AiModeratorBotConfig {
             &format!("bot{bot_id}_ai_moderator_messages_sent"),
         )
         .await?;
+        let credits =
+            PersistentCachedStore::new(db.clone(), &format!("bot{bot_id}_ai_moderator_credits_v2"))
+                .await?;
         Ok(Self {
             chat_configs,
             messages_sent,
+            credits,
             mute_flood_data: MuteFloodData::new(),
         })
     }
@@ -1153,6 +1358,12 @@ impl AiModeratorModule {
                 >= chat_config.first_messages
             {
                 chat_config.ai_enabled = false;
+            }
+
+            if chat_config.ai_enabled && chat_config.suspended_for_billing {
+                chat_config.ai_enabled = false;
+                chat_config.mute_impersonators = false;
+                chat_config.block_mostly_emoji_messages = false;
             }
 
             chat_config

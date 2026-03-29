@@ -176,6 +176,12 @@ pub async fn open_main(
                 .await,
         )],
         vec![InlineKeyboardButton::callback(
+            "💳 Billing",
+            ctx.bot()
+                .to_callback_data(&TgCommand::AiModeratorBilling(target_chat_id))
+                .await,
+        )],
+        vec![InlineKeyboardButton::callback(
             "⬅️ Back",
             ctx.bot()
                 .to_callback_data(&TgCommand::ChatSettings(target_chat_id.into()))

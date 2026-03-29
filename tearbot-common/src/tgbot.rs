@@ -70,7 +70,7 @@ pub type TgBot = CacheMe<Throttle<Bot>>;
 /// Use this as callback data if you're 100% sure that the callback data will never be used
 pub const DONT_CARE: &str = "dontcare";
 pub const BASE_REFERRAL_SHARE: f64 = 0.25;
-pub const STARS_PER_USD: u32 = 77; // 77 stars = $1
+pub const STARS_PER_USD: u32 = 75;
 pub const NOTIFICATION_LIMIT_5M: usize = 20;
 pub const NOTIFICATION_LIMIT_1H: usize = 150;
 pub const NOTIFICATION_LIMIT_1D: usize = 1000;

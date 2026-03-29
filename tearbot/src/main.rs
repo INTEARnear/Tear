@@ -261,8 +261,15 @@ fn main() -> Result<(), anyhow::Error> {
                 }
                 #[cfg(feature = "ai-moderator-module")]
                 {
+                    let ai_moderator_module =
+                        Arc::new(AiModeratorModule::new(xeon.arc_clone_state()).await?);
                     xeon.state()
-                        .add_bot_module(AiModeratorModule::new(xeon.arc_clone_state()).await?)
+                        .add_bot_module::<AiModeratorModule>(Arc::clone(&ai_moderator_module))
+                        .await;
+                    xeon.state()
+                        .add_indexer_event_handler::<AiModeratorModule>(Arc::clone(
+                            &ai_moderator_module,
+                        ))
                         .await;
                 }
                 #[cfg(feature = "burrow-liquidations")]
