@@ -91,7 +91,7 @@ impl XeonBotModule for SubscriptionListsModule {
             MessageCommand::None => {
                 if user_id == SLIME_USER_ID
                     && chat_id.is_user()
-                    && let Some(command_text) = text.strip_prefix("/announce")
+                    && let Some(command_text) = text.strip_prefix("/announce ")
                 {
                     if command_text.is_empty() {
                         bot.send_text_message(

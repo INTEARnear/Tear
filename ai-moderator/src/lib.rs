@@ -8,7 +8,11 @@ mod payments;
 mod setup;
 mod utils;
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -16,7 +20,12 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tearbot_common::{
     bot_commands::{
         MessageCommand, ModerationAction, ModerationJudgement, PaymentReference, TgCommand,
-    }, indexer_events::{IndexerEvent, IndexerEventHandler}, intear_events::events::log::log_nep297::LogNep297Event, mongodb::Database, near_primitives::types::AccountId, teloxide::{
+    },
+    indexer_events::{IndexerEvent, IndexerEventHandler},
+    intear_events::events::log::log_nep297::LogNep297Event,
+    mongodb::Database,
+    near_primitives::types::AccountId,
+    teloxide::{
         ApiError, RequestError,
         payloads::{RestrictChatMemberSetters, SendMessageSetters},
         prelude::{ChatId, Message, Requester, UserId},
@@ -25,7 +34,10 @@ use tearbot_common::{
             ReplyParameters,
         },
         utils::markdown,
-    }, tgbot::{Attachment, BotType}, utils::{SLIME_USER_ID, chat::expandable_blockquote, store::PersistentCachedStore}, xeon::{XeonBotModule, XeonState}
+    },
+    tgbot::{Attachment, BotType},
+    utils::{SLIME_USER_ID, chat::expandable_blockquote, store::PersistentCachedStore},
+    xeon::{XeonBotModule, XeonState},
 };
 use tearbot_common::{
     teloxide::payloads::BanChatMemberSetters,
@@ -245,13 +257,26 @@ impl XeonBotModule for AiModeratorModule {
                     };
                     let bot = xeon.bot(&bot_id).unwrap();
                     let mut interval = tokio::time::interval(Duration::from_millis(100));
-                    for (i, target_chat) in chats.iter().copied().enumerate() {
+                    let mut mod_chats = HashSet::new();
+                    for chat in chats {
+                        let Some(moderator_chat) = bot_config
+                            .chat_configs
+                            .get(&chat)
+                            .await
+                            .unwrap()
+                            .moderator_chat
+                        else {
+                            continue;
+                        };
+                        mod_chats.insert(moderator_chat);
+                    }
+                    for (i, target_mod_chat) in mod_chats.iter().copied().enumerate() {
                         interval.tick().await;
                         let buttons = Vec::<Vec<_>>::new();
                         let reply_markup = InlineKeyboardMarkup::new(buttons);
                         match bot
                             .send_text_message(
-                                target_chat.into(),
+                                target_mod_chat.into(),
                                 announcement.clone(),
                                 reply_markup,
                             )
@@ -265,7 +290,7 @@ impl XeonBotModule for AiModeratorModule {
                                             format!(
                                                 "Sent announcement to {}/{}",
                                                 i + 1,
-                                                chats.len()
+                                                mod_chats.len()
                                             ),
                                             InlineKeyboardMarkup::new(Vec::<
                                                 Vec<InlineKeyboardButton>,
@@ -276,14 +301,32 @@ impl XeonBotModule for AiModeratorModule {
                                 }
                             }
                             Err(err) => {
-                                log::warn!("Failed to send announcement to {target_chat}: {err:?}");
+                                if i % 10 == 0 {
+                                    let _ = bot
+                                        .send_text_message(
+                                            chat_id.into(),
+                                            format!(
+                                                "Faieled to send announcement to {}/{}",
+                                                i + 1,
+                                                mod_chats.len()
+                                            ),
+                                            InlineKeyboardMarkup::new(Vec::<
+                                                Vec<InlineKeyboardButton>,
+                                            >::new(
+                                            )),
+                                        )
+                                        .await;
+                                }
+                                log::warn!(
+                                    "Failed to send announcement to {target_mod_chat}: {err:?}"
+                                );
                             }
                         }
                     }
                     let _ = bot
                         .send_text_message(
                             chat_id.into(),
-                            format!("Sent announcement to all {} groups", chats.len()),
+                            format!("Sent announcement to all {} groups", mod_chats.len()),
                             InlineKeyboardMarkup::new(Vec::<Vec<InlineKeyboardButton>>::new()),
                         )
                         .await;

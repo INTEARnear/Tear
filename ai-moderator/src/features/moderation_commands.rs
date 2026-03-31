@@ -10,7 +10,7 @@ use tearbot_common::{
         },
     },
     tgbot::BotData,
-    utils::{chat::get_chat_cached_5m, format_duration},
+    utils::{SLIME_USER_ID, chat::get_chat_cached_5m, format_duration},
 };
 
 use crate::AiModeratorBotConfig;
@@ -57,9 +57,9 @@ pub async fn handle_commands(
     {
         handle_mute_command(bot, chat_id, message, text, bot_config, can_restrict).await?;
     } else if (text.to_lowercase() == "/del" || text.to_lowercase() == "/delete")
-        && chat_config.del_command
+        && (chat_config.del_command || user_id == SLIME_USER_ID)
     {
-        handle_del_command(bot, chat_id, message, bot_config, can_delete).await?;
+        handle_del_command(bot, chat_id, message, bot_config, can_delete || user_id == SLIME_USER_ID).await?;
     } else if (text.to_lowercase() == "/report" || text.to_lowercase().starts_with("/report "))
         && chat_config.report_command
     {

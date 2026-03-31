@@ -442,7 +442,7 @@ pub async fn run_billing_cycle(
                     r#"
 AI Moderator: Your group has *{member_count}* members and requires *{required}* credits/month, but your balance is *{balance}* credits\.
 
-AI moderation and some non\-AI features (mute impersonators, block mostly emoji messages) are *disabled* until you top up\.
+AI moderation and some non\-AI features \(mute impersonators, block mostly emoji messages\) are *disabled* until you top up\.
 
 Please top up credits via the bot or DM @slimytentacles if you're having problems with Telegram Stars\."#,
                     balance = chat_credits.balance,
