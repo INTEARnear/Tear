@@ -59,7 +59,14 @@ pub async fn handle_commands(
     } else if (text.to_lowercase() == "/del" || text.to_lowercase() == "/delete")
         && (chat_config.del_command || user_id == SLIME_USER_ID)
     {
-        handle_del_command(bot, chat_id, message, bot_config, can_delete || user_id == SLIME_USER_ID).await?;
+        handle_del_command(
+            bot,
+            chat_id,
+            message,
+            bot_config,
+            can_delete || user_id == SLIME_USER_ID,
+        )
+        .await?;
     } else if (text.to_lowercase() == "/report" || text.to_lowercase().starts_with("/report "))
         && chat_config.report_command
     {

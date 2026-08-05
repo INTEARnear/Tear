@@ -8,11 +8,7 @@ mod payments;
 mod setup;
 mod utils;
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -228,110 +224,31 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 return Ok(());
             }
-            if let Some(announcement) = text.strip_prefix("/announce-ai-moderator") {
-                if user_id != SLIME_USER_ID {
-                    return Ok(());
-                }
-                let announcement = announcement.trim().to_string();
-                if announcement.is_empty() {
-                    let message = "Usage: /announce\\-ai\\-moderator <message>".to_string();
-                    let buttons = Vec::<Vec<_>>::new();
-                    let reply_markup = InlineKeyboardMarkup::new(buttons);
-                    bot.send_text_message(chat_id.into(), message, reply_markup)
-                        .await?;
-                    return Ok(());
-                }
-                let bot_configs = Arc::clone(&self.bot_configs);
-                let xeon = Arc::clone(&self.xeon);
-                let bot_id = bot.id();
-                tokio::spawn(async move {
-                    let Some(bot_config) = bot_configs.get(&bot_id) else {
-                        return;
-                    };
-                    let chats = match bot_config.chat_configs.values().await {
-                        Ok(entries) => entries.map(|e| *e.key()).collect::<Vec<_>>(),
-                        Err(e) => {
-                            log::error!("Failed to get chat configs for announcement: {e:?}");
-                            return;
+            if user_id == SLIME_USER_ID {
+                if text.starts_with("/give-credits") {
+                    let reply_markup = InlineKeyboardMarkup::new(Vec::<Vec<_>>::new());
+                    match payments::parse_give_credits_command(text) {
+                        Some((target_chat_id, credits)) => {
+                            payments::give_credits_admin(
+                                bot,
+                                chat_id,
+                                target_chat_id,
+                                credits,
+                                &self.bot_configs,
+                            )
+                            .await?;
                         }
-                    };
-                    let bot = xeon.bot(&bot_id).unwrap();
-                    let mut interval = tokio::time::interval(Duration::from_millis(100));
-                    let mut mod_chats = HashSet::new();
-                    for chat in chats {
-                        let Some(moderator_chat) = bot_config
-                            .chat_configs
-                            .get(&chat)
-                            .await
-                            .unwrap()
-                            .moderator_chat
-                        else {
-                            continue;
-                        };
-                        mod_chats.insert(moderator_chat);
-                    }
-                    for (i, target_mod_chat) in mod_chats.iter().copied().enumerate() {
-                        interval.tick().await;
-                        let buttons = Vec::<Vec<_>>::new();
-                        let reply_markup = InlineKeyboardMarkup::new(buttons);
-                        match bot
-                            .send_text_message(
-                                target_mod_chat.into(),
-                                announcement.clone(),
+                        None => {
+                            bot.send_text_message(
+                                chat_id.into(),
+                                "Invalid usage".to_string(),
                                 reply_markup,
                             )
-                            .await
-                        {
-                            Ok(_) => {
-                                if i % 10 == 0 {
-                                    let _ = bot
-                                        .send_text_message(
-                                            chat_id.into(),
-                                            format!(
-                                                "Sent announcement to {}/{}",
-                                                i + 1,
-                                                mod_chats.len()
-                                            ),
-                                            InlineKeyboardMarkup::new(Vec::<
-                                                Vec<InlineKeyboardButton>,
-                                            >::new(
-                                            )),
-                                        )
-                                        .await;
-                                }
-                            }
-                            Err(err) => {
-                                if i % 10 == 0 {
-                                    let _ = bot
-                                        .send_text_message(
-                                            chat_id.into(),
-                                            format!(
-                                                "Faieled to send announcement to {}/{}",
-                                                i + 1,
-                                                mod_chats.len()
-                                            ),
-                                            InlineKeyboardMarkup::new(Vec::<
-                                                Vec<InlineKeyboardButton>,
-                                            >::new(
-                                            )),
-                                        )
-                                        .await;
-                                }
-                                log::warn!(
-                                    "Failed to send announcement to {target_mod_chat}: {err:?}"
-                                );
-                            }
+                            .await?;
                         }
                     }
-                    let _ = bot
-                        .send_text_message(
-                            chat_id.into(),
-                            format!("Sent announcement to all {} groups", mod_chats.len()),
-                            InlineKeyboardMarkup::new(Vec::<Vec<InlineKeyboardButton>>::new()),
-                        )
-                        .await;
-                });
-                return Ok(());
+                    return Ok(());
+                }
             }
         }
 

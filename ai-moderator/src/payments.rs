@@ -275,6 +275,89 @@ pub async fn handle_stars_payment(
     Ok(())
 }
 
+pub fn parse_give_credits_command(text: &str) -> Option<(ChatId, u32)> {
+    let mut parts = text.split_whitespace();
+    let _ = parts.next()?;
+    let chat_id_raw: i64 = parts.next()?.parse().ok()?;
+    let credits: u32 = parts.next()?.parse().ok()?;
+    if parts.next().is_some() || credits == 0 {
+        return None;
+    }
+    Some((ChatId(chat_id_raw), credits))
+}
+
+pub async fn give_credits_admin(
+    bot: &BotData,
+    dm_chat_id: ChatId,
+    target_chat_id: ChatId,
+    credits: u32,
+    bot_configs: &Arc<HashMap<UserId, AiModeratorBotConfig>>,
+) -> Result<(), anyhow::Error> {
+    let Some(bot_config) = bot_configs.get(&bot.id()) else {
+        return Ok(());
+    };
+
+    bot_config
+        .credits
+        .edit(
+            target_chat_id,
+            |chat_credits| {
+                chat_credits.balance += credits;
+            },
+            None,
+        )
+        .await?;
+    let chat_credits = bot_config
+        .credits
+        .get(&target_chat_id)
+        .await
+        .unwrap_or_default();
+
+    if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
+        if chat_config.suspended_for_billing {
+            let member_count = bot
+                .bot()
+                .get_chat_member_count(target_chat_id)
+                .await
+                .unwrap_or(0);
+            let required = get_required_credits(member_count);
+            if chat_credits.balance >= required {
+                chat_config.suspended_for_billing = false;
+                let _ = bot_config
+                    .chat_configs
+                    .insert_or_update(target_chat_id, chat_config)
+                    .await;
+            }
+        }
+    }
+
+    log::info!(
+        "Admin granted {credits} credits to chat {target_chat_id} (new balance {})",
+        chat_credits.balance
+    );
+
+    let message = format!(
+        "Granted *{credits}* credits\\.\nNew balance: *{balance}* credits\\.",
+        balance = chat_credits.balance,
+    );
+    let reply_markup = InlineKeyboardMarkup::new(Vec::<Vec<_>>::new());
+    bot.send_text_message(dm_chat_id.into(), message.clone(), reply_markup)
+        .await?;
+
+    let moderator_chat = bot_config
+        .chat_configs
+        .get(&target_chat_id)
+        .await
+        .and_then(|c| c.moderator_chat)
+        .unwrap_or(target_chat_id);
+    let reply_markup = InlineKeyboardMarkup::new(Vec::<Vec<InlineKeyboardButton>>::new());
+    let _ = bot
+        .send_text_message(moderator_chat.into(), message, reply_markup)
+        .await;
+
+    Ok(())
+}
+
 pub async fn handle_usdc_payment(
     target_chat_id: ChatId,
     amount_usdc: u128,
