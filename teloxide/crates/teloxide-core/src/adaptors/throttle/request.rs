@@ -206,8 +206,9 @@ where
             let after = retry_after.duration();
             let until = Instant::now() + after;
 
-            // If we'll retry, we check that worker hasn't died at the start of the loop
-            // otherwise we don't care if the worker is alive or not
+            // If we'll retry, we check that worker hasn't died at the start of
+            // the loop otherwise we don't care if the worker is
+            // alive or not
             let _ = freeze.send(FreezeUntil { until, after, chat }).await;
 
             if retry {

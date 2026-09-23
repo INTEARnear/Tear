@@ -781,11 +781,11 @@ pub(crate) fn hide_token(mut error: reqwest::Error) -> reqwest::Error {
 
                 // The part after the : in the token is the secret.
                 //
-                // In all bot tokens we could find the secret is 35 characters long and is
-                // 0-9a-zA-Z_- only.
+                // In all bot tokens we could find the secret is 35 characters
+                // long and is 0-9a-zA-Z_- only.
                 //
-                // It would be nice to research if TBA always has 35 character secrets or if it
-                // is just a coincidence.
+                // It would be nice to research if TBA always has 35 character
+                // secrets or if it is just a coincidence.
                 const SECRET_LENGTH: usize = 35;
                 let secret_character = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
 

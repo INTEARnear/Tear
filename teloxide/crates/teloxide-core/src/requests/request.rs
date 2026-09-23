@@ -34,8 +34,8 @@ where
 
     /// A type of the future returned by the [`send_ref`](Request::send_ref)
     /// method.
-    // Note: it intentionally forbids borrowing from `self` though we couldn't allow
-    // borrowing without GATs anyway.
+    // Note: it intentionally forbids borrowing from `self` though we couldn't
+    // allow borrowing without GATs anyway.
     type SendRef: Future<Output = Result<Output<Self>, Self::Err>> + Send;
 
     /// Send this request.

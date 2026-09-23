@@ -100,14 +100,14 @@ pub trait AsUpdateStream<'a> {
     /// Error that can be returned from the [`Stream`]
     ///
     /// [`Stream`]: AsUpdateStream::Stream
-    // NB: This should be named differently to `UpdateListener::Err`, so that it's
-    // unambiguous
+    // NB: This should be named differently to `UpdateListener::Err`, so that
+    // it's unambiguous
     type StreamErr;
 
     /// The stream of updates from Telegram.
-    // NB: `Send` is not strictly required here, but it makes it easier to return
-    //     `impl AsUpdateStream` and also you want `Send` streams almost (?) always
-    //     anyway.
+    // NB: `Send` is not strictly required here, but it makes it easier to
+    // return     `impl AsUpdateStream` and also you want `Send` streams
+    // almost (?) always     anyway.
     type Stream: Stream<Item = Result<Update, Self::StreamErr>> + Send + 'a;
 
     /// Creates the update [`Stream`].

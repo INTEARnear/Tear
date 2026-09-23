@@ -224,31 +224,29 @@ impl XeonBotModule for AiModeratorModule {
                     .await?;
                 return Ok(());
             }
-            if user_id == SLIME_USER_ID {
-                if text.starts_with("/give-credits") {
-                    let reply_markup = InlineKeyboardMarkup::new(Vec::<Vec<_>>::new());
-                    match payments::parse_give_credits_command(text) {
-                        Some((target_chat_id, credits)) => {
-                            payments::give_credits_admin(
-                                bot,
-                                chat_id,
-                                target_chat_id,
-                                credits,
-                                &self.bot_configs,
-                            )
-                            .await?;
-                        }
-                        None => {
-                            bot.send_text_message(
-                                chat_id.into(),
-                                "Invalid usage".to_string(),
-                                reply_markup,
-                            )
-                            .await?;
-                        }
+            if user_id == SLIME_USER_ID && text.starts_with("/give-credits") {
+                let reply_markup = InlineKeyboardMarkup::new(Vec::<Vec<_>>::new());
+                match payments::parse_give_credits_command(text) {
+                    Some((target_chat_id, credits)) => {
+                        payments::give_credits_admin(
+                            bot,
+                            chat_id,
+                            target_chat_id,
+                            credits,
+                            &self.bot_configs,
+                        )
+                        .await?;
                     }
-                    return Ok(());
+                    None => {
+                        bot.send_text_message(
+                            chat_id.into(),
+                            "Invalid usage".to_string(),
+                            reply_markup,
+                        )
+                        .await?;
+                    }
                 }
+                return Ok(());
             }
         }
 

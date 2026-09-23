@@ -23,13 +23,14 @@ where
 {
     // Workaround for [#460]
     //
-    // Telegram has some methods that return either `Message` or `True` depending on
-    // the used arguments we model this as `...` and `..._inline` pairs of methods.
+    // Telegram has some methods that return either `Message` or `True`
+    // depending on the used arguments we model this as `...` and
+    // `..._inline` pairs of methods.
     //
     // Currently inline versions have wrong Payload::NAME (ie with the "Inline"
-    // suffix). This removes the suffix allowing to call the right telegram method.
-    // Note that currently there are no normal telegram methods ending in "Inline",
-    // so this is fine.
+    // suffix). This removes the suffix allowing to call the right telegram
+    // method. Note that currently there are no normal telegram methods
+    // ending in "Inline", so this is fine.
     //
     // [#460]: https://github.com/teloxide/teloxide/issues/460
     let method_name = method_name.trim_end_matches("Inline");
@@ -62,13 +63,14 @@ where
 {
     // Workaround for [#460]
     //
-    // Telegram has some methods that return either `Message` or `True` depending on
-    // the used arguments we model this as `...` and `..._inline` pairs of methods.
+    // Telegram has some methods that return either `Message` or `True`
+    // depending on the used arguments we model this as `...` and
+    // `..._inline` pairs of methods.
     //
     // Currently inline versions have wrong Payload::NAME (ie with the "Inline"
-    // suffix). This removes the suffix allowing to call the right telegram method.
-    // Note that currently there are no normal telegram methods ending in "Inline",
-    // so this is fine.
+    // suffix). This removes the suffix allowing to call the right telegram
+    // method. Note that currently there are no normal telegram methods
+    // ending in "Inline", so this is fine.
     //
     // [#460]: https://github.com/teloxide/teloxide/issues/460
     let method_name = method_name.trim_end_matches("Inline");
@@ -118,22 +120,27 @@ where
             //       1. Deserialization to """succeed"""
             //       2. Get the `update.id`
             //
-            //       Both of these points are required for `get_updates(...) -> Vec<Update>`
-            //       to behave well after Telegram introduces updates that we can't parse.
-            //       (1.) makes it so only some of the updates in a butch need to be skipped
-            //       (otherwise serde'll stop on the first error). (2.) allows us to issue
-            //       the next `get_updates` call with the right offset, even if the last
+            //       Both of these points are required for `get_updates(...) ->
+            // Vec<Update>`       to behave well after Telegram
+            // introduces updates that we can't parse.       (1.)
+            // makes it so only some of the updates in a butch need to be
+            // skipped       (otherwise serde'll stop on the first
+            // error). (2.) allows us to issue       the next
+            // `get_updates` call with the right offset, even if the last
             //       update in the batch didn't deserialize well.
             //
-            //       serde's interface doesn't allows us to implement `Deserialize` in such
-            //       a way, that we could keep the data we couldn't parse, so our
+            //       serde's interface doesn't allows us to implement
+            // `Deserialize` in such       a way, that we could keep
+            // the data we couldn't parse, so our
             //       `Deserialize` impl for `UpdateKind` just returns
-            //       `UpdateKind::Error(/* some empty-ish value */)`. Here, through some
-            //       terrible hacks and downcasting, we fill-in the data we couldn't parse
-            //       so that our users can make actionable bug reports.
+            //       `UpdateKind::Error(/* some empty-ish value */)`. Here,
+            // through some       terrible hacks and downcasting, we
+            // fill-in the data we couldn't parse       so that our
+            // users can make actionable bug reports.
             //
-            //       We specifically handle `Vec<Update>` here, because that's the return
-            //       type of the only method that returns updates.
+            //       We specifically handle `Vec<Update>` here, because that's
+            // the return       type of the only method that returns
+            // updates.
             if TypeId::of::<T>() == TypeId::of::<Vec<Update>>() {
                 if let TelegramResponse::Ok { response, .. } = &mut response {
                     if let Some(updates) =

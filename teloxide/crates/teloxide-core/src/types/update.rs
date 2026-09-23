@@ -327,8 +327,8 @@ impl<'de> Deserialize<'de> for UpdateKind {
             {
                 let mut tmp = None;
 
-                // Try to deserialize a borrowed-str key, or else try deserializing an owned
-                // string key
+                // Try to deserialize a borrowed-str key, or else try
+                // deserializing an owned string key
                 let key = map.next_key::<&str>().or_else(|_| {
                     map.next_key::<String>().map(|k| {
                         tmp = k;

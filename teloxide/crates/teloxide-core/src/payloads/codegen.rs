@@ -56,8 +56,8 @@ fn codegen_payloads() {
             .map(|field| format!("    @[multipart = {}]\n", field.join(", ")))
             .unwrap_or_default();
 
-        // FIXME: CreateNewStickerSet has to be be only Debug + Clone + Serialize (maybe
-        // better fix?)
+        // FIXME: CreateNewStickerSet has to be be only Debug + Clone +
+        // Serialize (maybe better fix?)
         let derive = if !multipart.is_empty()
             || matches!(
                 &*method.names.1,

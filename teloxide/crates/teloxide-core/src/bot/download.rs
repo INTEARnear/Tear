@@ -11,8 +11,8 @@ use crate::{
 impl Download for Bot {
     type Err<'dst> = DownloadError;
 
-    // I would like to unbox this, but my coworkers will kill me if they'll see yet
-    // another hand written `Future`. (waffle)
+    // I would like to unbox this, but my coworkers will kill me if they'll see
+    // yet another hand written `Future`. (waffle)
     type Fut<'dst> = BoxFuture<'dst, Result<(), Self::Err<'dst>>>;
 
     fn download_file<'dst>(

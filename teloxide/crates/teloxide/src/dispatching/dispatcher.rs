@@ -381,7 +381,8 @@ where
         Eh: ErrorHandler<UListener::Err> + 'a,
         UListener::Err: Debug,
     {
-        // FIXME: there should be a way to check if dependency is already inserted
+        // FIXME: there should be a way to check if dependency is already
+        // inserted
         let me = self.bot.get_me().send().await?;
         self.dependencies.insert(me);
         self.dependencies.insert(self.bot.clone());
@@ -531,9 +532,10 @@ where
             });
 
         for handle in handles {
-            // We must wait for worker to stop anyway, even though it should stop
-            // immediately. This helps in case if we've checked that the worker
-            // is waiting in between it received the update and set the flag.
+            // We must wait for worker to stop anyway, even though it should
+            // stop immediately. This helps in case if we've checked
+            // that the worker is waiting in between it received the
+            // update and set the flag.
             let _ = handle.await;
         }
     }

@@ -192,7 +192,8 @@ impl<'a> MessageEntityRef<'a> {
     /// Parses telegram [`MessageEntity`]s converting offsets to UTF-8.
     #[must_use]
     pub fn parse(text: &'a str, entities: &'a [MessageEntity]) -> Vec<Self> {
-        // This creates entities with **wrong** offsets (UTF-16) that we later patch.
+        // This creates entities with **wrong** offsets (UTF-16) that we later
+        // patch.
         let mut entities: Vec<_> = entities
             .iter()
             .map(|e| Self { message: text, range: e.offset..e.offset + e.length, kind: &e.kind })
@@ -206,8 +207,8 @@ impl<'a> MessageEntityRef<'a> {
             .flat_map(|Self { range: Range { start, end }, .. }| [start, end])
             .collect();
 
-        // Sort in decreasing order, so the smallest elements are at the end and can be
-        // removed more easily
+        // Sort in decreasing order, so the smallest elements are at the end and
+        // can be removed more easily
         offsets.sort_unstable_by_key(|&&mut offset| cmp::Reverse(offset));
 
         let _ = text
@@ -384,8 +385,8 @@ mod tests {
 
     #[test]
     fn parse_empty() {
-        // It should be impossible for this to be returned from telegram, but just to be
-        // sure
+        // It should be impossible for this to be returned from telegram, but
+        // just to be sure
         let parsed = MessageEntityRef::parse(
             "",
             &[

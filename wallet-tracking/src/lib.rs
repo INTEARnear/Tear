@@ -171,8 +171,7 @@ impl WalletTrackingModule {
                             return;
                         }
 
-                        for (token_id, price) in token_ids.into_iter().zip(token_prices.into_iter())
-                        {
+                        for (token_id, price) in token_ids.into_iter().zip(token_prices) {
                             let action_word = if price.is_some() { "trade" } else { "transfer" };
                             let price_text = if let Some(price) = price {
                                 format!(

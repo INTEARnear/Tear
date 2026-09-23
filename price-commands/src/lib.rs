@@ -680,7 +680,10 @@ impl XeonBotModule for PriceCommandsModule {
                         subscriber.token = Some(token);
                         subscriber
                     } else {
-                        PriceCommandsChatConfig::default()
+                        PriceCommandsChatConfig {
+                            token: Some(token),
+                            ..Default::default()
+                        }
                     };
                     bot_config
                         .chat_configs

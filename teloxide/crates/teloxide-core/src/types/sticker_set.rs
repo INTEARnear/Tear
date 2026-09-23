@@ -51,8 +51,8 @@ impl Deref for StickerSet {
 }
 
 impl StickerSet {
-    // FIXME: remove deprecation, when it will be a way to determine the format of
-    // the sticker set
+    // FIXME: remove deprecation, when it will be a way to determine the format
+    // of the sticker set
     /// Returns the format of the stickers in this set
     ///
     /// Note: this method currently is useless, so the format is always
@@ -174,9 +174,9 @@ mod tests {
     }
 
     #[test]
-    // In TBA7.2 fields `is_video` and `is_audio` are removed, so it's the breaking
-    // change (previously, sticker set format inference heavily relied upon these
-    // fields)
+    // In TBA7.2 fields `is_video` and `is_audio` are removed, so it's the
+    // breaking change (previously, sticker set format inference heavily
+    // relied upon these fields)
     fn test() {
         let json = r#"{
             "name": "tba66_by_memorization_helper_bot",

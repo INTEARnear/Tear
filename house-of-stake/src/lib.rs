@@ -578,7 +578,7 @@ impl XeonBotModule for HouseOfStakeModule {
                     .trim()
                     .parse::<BigDecimal>()
                 {
-                    if amount <= BigDecimal::from(0) {
+                    if amount <= 0 {
                         let message =
                             "Invalid amount\\. Please enter a positive number\\.".to_string();
                         let buttons = vec![vec![InlineKeyboardButton::callback(

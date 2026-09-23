@@ -198,8 +198,9 @@ impl From<&Recipient> for ChatIdHash {
         match value {
             Recipient::Id(id) => ChatIdHash::Id(*id),
             Recipient::ChannelUsername(username) => {
-                // FIXME: this could probably use a faster hasher, `DefaultHasher` is known to
-                //        be slow (it's not like we _need_ this to be fast, but still)
+                // FIXME: this could probably use a faster hasher,
+                // `DefaultHasher` is known to        be slow
+                // (it's not like we _need_ this to be fast, but still)
                 let mut hasher = std::collections::hash_map::DefaultHasher::new();
                 username.hash(&mut hasher);
                 let hash = hasher.finish();

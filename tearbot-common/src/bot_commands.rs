@@ -659,6 +659,10 @@ pub enum TgCommand {
         amount: BuyButtonAmount,
     },
     #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsToggleRareDexes {
+        enabled: bool,
+    },
+    #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrders {
         selected_account_id: AccountId,
     },

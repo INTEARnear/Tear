@@ -69,9 +69,9 @@ pub async fn open_billing(
 
     let Ok(member_count) = ctx.bot().bot().get_chat_member_count(target_chat_id).await else {
         log::error!("Failed to get member count for {target_chat_id}");
-        let message = format!(
+        let message =
             "Failed to get member count, this is a bot bug, please report to @slimytentacles"
-        );
+                .to_string();
         let buttons = Vec::<Vec<_>>::new();
         let reply_markup = InlineKeyboardMarkup::new(buttons);
         ctx.send(message, reply_markup, Attachment::None).await?;
@@ -231,21 +231,21 @@ pub async fn handle_stars_payment(
         .insert_or_update(target_chat_id, chat_credits.clone())
         .await?;
 
-    if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-        if chat_config.suspended_for_billing {
-            let member_count = bot
-                .bot()
-                .get_chat_member_count(target_chat_id)
-                .await
-                .unwrap_or(0);
-            let required = get_required_credits(member_count);
-            if chat_credits.balance >= required {
-                chat_config.suspended_for_billing = false;
-                let _ = bot_config
-                    .chat_configs
-                    .insert_or_update(target_chat_id, chat_config)
-                    .await;
-            }
+    if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await
+        && chat_config.suspended_for_billing
+    {
+        let member_count = bot
+            .bot()
+            .get_chat_member_count(target_chat_id)
+            .await
+            .unwrap_or(0);
+        let required = get_required_credits(member_count);
+        if chat_credits.balance >= required {
+            chat_config.suspended_for_billing = false;
+            let _ = bot_config
+                .chat_configs
+                .insert_or_update(target_chat_id, chat_config)
+                .await;
         }
     }
 
@@ -313,21 +313,21 @@ pub async fn give_credits_admin(
         .await
         .unwrap_or_default();
 
-    if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-        if chat_config.suspended_for_billing {
-            let member_count = bot
-                .bot()
-                .get_chat_member_count(target_chat_id)
-                .await
-                .unwrap_or(0);
-            let required = get_required_credits(member_count);
-            if chat_credits.balance >= required {
-                chat_config.suspended_for_billing = false;
-                let _ = bot_config
-                    .chat_configs
-                    .insert_or_update(target_chat_id, chat_config)
-                    .await;
-            }
+    if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await
+        && chat_config.suspended_for_billing
+    {
+        let member_count = bot
+            .bot()
+            .get_chat_member_count(target_chat_id)
+            .await
+            .unwrap_or(0);
+        let required = get_required_credits(member_count);
+        if chat_credits.balance >= required {
+            chat_config.suspended_for_billing = false;
+            let _ = bot_config
+                .chat_configs
+                .insert_or_update(target_chat_id, chat_config)
+                .await;
         }
     }
 
@@ -365,7 +365,7 @@ pub async fn handle_usdc_payment(
     xeon: &Arc<XeonState>,
 ) -> Result<(), anyhow::Error> {
     let credits = (amount_usdc / 10u128.pow(6)) as u32;
-    if amount_usdc % 10u128.pow(6) != 0 {
+    if !amount_usdc.is_multiple_of(10u128.pow(6)) {
         log::warn!(
             "Dropping fractional part of USDC payment: {} (of {amount_usdc})",
             amount_usdc % 10u128.pow(6)
@@ -387,23 +387,22 @@ pub async fn handle_usdc_payment(
                 .insert_or_update(target_chat_id, chat_credits.clone())
                 .await?;
 
-            if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await {
-                if chat_config.suspended_for_billing {
-                    if let Some(bot) = xeon.bot(bot_id) {
-                        let member_count = bot
-                            .bot()
-                            .get_chat_member_count(target_chat_id)
-                            .await
-                            .unwrap_or(0);
-                        let required = get_required_credits(member_count);
-                        if chat_credits.balance >= required {
-                            chat_config.suspended_for_billing = false;
-                            let _ = bot_config
-                                .chat_configs
-                                .insert_or_update(target_chat_id, chat_config)
-                                .await;
-                        }
-                    }
+            if let Some(mut chat_config) = bot_config.chat_configs.get(&target_chat_id).await
+                && chat_config.suspended_for_billing
+                && let Some(bot) = xeon.bot(bot_id)
+            {
+                let member_count = bot
+                    .bot()
+                    .get_chat_member_count(target_chat_id)
+                    .await
+                    .unwrap_or(0);
+                let required = get_required_credits(member_count);
+                if chat_credits.balance >= required {
+                    chat_config.suspended_for_billing = false;
+                    let _ = bot_config
+                        .chat_configs
+                        .insert_or_update(target_chat_id, chat_config)
+                        .await;
                 }
             }
 

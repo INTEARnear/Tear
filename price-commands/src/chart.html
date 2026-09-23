@@ -32,10 +32,12 @@
                     extension
                 ) => {
                     console.log(`Loading ${symbolName}`);
-                    const metadata = await getMetadata(symbolName);
-                    const price = await fetch(
-                        `https://prices.intear.tech/price?token_id=${symbolName}`
-                    ).then((data) => data.json());
+                    const [price, metadata] = await Promise.all([
+                        fetch(
+                            `https://prices.intear.tech/price?token_id=${symbolName}`
+                        ).then((data) => data.json()),
+                        getMetadata(symbolName),
+                    ]);
                     const digits = Math.ceil(Math.max(0, -Math.log10(price))) + 3;
                     onSymbolResolvedCallback({
                         ticker: symbolName,
@@ -70,22 +72,26 @@
                         `Getting bars for ${symbolInfo.name} ${resolution} ${periodParams.countBack
                         } ${periodParams.to * 1000}`
                     );
-                    const url = `https://events-v3.intear.tech/v3/price_token/ohlc?token=${symbolInfo.full_name
+                    const url = `https://prices.intear.tech/ohlc?token=${symbolInfo.full_name
                         }&resolution=${resolution}&count_back=${periodParams.countBack}&to=${periodParams.to * 1000
                         }`;
                     const response = await fetch(url).then((data) => data.json());
                     const noData = response.length < periodParams.countBack;
                     const decimals = (await getMetadata(symbolInfo.full_name)).decimals;
-                    const USDT_DECIMALS = 6;
                     const bars = response.map((bar) => {
-                        bar.open = parseFloat(bar.open) * 10 ** (decimals - USDT_DECIMALS);
-                        bar.close = parseFloat(bar.close) * 10 ** (decimals - USDT_DECIMALS);
-                        bar.high = parseFloat(bar.high) * 10 ** (decimals - USDT_DECIMALS);
-                        bar.low = parseFloat(bar.low) * 10 ** (decimals - USDT_DECIMALS);
+                        bar.open = parseFloat(bar.open);
+                        bar.close = parseFloat(bar.close);
+                        bar.high = parseFloat(bar.high);
+                        bar.low = parseFloat(bar.low);
                         bar.volume = parseFloat(bar.volume);
                         bar.time = bar.timestamp_millis;
                         return bar;
                     });
+                    for (let i = 1; i < bars.length; i++) {
+                        bars[i].open = bars[i - 1].close;
+                        bars[i].high = Math.max(bars[i].high, bars[i].open);
+                        bars[i].low = Math.min(bars[i].low, bars[i].open);
+                    }
                     onHistoryCallback(bars, { noData });
                     setTimeout(() => {
                         const indicator = document.createElement("div");

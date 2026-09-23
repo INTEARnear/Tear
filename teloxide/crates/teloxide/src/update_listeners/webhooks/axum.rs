@@ -132,8 +132,8 @@ where
     let (listener, stop_flag, router) = axum_no_setup(options);
 
     let stop_flag = stop_flag.then(move |()| async move {
-        // This assignment is needed to not require `R: Sync` since without it `&bot`
-        // temporary lives across `.await` points.
+        // This assignment is needed to not require `R: Sync` since without it
+        // `&bot` temporary lives across `.await` points.
         let req = bot.delete_webhook().send();
         let res = req.await;
         if let Err(err) = res {

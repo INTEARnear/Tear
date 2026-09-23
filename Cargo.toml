@@ -3,6 +3,12 @@ resolver = "2"
 members = ["tearbot", "wallet-tracking", "explorer", "tip-bot", "raid-bot", "house-of-stake", "subscription-lists"]
 exclude = ["near-tgi/near-cli-rs", "near-tgi/keyring", "teloxide"]
 
+[workspace.metadata.patch]
+crates = ["redis"]
+
+[patch.crates-io]
+redis = { path = "./target/patch/redis-0.25.4" }
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
@@ -28,7 +34,7 @@ tokio = "1.37.0"
 tokio-stream = "0.1.15"
 near-primitives = "0.34.1"
 inindexer = "5.0.0"
-redis = "0.25.3"
+redis = "0.25.4"
 intear-events = { git = "https://github.com/INTEARnear/intear-events" }
 futures-util = "0.3.30"
 semver = "1.0.23"

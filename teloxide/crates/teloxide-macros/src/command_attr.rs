@@ -138,7 +138,8 @@ impl CommandAttr {
         let sp = attr.span();
         let Attr { mut key, value } = attr;
 
-        let outermost_key = key.pop().unwrap(); // `Attr`'s invariants ensure `key.len() > 0`
+        let outermost_key = key.pop().unwrap(); // `Attr`'s invariants ensure
+                                                // `key.len() > 0`
 
         let kind = match &*outermost_key.to_string() {
             "doc" => {

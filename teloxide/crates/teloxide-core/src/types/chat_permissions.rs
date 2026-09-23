@@ -338,7 +338,8 @@ impl From<ChatPermissionsRaw> for ChatPermissions {
         if can_pin_messages {
             this |= Self::PIN_MESSAGES;
         }
-        // FIXME: should we do `|| can_pin_messages` here? (the same tg doc weirdness)
+        // FIXME: should we do `|| can_pin_messages` here? (the same tg doc
+        // weirdness)
         if can_manage_topics {
             this |= Self::MANAGE_TOPICS
         }

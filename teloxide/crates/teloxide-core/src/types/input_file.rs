@@ -209,7 +209,8 @@ impl InputFile {
                             Body::wrap_stream(file)
                         }
                         Err(err) => {
-                            // explicit type needed for `Bytes: From<?T>` in `wrap_stream`
+                            // explicit type needed for `Bytes: From<?T>` in
+                            // `wrap_stream`
                             let err = Err::<Bytes, _>(err);
                             Body::wrap_stream(stream::iter([err]))
                         }
@@ -263,8 +264,8 @@ impl Read {
             }
         }
 
-        // Slow path: either wait until someone will read the whole `dyn AsyncRead` into
-        // a buffer, or be the one who reads
+        // Slow path: either wait until someone will read the whole `dyn
+        // AsyncRead` into a buffer, or be the one who reads
         let body = self.into_shared_body().await;
 
         Part::stream(body).file_name(filename)
@@ -304,20 +305,22 @@ impl Read {
                 };
 
                 // Initialize `buf` with the result.
-                // Error indicates that the `buf` was already initialized, but this can't happen
-                // since we synchronize through other means.
+                // Error indicates that the `buf` was already initialized, but
+                // this can't happen since we synchronize
+                // through other means.
                 let r = self.buf.set(res);
                 debug_assert!(r.is_ok());
 
                 // Notify other tasks that `buf` is initialized.
-                // Error indicates that there is no one to notify anymore, but we don't care.
+                // Error indicates that there is no one to notify anymore, but
+                // we don't care.
                 let _ = self.notify.send(());
             }
 
             // Wait until `dyn AsyncRead` is read into a buffer, if it hasn't been read yet
             None if self.buf.get().is_none() => {
-                // Error indicates that the sender was dropped, by we hold `Arc<Sender>`, so
-                // this can't happen
+                // Error indicates that the sender was dropped, by we hold
+                // `Arc<Sender>`, so this can't happen
                 let _ = self.wait.changed().await;
             }
 
@@ -330,7 +333,8 @@ impl Read {
         // notification, so at this point it's already initialized.
         match buf.get().unwrap() {
             Ok(_) => {
-                // We can't use `.iter()` here, because the iterator must capture `buf`
+                // We can't use `.iter()` here, because the iterator must
+                // capture `buf`
                 let mut i = 0;
                 let iter = iter::from_fn(move || match buf.get().unwrap() {
                     Ok(buf) if i >= buf.len() => None,

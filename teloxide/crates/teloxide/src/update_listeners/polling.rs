@@ -337,8 +337,8 @@ impl<B: Requester + Send + 'static> UpdateListener for Polling<B> {
     }
 
     fn hint_allowed_updates(&mut self, hint: &mut dyn Iterator<Item = AllowedUpdate>) {
-        // TODO: we should probably warn if there already were different allowed updates
-        // before
+        // TODO: we should probably warn if there already were different allowed
+        // updates before
         self.allowed_updates = Some(hint.collect());
     }
 }
@@ -354,8 +354,9 @@ impl<'a, B: Requester + Send + 'a> AsUpdateStream<'a> for Polling<B> {
 
         let token_used_and_updated = self.reinit_stop_flag_if_needed();
 
-        // FIXME: document that `as_stream` is a destructive operation, actually,
-        //        and you need to call `stop_token` *again* after it
+        // FIXME: document that `as_stream` is a destructive operation,
+        // actually,        and you need to call `stop_token` *again*
+        // after it
         if token_used_and_updated {
             panic!(
                 "detected calling `as_stream` a second time after calling `stop_token`. \
@@ -425,7 +426,8 @@ impl<B: Requester> Stream for PollingStream<'_, B> {
                     return Ready(Some(Err(err)));
                 }
                 Ok(updates) => {
-                    // Once we got the update the backoff reconnection strategy worked
+                    // Once we got the update the backoff reconnection strategy
+                    // worked
                     *this.error_count = 0;
 
                     if let Some(upd) = updates.last() {
