@@ -663,6 +663,11 @@ pub enum TgCommand {
         enabled: bool,
     },
     #[cfg(feature = "trading-bot-module")]
+    TradingBotSettingsSetVenue {
+        account_id: AccountId,
+        venue: Venue,
+    },
+    #[cfg(feature = "trading-bot-module")]
     TradingBotTriggerOrders {
         selected_account_id: AccountId,
     },
@@ -2339,6 +2344,25 @@ impl<'de> Deserialize<'de> for Token {
 pub enum BuyAmount {
     Near(#[serde(with = "dec_format")] FtBalance),
     Token(#[serde(with = "dec_format")] FtBalance),
+}
+
+/// Where the trading bot keeps an account's tokens between trades.
+#[cfg(feature = "trading-bot-module")]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub enum Venue {
+    #[default]
+    Rhea,
+    Wallet,
+}
+
+#[cfg(feature = "trading-bot-module")]
+impl Venue {
+    pub fn name(self) -> &'static str {
+        match self {
+            Venue::Rhea => "Rhea",
+            Venue::Wallet => "Wallet",
+        }
+    }
 }
 
 #[cfg(feature = "trading-bot-module")]

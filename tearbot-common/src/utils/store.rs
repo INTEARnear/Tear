@@ -158,10 +158,15 @@ where
         edit: impl FnOnce(&mut V) -> R,
         default: Option<V>,
     ) -> Result<R, anyhow::Error> {
-        let lock = self
-            .locks
-            .entry(key.clone())
-            .or_insert_with(|| Arc::new(Mutex::new(())));
+        // Clone the Arc so that the DashMap shard guard is dropped right away.
+        // Holding it across `.await` blocks the whole worker thread for any other
+        // edit on a key in the same shard, which can freeze the entire runtime.
+        let lock = Arc::clone(
+            &self
+                .locks
+                .entry(key.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(()))),
+        );
         let guard = lock.lock().await;
         let _ = self.get(&key).await;
         let mut value = self
@@ -186,10 +191,15 @@ where
     where
         F: Future<Output = Option<(V, R)>>,
     {
-        let lock = self
-            .locks
-            .entry(key.clone())
-            .or_insert_with(|| Arc::new(Mutex::new(())));
+        // Clone the Arc so that the DashMap shard guard is dropped right away.
+        // Holding it across `.await` blocks the whole worker thread for any other
+        // edit on a key in the same shard, which can freeze the entire runtime.
+        let lock = Arc::clone(
+            &self
+                .locks
+                .entry(key.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(()))),
+        );
         let guard = lock.lock().await;
         let _ = self.get(&key).await;
         let value = self
@@ -217,10 +227,15 @@ where
         edit: impl FnOnce(&mut V) -> Option<R>,
         default: Option<V>,
     ) -> Result<Option<R>, anyhow::Error> {
-        let lock = self
-            .locks
-            .entry(key.clone())
-            .or_insert_with(|| Arc::new(Mutex::new(())));
+        // Clone the Arc so that the DashMap shard guard is dropped right away.
+        // Holding it across `.await` blocks the whole worker thread for any other
+        // edit on a key in the same shard, which can freeze the entire runtime.
+        let lock = Arc::clone(
+            &self
+                .locks
+                .entry(key.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(()))),
+        );
         let guard = lock.lock().await;
         let _ = self.get(&key).await;
         let mut value = self
