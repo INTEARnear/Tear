@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -12,9 +12,7 @@ use rand::Rng;
 use serde::Deserialize;
 use tearbot_common::{
     bot_commands::MessageCommand,
-    intear_events::events::{
-        trade::trade_swap::TradeSwapEvent, transactions::tx_transaction::TxTransactionEvent,
-    },
+    intear_events::events::transactions::tx_transaction::TxTransactionEvent,
     near_primitives::{
         action::Action,
         hash::CryptoHash,
@@ -48,6 +46,46 @@ use tearbot_common::{
 };
 
 pub struct ExplorerModule;
+
+#[derive(Debug, Deserialize)]
+struct TradesResponse {
+    trades: Vec<PricesApiTrade>,
+}
+
+/// A swap from `prices.intear.tech/trades` (requested without liquidity changes).
+#[derive(Debug, Deserialize)]
+struct PricesApiTrade {
+    trader: AccountId,
+    height: BlockHeight,
+    transaction_id: CryptoHash,
+    token_in: AccountId,
+    amount_in: String,
+    token_out: AccountId,
+    amount_out: String,
+}
+
+struct Swap {
+    trader: AccountId,
+    block_height: BlockHeight,
+    transaction_id: CryptoHash,
+    balance_changes: BTreeMap<AccountId, i128>,
+}
+
+impl PricesApiTrade {
+    fn into_swap(self) -> Option<Swap> {
+        let amount_in = self.amount_in.parse::<i128>().ok()?;
+        let amount_out = self.amount_out.parse::<i128>().ok()?;
+        let mut balance_changes = BTreeMap::new();
+        *balance_changes.entry(self.token_in).or_insert(0) -= amount_in;
+        *balance_changes.entry(self.token_out).or_insert(0) += amount_out;
+        Some(Swap {
+            trader: self.trader,
+            block_height: self.height,
+            transaction_id: self.transaction_id,
+            balance_changes,
+        })
+    }
+}
 
 #[async_trait]
 impl XeonBotModule for ExplorerModule {
@@ -138,12 +176,12 @@ impl ExplorerModule {
         _bot: &BotData,
         account_id: AccountId,
     ) -> Vec<InlineQueryResult> {
-        if let Ok(response) = get_cached_30s::<Vec<TradeSwapEvent>>(&format!(
-            "https://events-v3.intear.tech/v3/trade_swap/by_trader_newest?trader={account_id}"
+        if let Ok(response) = get_cached_30s::<TradesResponse>(&format!(
+            "https://prices.intear.tech/trades?trader={account_id}"
         ))
         .await
         {
-            let futures = response.into_iter().map(|trade| {
+            let futures = response.trades.into_iter().filter_map(PricesApiTrade::into_swap).map(|trade| {
                 let account_id = account_id.clone();
                 async move {
                     InlineQueryResult::Article(InlineQueryResultArticle::new(
@@ -259,12 +297,12 @@ impl ExplorerModule {
         _bot: &BotData,
         account_id: AccountId,
     ) -> Vec<InlineQueryResult> {
-        if let Ok(response) = get_cached_30s::<Vec<TradeSwapEvent>>(&format!(
-            "https://events-v3.intear.tech/v3/trade_swap/by_token_newest?account={account_id}"
+        if let Ok(response) = get_cached_30s::<TradesResponse>(&format!(
+            "https://prices.intear.tech/trades?token={account_id}"
         ))
         .await
         {
-            let futures = response.into_iter().map(|trade| {
+            let futures = response.trades.into_iter().filter_map(PricesApiTrade::into_swap).map(|trade| {
                 let account_id = account_id.clone();
                 async move {
                     InlineQueryResult::Article(InlineQueryResultArticle::new(

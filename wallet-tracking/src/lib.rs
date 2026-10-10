@@ -278,7 +278,7 @@ impl WalletTrackingModule {
 
 {changes}
 
-[Tx](https://nearblocks.io/txns/txns/{tx_hash})
+[Tx](https://nearblocks.io/txns/{tx_hash})
                             ",
                             changes = markdown::escape(&changes.join("\n")),
                         );

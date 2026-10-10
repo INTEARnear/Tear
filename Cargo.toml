@@ -1,13 +1,9 @@
+cargo-features = ["profile-rustflags"]
+
 [workspace]
 resolver = "2"
 members = ["tearbot", "wallet-tracking", "explorer", "tip-bot", "raid-bot", "house-of-stake", "subscription-lists"]
-exclude = ["near-tgi/near-cli-rs", "near-tgi/keyring", "teloxide"]
-
-[workspace.metadata.patch]
-crates = ["redis"]
-
-[patch.crates-io]
-redis = { path = "./target/patch/redis-0.25.4" }
+exclude = ["teloxide"]
 
 [workspace.package]
 version = "0.1.0"
@@ -43,8 +39,6 @@ itertools = "0.14.0"
 simple_logger = "5.0.0"
 urlencoding = "2.1.3"
 bigdecimal = "0.4.5"
-inquire = { path = "./near-tgi/inquire" }
-keyring = { path = "./near-tgi/keyring" }
 near-api = "0.8"
 near-openapi-types = "0.7"
 serde_with = "3.12.0"

@@ -23,8 +23,6 @@ use house_of_stake::HouseOfStakeModule;
 use log::info;
 #[cfg(any(feature = "xeon", feature = "tear", feature = "int"))]
 use modules::hub::HubModule;
-#[cfg(feature = "near-tgi-module")]
-use near_tgi::NearTgiModule;
 #[cfg(feature = "new-liquidity-pools-module")]
 use new_liquidity_pools::NewLiquidityPoolsModule;
 #[cfg(feature = "new-tokens-module")]
@@ -254,10 +252,6 @@ fn main() -> Result<(), anyhow::Error> {
                     xeon.state()
                         .add_indexer_event_handler::<SocialDBModule>(Arc::clone(&socialdb_module))
                         .await;
-                }
-                #[cfg(feature = "near-tgi-module")]
-                {
-                    xeon.state().add_bot_module(NearTgiModule).await;
                 }
                 #[cfg(feature = "ai-moderator-module")]
                 {

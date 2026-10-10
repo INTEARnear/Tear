@@ -12,9 +12,7 @@ use tearbot_common::teloxide::prelude::Requester;
 use tearbot_common::tgbot::{Attachment, NotificationDestination};
 use tearbot_common::utils::apis::search_token;
 use tearbot_common::utils::requests::get_reqwest_client;
-use tearbot_common::utils::tokens::{
-    USDT_DECIMALS, format_price_change, format_usd_amount, get_ft_metadata,
-};
+use tearbot_common::utils::tokens::{format_price_change, format_usd_amount, get_ft_metadata};
 use tearbot_common::{
     mongodb::Database,
     near_primitives::types::AccountId,
@@ -1070,9 +1068,9 @@ async fn get_price_at(token_id: &AccountId, time: DateTime<Utc>) -> Result<f64, 
         price_usd: BigDecimal,
     }
 
-    let timestamp_nanosec = time.timestamp_nanos_opt().unwrap();
+    let timestamp_millis = time.timestamp_millis();
     let url = format!(
-        "https://events-v3.intear.tech/v3/price_token/price_at_time?token={token_id}&timestamp_nanosec={timestamp_nanosec}"
+        "https://prices.intear.tech/price_at_time?token={token_id}&timestamp_millis={timestamp_millis}"
     );
     let response = get_reqwest_client()
         .get(url)
@@ -1080,11 +1078,7 @@ async fn get_price_at(token_id: &AccountId, time: DateTime<Utc>) -> Result<f64, 
         .await?
         .json::<Response>()
         .await?;
-    let meta = get_ft_metadata(token_id).await?;
-    let token_decimals = meta.decimals;
-    let price_raw =
-        response.price_usd.clone() * 10u128.pow(token_decimals as u32) / 10u128.pow(USDT_DECIMALS);
-    let price = ToPrimitive::to_f64(&price_raw).ok_or_else(|| {
+    let price = ToPrimitive::to_f64(&response.price_usd).ok_or_else(|| {
         anyhow::anyhow!("Failed to convert price to f64: {:?}", response.price_usd)
     })?;
     Ok(price)
@@ -1115,7 +1109,7 @@ async fn get_price_message(token: AccountId, xeon: &XeonState) -> String {
     let fdv = total_supply as f64 * price_now;
     format!(
         "*{token_name}* price: {price}
-                    
+
 ⏳ *5m change:* {change_5m}
 ⌚️ *6h change:* {change_6h}
 ⏰ *24h change:* {change_24h}

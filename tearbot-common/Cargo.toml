@@ -44,7 +44,6 @@ semver = { workspace = true, optional = true }
 tokio-tungstenite = { version = "0.23.1", features = [
     "rustls-tls-native-roots",
 ], optional = true }
-inquire = { workspace = true, optional = true }
 serde_with = { workspace = true }
 bigdecimal = { workspace = true }
 near-api = { workspace = true }
@@ -66,7 +65,6 @@ price-alerts-module = []
 socialdb-module = []
 new-tokens-module = []
 utilities-module = []
-near-tgi-module = ["inquire"]
 ai-moderator-module = []
 burrow-liquidations-module = []
 house-of-stake-module = []

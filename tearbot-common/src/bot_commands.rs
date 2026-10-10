@@ -443,16 +443,6 @@ pub enum TgCommand {
     NewTokenNotificationsEnableOtherParents(NotificationDestination),
     #[cfg(feature = "new-tokens-module")]
     NewTokenNotificationsDisableOtherParents(NotificationDestination),
-    #[cfg(feature = "near-tgi-module")]
-    NearTgi(String),
-    #[cfg(feature = "near-tgi-module")]
-    NearTgiAnswer(String, Option<inquire::PromptAnswer>),
-    #[cfg(feature = "near-tgi-module")]
-    NearTgiSelect(String, usize),
-    #[cfg(feature = "near-tgi-module")]
-    NearTgiMultiSelect(String, std::collections::HashSet<usize>),
-    #[cfg(feature = "near-tgi-module")]
-    NearTgiMultiSelectConfirm(String, std::collections::HashSet<usize>),
     #[cfg(feature = "ai-moderator-module")]
     AiModerator(ChatId),
     #[cfg(feature = "ai-moderator-module")]
@@ -1523,12 +1513,6 @@ pub enum MessageCommand {
     ChatPermissionsAddToWhitelist(NotificationDestination),
     #[cfg(feature = "contract-logs-module")]
     SocialDBNotificationsAddKey(NotificationDestination),
-    #[cfg(feature = "near-tgi-module")]
-    NearTgi(String),
-    #[cfg(feature = "near-tgi-module")]
-    NearTgiText(String),
-    #[cfg(feature = "near-tgi-module")]
-    NearTgiCustomType(String),
     #[cfg(feature = "ai-moderator-module")]
     AiModeratorFirstMessages(ChatId),
     #[cfg(feature = "ai-moderator-module")]

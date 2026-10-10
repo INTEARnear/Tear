@@ -16,7 +16,6 @@ price-alerts = { path = "../xeon-private-modules/price-alerts", optional = true 
 socialdb = { path = "../xeon-private-modules/socialdb", optional = true }
 new-tokens = { path = "../xeon-private-modules/new-tokens", optional = true }
 utilities = { path = "../utilities", optional = true }
-near-tgi = { path = "../near-tgi", optional = true }
 ai-moderator = { path = "../ai-moderator", optional = true }
 burrow-liquidations = { path = "../burrow-liquidations", optional = true }
 house-of-stake = { path = "../house-of-stake", optional = true }
@@ -56,7 +55,6 @@ cached = { workspace = true }
 tear = [
     "contract-logs-module",
     "utilities-module",
-    "near-tgi-module",
     "ai-moderator-module",
     "ai-moderator/near",
     "websocket-events",
@@ -79,7 +77,6 @@ xeon = [
     "socialdb-module",
     "new-tokens-module",
     "utilities-module",
-    "near-tgi-module",
     "ai-moderator-module",
     "ai-moderator/near",
     "redis-events",
@@ -117,7 +114,6 @@ price-alerts-module = ["tearbot-common/price-alerts-module", "price-alerts"]
 socialdb-module = ["tearbot-common/socialdb-module", "socialdb"]
 new-tokens-module = ["tearbot-common/new-tokens-module", "new-tokens"]
 utilities-module = ["tearbot-common/utilities-module", "utilities"]
-near-tgi-module = ["tearbot-common/near-tgi-module", "near-tgi"]
 ai-moderator-module = ["tearbot-common/ai-moderator-module", "ai-moderator"]
 burrow-liquidations-module = [
     "tearbot-common/burrow-liquidations-module",

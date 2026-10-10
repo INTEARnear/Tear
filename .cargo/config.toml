@@ -8,3 +8,4 @@ rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold", "-Z", "share-generics=y", 
 
 [unstable]
 codegen-backend = true
+
