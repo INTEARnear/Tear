@@ -77,7 +77,7 @@
                         }`;
                     const response = await fetch(url).then((data) => data.json());
                     const noData = response.length < periodParams.countBack;
-                    const decimals = (await getMetadata(symbolInfo.full_name)).decimals;
+
                     const bars = response.map((bar) => {
                         bar.open = parseFloat(bar.open);
                         bar.close = parseFloat(bar.close);
@@ -93,11 +93,6 @@
                         bars[i].low = Math.min(bars[i].low, bars[i].open);
                     }
                     onHistoryCallback(bars, { noData });
-                    setTimeout(() => {
-                        const indicator = document.createElement("div");
-                        indicator.id = "ready";
-                        document.body.appendChild(indicator);
-                    }, 1500);
                 },
                 subscribeBars: async (
                     symbolInfo,
@@ -127,6 +122,18 @@
                 ],
                 theme,
             }));
+            widget.onChartReady(() => {
+                // dataReady fires once the chart has received and processed its bars.
+                // The short delay lets the canvas paint before the screenshot is taken.
+                widget.activeChart().dataReady(() => {
+                    setTimeout(() => {
+                        if (document.getElementById("ready")) return;
+                        const indicator = document.createElement("div");
+                        indicator.id = "ready";
+                        document.body.appendChild(indicator);
+                    }, 500);
+                });
+            });
         }
 
         async function getMetadata(account_id) {

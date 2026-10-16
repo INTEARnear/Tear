@@ -235,7 +235,11 @@ pub struct StringifiedBalance(#[serde(with = "dec_format")] pub FtBalance);
 
 pub fn format_price_change(price_change: f64) -> String {
     let price_change_percentage = (price_change * 100f64).abs();
-    match price_change.partial_cmp(&0f64) {
+    match price_change
+        .is_normal()
+        .then(|| price_change.partial_cmp(&0f64))
+        .flatten()
+    {
         Some(std::cmp::Ordering::Greater) => format!(
             "+{price_change_percentage:.2}% {emoji}",
             emoji = match price_change_percentage.abs() {

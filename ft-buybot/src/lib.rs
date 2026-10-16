@@ -313,7 +313,7 @@ impl FtBuybotModule {
                                         },
                                     );
                                     let referrer_prefix = match referrer.as_deref() {
-                                        Some("intear.near" | "dex-aggregator.intear.near") => "💦 ",
+                                        Some("intear.near" | "dex-aggregator.intear.near" | "wallet.intear.near" | "user.intear.near" | "dex.intear.near") => "💦 ",
                                         Some("owner.herewallet.near") => "🔥 ",
                                         Some("shitzu.sputnik-dao.near") => "🐶 ",
                                         Some("meteor-swap.near") => "☄️ ",
@@ -2396,13 +2396,11 @@ impl XeonBotModule for FtBuybotModule {
                 if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
                     return Ok(());
                 }
+                // Entity offsets are in UTF-16 code units, parse_entities converts them to UTF-8 byte ranges
                 let mut custom_emojis = HashMap::new();
-                if let Some(entities) = message.entities() {
-                    for entity in entities {
-                        if let MessageEntityKind::CustomEmoji { custom_emoji_id } = &entity.kind {
-                            custom_emojis
-                                .insert(entity.offset, (custom_emoji_id, entity.length * 2));
-                        }
+                for entity in message.parse_entities().unwrap_or_default() {
+                    if let MessageEntityKind::CustomEmoji { custom_emoji_id } = entity.kind() {
+                        custom_emojis.insert(entity.start(), (custom_emoji_id, entity.len()));
                     }
                 }
                 let mut emojis = Vec::new();
