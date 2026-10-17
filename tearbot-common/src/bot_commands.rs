@@ -1897,7 +1897,7 @@ impl PoolId {
             PoolId::Aidols(account_id) => format!("AIdols: {account_id}"),
             PoolId::RefDcl(token1, token2, fee) => format!(
                 "Rhea DCL: {token1} <-> {token2} @ {fee:.02}%",
-                fee = *fee as f64 / 100.0
+                fee = *fee as f64 / 10000.0
             ),
             PoolId::IntearPlach(id) => format!("Intear Plach #{id}"),
         }

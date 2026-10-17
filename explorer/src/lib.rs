@@ -14,7 +14,7 @@ use tearbot_common::{
     bot_commands::MessageCommand,
     intear_events::events::transactions::tx_transaction::TxTransactionEvent,
     near_primitives::{
-        action::Action,
+        action::{Action, delegate::VersionedDelegateActionPayload},
         hash::CryptoHash,
         types::{AccountId, BlockHeight, BlockId},
         views::{
@@ -903,13 +903,37 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
             "Add key `{public_key}`, {}",
             match &access_key.permission {
                 AccessKeyPermissionView::FullAccess => "full access".to_string(),
+                AccessKeyPermissionView::GasKeyFullAccess {
+                    balance,
+                    num_nonces: _,
+                } => format!(
+                    "gas key with {balance} balance, full access",
+                    balance = markdown::escape(
+                        &format_near_amount(balance.as_yoctonear(), bot.xeon()).await
+                    ),
+                ),
                 AccessKeyPermissionView::FunctionCall {
                     allowance: _,
                     receiver_id,
                     method_names,
+                }
+                | AccessKeyPermissionView::GasKeyFunctionCall {
+                    allowance: _,
+                    receiver_id,
+                    method_names,
+                    ..
                 } => format!(
-                    "function calls to `{receiver_id}`{}",
-                    if method_names.is_empty() {
+                    "{gas_key}function calls to `{receiver_id}`{methods}",
+                    gas_key = match &access_key.permission {
+                        AccessKeyPermissionView::GasKeyFunctionCall { balance, .. } => format!(
+                            "gas key with {} balance, ",
+                            markdown::escape(
+                                &format_near_amount(balance.as_yoctonear(), bot.xeon()).await
+                            )
+                        ),
+                        _ => String::new(),
+                    },
+                    methods = if method_names.is_empty() {
                         String::new()
                     } else {
                         format!(
@@ -949,6 +973,35 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
                 }
                 result.join("\n")
             },
+        ),
+        ActionView::DelegateV2 {
+            delegate_action: VersionedDelegateActionPayload::V2(delegate_action),
+            signature: _,
+        } => format!(
+            "Delegate actions from `{sender_id}` to `{receiver_id}`:\n{actions}",
+            sender_id = delegate_action.sender_id,
+            receiver_id = delegate_action.receiver_id,
+            actions = {
+                let mut result = Vec::new();
+                for action in delegate_action.get_actions() {
+                    let formatted_action =
+                        Box::pin(format_action(&ActionView::from(action), bot)).await;
+                    result.push(format!("\\-\\> {formatted_action}"));
+                }
+                result.join("\n")
+            },
+        ),
+        ActionView::TransferToGasKey {
+            public_key,
+            deposit,
+        } => format!(
+            "Transfer {deposit} to gas key `{public_key}`",
+            deposit =
+                markdown::escape(&format_near_amount(deposit.as_yoctonear(), bot.xeon()).await),
+        ),
+        ActionView::WithdrawFromGasKey { public_key, amount } => format!(
+            "Withdraw {amount} from gas key `{public_key}`",
+            amount = markdown::escape(&format_near_amount(amount.as_yoctonear(), bot.xeon()).await),
         ),
         ActionView::DeployGlobalContract { code } => {
             format!("Deploy global contract \\({} bytes\\)", code.len())
