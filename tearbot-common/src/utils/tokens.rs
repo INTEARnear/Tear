@@ -3,7 +3,11 @@ use near_primitives::types::AccountId;
 use serde::{Deserialize, Serialize};
 use teloxide::utils::markdown;
 
-use crate::{near_utils::FtBalance, utils::badges::get_selected_badge, xeon::XeonState};
+use crate::{
+    near_utils::FtBalance,
+    utils::{cosmetics::get_user_emoji, explorers::format_account_explorer_links},
+    xeon::XeonState,
+};
 
 use super::{
     requests::get_cached_30s,
@@ -217,15 +221,11 @@ pub fn format_usd_amount(amount: f64) -> String {
 }
 
 pub async fn format_account_id(account_id: &AccountId) -> String {
-    let badge = get_selected_badge(account_id).await;
     format!(
-        "{badge}[{name}](https://pikespeak.ai/wallet-explorer/{account_id})",
-        badge = if !badge.is_empty() {
-            format!("{badge} ")
-        } else {
-            "".to_string()
-        },
+        "{emoji}[{name}](https://pikespeak.ai/wallet-explorer/{account_id}) {explorers}",
+        emoji = get_user_emoji(account_id.as_str()).await,
         name = markdown::escape(account_id.as_ref()),
+        explorers = format_account_explorer_links(account_id),
     )
 }
 

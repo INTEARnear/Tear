@@ -21,6 +21,7 @@ use tearbot_common::{
     tgbot::NotificationDestination,
     utils::{
         chat::{DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m},
+        explorers::format_tx_explorer_links,
         store::PersistentCachedStore,
         tokens::{WRAP_NEAR, format_tokens},
     },
@@ -101,11 +102,12 @@ impl WalletTrackingModule {
                         if bot.reached_notification_limit(chat_id.chat_id()).await {
                             return;
                         }
+                        let tx_links = format_tx_explorer_links(tx_hash);
                         let message = format!(
                             "
 *`{old_account_id}` ➡️ `{new_account_id}`*: {amount}
 
-[Tx](https://nearblocks.io/txns/{tx_hash})
+Tx: {tx_links}
                                 ",
                             old_account_id = old_owner_id,
                             new_account_id = new_owner_id,
@@ -189,12 +191,13 @@ impl WalletTrackingModule {
                                 String::new()
                             };
 
+                            let tx_links = format_tx_explorer_links(tx_hash);
                             let message = format!(
                                 "
 *NFT {action_word}*
 *`{old_account_id}` ➡️ `{new_account_id}`*: `{token_id}`{price_text}
 
-[Tx](https://nearblocks.io/txns/{tx_hash}) \\| [Token](https://nearblocks.io/nft-token/{contract_id}/{token_id})
+Tx: {tx_links} \\| [Token](https://nearblocks.io/nft-token/{contract_id}/{token_id})
                                 ",
                                 old_account_id = old_owner_id,
                                 new_account_id = new_owner_id,
@@ -272,13 +275,14 @@ impl WalletTrackingModule {
                             ));
                         }
 
+                        let tx_links = format_tx_explorer_links(tx_hash);
                         let message = format!(
                             "
 *Swap by* `{trader}`
 
 {changes}
 
-[Tx](https://nearblocks.io/txns/{tx_hash})
+Tx: {tx_links}
                             ",
                             changes = markdown::escape(&changes.join("\n")),
                         );
@@ -333,12 +337,13 @@ impl WalletTrackingModule {
                             return;
                         }
 
+                        let tx_links = format_tx_explorer_links(tx_hash);
                         let message = format!(
                             "
 *Transaction by* `{signer_id}`
 *Contract / Receiver:* `{receiver_id}`
 
-[Tx](https://nearblocks.io/txns/{tx_hash})
+Tx: {tx_links}
                             ",
                         );
 
@@ -411,12 +416,13 @@ impl WalletTrackingModule {
                             StakingAction::Withdraw => "withdrew staked NEAR from",
                         };
 
+                        let tx_links = format_tx_explorer_links(tx_hash);
                         let message = format!(
                             "
 *Staking*
 *`{account_id}` {action_text} `{pool_id}`*: {}
 
-[Tx](https://nearblocks.io/txns/{tx_hash})
+Tx: {tx_links}
                             ",
                             markdown::escape(
                                 &format_tokens(amount, &"near".parse().unwrap(), Some(&xeon)).await

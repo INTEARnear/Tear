@@ -1,8 +1,10 @@
 #[cfg(feature = "ai-moderator-module")]
 pub mod ai;
 pub mod apis;
-pub mod badges;
 pub mod chat;
+pub mod cosmetics;
+pub mod explorers;
+pub mod markdownv2;
 pub mod nep297_events;
 pub mod requests;
 pub mod rpc;

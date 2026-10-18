@@ -34,6 +34,7 @@ use tearbot_common::{
     tgbot::{BotData, MustAnswerCallbackQuery, TgCallbackContext},
     utils::{
         apis::search_token,
+        explorers::format_tx_explorer_links,
         format_duration,
         requests::get_cached_30s,
         rpc::{archive_rpc, get_block_timestamp, rpc, view_account_cached_30s},
@@ -181,110 +182,221 @@ impl ExplorerModule {
         ))
         .await
         {
-            let futures = response.trades.into_iter().filter_map(PricesApiTrade::into_swap).map(|trade| {
-                let account_id = account_id.clone();
-                async move {
-                    InlineQueryResult::Article(InlineQueryResultArticle::new(
-                        random_id(),
-                        format!("{}{}", match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
-                            [(token1, amount1), (token2, amount2)] => {
-                                if **amount1 > 0 && **amount2 < 0 {
-                                    format!(
-                                        "{} ➡️ {}",
-                                        format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                        format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                    )
-                                } else if **amount1 < 0 && **amount2 > 0 {
-                                    format!(
-                                        "{} ➡️ {}",
-                                        format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                        format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                    )
-                                } else {
-                                    let mut result = Vec::new();
-                                    for (token, amount) in [(token1, amount1), (token2, amount2)] {
-                                        let sign = if **amount < 0 { "-" } else { "" };
-                                        let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                        result.push(format!("{sign}{formatted}"));
+            let futures = response
+                .trades
+                .into_iter()
+                .filter_map(PricesApiTrade::into_swap)
+                .map(|trade| {
+                    let account_id = account_id.clone();
+                    async move {
+                        InlineQueryResult::Article(
+                            InlineQueryResultArticle::new(
+                                random_id(),
+                                format!(
+                                    "{}{}",
+                                    match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                                        [(token1, amount1), (token2, amount2)] => {
+                                            if **amount1 > 0 && **amount2 < 0 {
+                                                format!(
+                                                    "{} ➡️ {}",
+                                                    format_tokens(
+                                                        amount2.unsigned_abs(),
+                                                        token2,
+                                                        None
+                                                    )
+                                                    .await,
+                                                    format_tokens(
+                                                        amount1.unsigned_abs(),
+                                                        token1,
+                                                        None
+                                                    )
+                                                    .await,
+                                                )
+                                            } else if **amount1 < 0 && **amount2 > 0 {
+                                                format!(
+                                                    "{} ➡️ {}",
+                                                    format_tokens(
+                                                        amount1.unsigned_abs(),
+                                                        token1,
+                                                        None
+                                                    )
+                                                    .await,
+                                                    format_tokens(
+                                                        amount2.unsigned_abs(),
+                                                        token2,
+                                                        None
+                                                    )
+                                                    .await,
+                                                )
+                                            } else {
+                                                let mut result = Vec::new();
+                                                for (token, amount) in
+                                                    [(token1, amount1), (token2, amount2)]
+                                                {
+                                                    let sign = if **amount < 0 { "-" } else { "" };
+                                                    let formatted = format_tokens(
+                                                        amount.unsigned_abs(),
+                                                        token,
+                                                        None,
+                                                    )
+                                                    .await;
+                                                    result.push(format!("{sign}{formatted}"));
+                                                }
+                                                result.join(", ")
+                                            }
+                                        }
+                                        _ => {
+                                            let mut result = Vec::new();
+                                            for (token, amount) in trade
+                                                .balance_changes
+                                                .iter()
+                                                .sorted_by_key(|(_token, amount)| **amount)
+                                            {
+                                                let sign = if *amount < 0 { "-" } else { "" };
+                                                let formatted = format_tokens(
+                                                    amount.unsigned_abs(),
+                                                    token,
+                                                    None,
+                                                )
+                                                .await;
+                                                result.push(format!("{sign}{formatted}"));
+                                            }
+                                            result.join(", ")
+                                        }
+                                    },
+                                    if let Ok(timestamp) =
+                                        get_block_timestamp(BlockId::Height(trade.block_height))
+                                            .await
+                                    {
+                                        format!(
+                                            ", {} ago",
+                                            markdown::escape(&format_duration(
+                                                (Utc::now() - timestamp).to_std().unwrap()
+                                            ))
+                                        )
+                                    } else {
+                                        "".to_string()
                                     }
-                                    result.join(", ")
-                                }
-                            }
-                            _ => {
-                                let mut result = Vec::new();
-                                for (token, amount) in trade.balance_changes
-                                        .iter()
-                                        .sorted_by_key(|(_token, amount)| **amount) {
-                                    let sign = if *amount < 0 { "-" } else { "" };
-                                    let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                    result.push(format!("{sign}{formatted}"));
-                                }
-                                result.join(", ")
-                            }
-                        }, if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
-                            format!(", {} ago", markdown::escape(&format_duration((Utc::now() - timestamp).to_std().unwrap())))
-                        } else {
-                            "".to_string()
-                        }),
-                        InputMessageContent::Text(InputMessageContentText::new(format!(
-                            "
+                                ),
+                                InputMessageContent::Text(
+                                    InputMessageContentText::new(format!(
+                                        "
 *Trade*:{balance_changes}
 
 *Trader*: {trader}
 *Block*: {block}
-[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://nearblocks.io/txns/{tx_hash})
+Tx: {tx_links}
                             ",
-                            balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
-                                [(token1, amount1), (token2, amount2)] => {
-                                    if **amount1 < 0 && **amount2 > 0 {
-                                        format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
-                                    } else if **amount1 > 0 && **amount2 < 0 {
-                                        format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
-                                    } else {
-                                        let mut result = Vec::new();
-                                        for (token, amount) in trade.balance_changes.iter() {
-                                            let sign = if *amount < 0 { "-" } else { "" };
-                                            let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                            result.push(format!("{sign}{formatted}"));
-                                        }
-                                        format!("\n{}", result.join(", "))
-                                    }
-                                }
-                                _ => {
-                                    let mut result = Vec::new();
-                                    for (token, amount) in trade.balance_changes.iter() {
-                                        let sign = if *amount < 0 { "-" } else { "" };
-                                        let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                        result.push(format!("{sign}{formatted}"));
-                                    }
-                                    format!("\n{}", result.join(", "))
-                                }
-                            }),
-                            trader = format_account_id(&trade.trader).await,
-                            tx_hash = trade.transaction_id,
-                            block = if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
-                                format!("`{}` \\({}\\)", trade.block_height, markdown::escape(&timestamp.to_string()))
-                            } else {
-                                format!("`{}`", trade.block_height)
-                            },
-                        ))
-                        .parse_mode(ParseMode::MarkdownV2)
-                        .link_preview_options(LinkPreviewOptions {
-                            is_disabled: true,
-                            url: None,
-                            prefer_small_media: false,
-                            prefer_large_media: false,
-                            show_above_text: false,
-                        }),
-                    ))
-                    .reply_markup(InlineKeyboardMarkup::new(vec![vec![
-                        InlineKeyboardButton::switch_inline_query_current_chat(
-                            "Trader Info",
-                            account_id.as_str(),
-                        ),
-                    ]])))
-                }
-            });
+                                        balance_changes = markdown::escape(&match &trade
+                                            .balance_changes
+                                            .iter()
+                                            .collect::<Vec<_>>()[..]
+                                        {
+                                            [(token1, amount1), (token2, amount2)] => {
+                                                if **amount1 < 0 && **amount2 > 0 {
+                                                    format!(
+                                                        " {} ➡️ {}",
+                                                        format_tokens(
+                                                            amount1.unsigned_abs(),
+                                                            token1,
+                                                            None
+                                                        )
+                                                        .await,
+                                                        format_tokens(
+                                                            amount2.unsigned_abs(),
+                                                            token2,
+                                                            None
+                                                        )
+                                                        .await
+                                                    )
+                                                } else if **amount1 > 0 && **amount2 < 0 {
+                                                    format!(
+                                                        " {} ➡️ {}",
+                                                        format_tokens(
+                                                            amount2.unsigned_abs(),
+                                                            token2,
+                                                            None
+                                                        )
+                                                        .await,
+                                                        format_tokens(
+                                                            amount1.unsigned_abs(),
+                                                            token1,
+                                                            None
+                                                        )
+                                                        .await
+                                                    )
+                                                } else {
+                                                    let mut result = Vec::new();
+                                                    for (token, amount) in
+                                                        trade.balance_changes.iter()
+                                                    {
+                                                        let sign =
+                                                            if *amount < 0 { "-" } else { "" };
+                                                        let formatted = format_tokens(
+                                                            amount.unsigned_abs(),
+                                                            token,
+                                                            None,
+                                                        )
+                                                        .await;
+                                                        result.push(format!("{sign}{formatted}"));
+                                                    }
+                                                    format!("\n{}", result.join(", "))
+                                                }
+                                            }
+                                            _ => {
+                                                let mut result = Vec::new();
+                                                for (token, amount) in trade.balance_changes.iter()
+                                                {
+                                                    let sign = if *amount < 0 { "-" } else { "" };
+                                                    let formatted = format_tokens(
+                                                        amount.unsigned_abs(),
+                                                        token,
+                                                        None,
+                                                    )
+                                                    .await;
+                                                    result.push(format!("{sign}{formatted}"));
+                                                }
+                                                format!("\n{}", result.join(", "))
+                                            }
+                                        }),
+                                        trader = format_account_id(&trade.trader).await,
+                                        tx_links = format_tx_explorer_links(trade.transaction_id),
+                                        block = if let Ok(timestamp) =
+                                            get_block_timestamp(BlockId::Height(trade.block_height))
+                                                .await
+                                        {
+                                            format!(
+                                                "`{}` \\({}\\)",
+                                                trade.block_height,
+                                                markdown::escape(&timestamp.to_string())
+                                            )
+                                        } else {
+                                            format!("`{}`", trade.block_height)
+                                        },
+                                    ))
+                                    .parse_mode(ParseMode::MarkdownV2)
+                                    .link_preview_options(
+                                        LinkPreviewOptions {
+                                            is_disabled: true,
+                                            url: None,
+                                            prefer_small_media: false,
+                                            prefer_large_media: false,
+                                            show_above_text: false,
+                                        },
+                                    ),
+                                ),
+                            )
+                            .reply_markup(InlineKeyboardMarkup::new(
+                                vec![vec![
+                                    InlineKeyboardButton::switch_inline_query_current_chat(
+                                        "Trader Info",
+                                        account_id.as_str(),
+                                    ),
+                                ]],
+                            )),
+                        )
+                    }
+                });
 
             join_all(futures).await
         } else {
@@ -302,111 +414,223 @@ impl ExplorerModule {
         ))
         .await
         {
-            let futures = response.trades.into_iter().filter_map(PricesApiTrade::into_swap).map(|trade| {
-                let account_id = account_id.clone();
-                async move {
-                    InlineQueryResult::Article(InlineQueryResultArticle::new(
-                        random_id(),
-                        format!("{}: {}{}", trade.trader, match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
-                            [(token1, amount1), (token2, amount2)] => {
-                                if **amount1 > 0 && **amount2 < 0 {
-                                    format!(
-                                        "{} ➡️ {}",
-                                        format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                        format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                    )
-                                } else if **amount1 < 0 && **amount2 > 0 {
-                                    format!(
-                                        "{} ➡️ {}",
-                                        format_tokens(amount1.unsigned_abs(), token1, None).await,
-                                        format_tokens(amount2.unsigned_abs(), token2, None).await,
-                                    )
-                                } else {
-                                    let mut result = Vec::new();
-                                    for (token, amount) in [(token1, amount1), (token2, amount2)] {
-                                        let sign = if **amount < 0 { "-" } else { "" };
-                                        let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                        result.push(format!("{sign}{formatted}"));
+            let futures = response
+                .trades
+                .into_iter()
+                .filter_map(PricesApiTrade::into_swap)
+                .map(|trade| {
+                    let account_id = account_id.clone();
+                    async move {
+                        InlineQueryResult::Article(
+                            InlineQueryResultArticle::new(
+                                random_id(),
+                                format!(
+                                    "{}: {}{}",
+                                    trade.trader,
+                                    match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
+                                        [(token1, amount1), (token2, amount2)] => {
+                                            if **amount1 > 0 && **amount2 < 0 {
+                                                format!(
+                                                    "{} ➡️ {}",
+                                                    format_tokens(
+                                                        amount2.unsigned_abs(),
+                                                        token2,
+                                                        None
+                                                    )
+                                                    .await,
+                                                    format_tokens(
+                                                        amount1.unsigned_abs(),
+                                                        token1,
+                                                        None
+                                                    )
+                                                    .await,
+                                                )
+                                            } else if **amount1 < 0 && **amount2 > 0 {
+                                                format!(
+                                                    "{} ➡️ {}",
+                                                    format_tokens(
+                                                        amount1.unsigned_abs(),
+                                                        token1,
+                                                        None
+                                                    )
+                                                    .await,
+                                                    format_tokens(
+                                                        amount2.unsigned_abs(),
+                                                        token2,
+                                                        None
+                                                    )
+                                                    .await,
+                                                )
+                                            } else {
+                                                let mut result = Vec::new();
+                                                for (token, amount) in
+                                                    [(token1, amount1), (token2, amount2)]
+                                                {
+                                                    let sign = if **amount < 0 { "-" } else { "" };
+                                                    let formatted = format_tokens(
+                                                        amount.unsigned_abs(),
+                                                        token,
+                                                        None,
+                                                    )
+                                                    .await;
+                                                    result.push(format!("{sign}{formatted}"));
+                                                }
+                                                result.join(", ")
+                                            }
+                                        }
+                                        _ => {
+                                            let mut result = Vec::new();
+                                            for (token, amount) in trade
+                                                .balance_changes
+                                                .iter()
+                                                .sorted_by_key(|(_token, amount)| **amount)
+                                            {
+                                                let sign = if *amount < 0 { "-" } else { "" };
+                                                let formatted = format_tokens(
+                                                    amount.unsigned_abs(),
+                                                    token,
+                                                    None,
+                                                )
+                                                .await;
+                                                result.push(format!("{sign}{formatted}"));
+                                            }
+                                            result.join(", ")
+                                        }
+                                    },
+                                    if let Ok(timestamp) =
+                                        get_block_timestamp(BlockId::Height(trade.block_height))
+                                            .await
+                                    {
+                                        format!(
+                                            ", {} ago",
+                                            markdown::escape(&format_duration(
+                                                (Utc::now() - timestamp).to_std().unwrap()
+                                            ))
+                                        )
+                                    } else {
+                                        "".to_string()
                                     }
-                                    result.join(", ")
-                                }
-                            }
-                            _ => {
-                                let mut result = Vec::new();
-                                for (token, amount) in trade.balance_changes
-                                        .iter()
-                                        .sorted_by_key(|(_token, amount)| **amount) {
-                                    let sign = if *amount < 0 { "-" } else { "" };
-                                    let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                    result.push(format!("{sign}{formatted}"));
-                                }
-                                result.join(", ")
-                            }
-                        }, if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
-                            format!(", {} ago", markdown::escape(&format_duration((Utc::now() - timestamp).to_std().unwrap())))
-                        } else {
-                            "".to_string()
-                        }),
-                        InputMessageContent::Text(InputMessageContentText::new(format!(
-                            "
+                                ),
+                                InputMessageContent::Text(
+                                    InputMessageContentText::new(format!(
+                                        "
 *Trade*:{balance_changes}
 
 *Trader*: {trader}
 *Block*: {block}
 
-[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://nearblocks.io/txns/{tx_hash})
+Tx: {tx_links}
                             ",
-                            balance_changes = markdown::escape(&match &trade.balance_changes.iter().collect::<Vec<_>>()[..] {
-                                [(token1, amount1), (token2, amount2)] => {
-                                    if **amount1 < 0 && **amount2 > 0 {
-                                        format!(" {} ➡️ {}", format_tokens(amount1.unsigned_abs(), token1, None).await, format_tokens(amount2.unsigned_abs(), token2, None).await)
-                                    } else if **amount1 > 0 && **amount2 < 0 {
-                                        format!(" {} ➡️ {}", format_tokens(amount2.unsigned_abs(), token2, None).await, format_tokens(amount1.unsigned_abs(), token1, None).await)
-                                    } else {
-                                        let mut result = Vec::new();
-                                        for (token, amount) in trade.balance_changes.iter() {
-                                            let sign = if *amount < 0 { "-" } else { "" };
-                                            let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                            result.push(format!("{sign}{formatted}"));
-                                        }
-                                        format!("\n{}", result.join(", "))
-                                    }
-                                }
-                                _ => {
-                                    let mut result = Vec::new();
-                                    for (token, amount) in trade.balance_changes.iter() {
-                                        let sign = if *amount < 0 { "-" } else { "" };
-                                        let formatted = format_tokens(amount.unsigned_abs(), token, None).await;
-                                        result.push(format!("{sign}{formatted}"));
-                                    }
-                                    format!("\n{}", result.join(", "))
-                                }
-                            }),
-                            trader = format_account_id(&trade.trader).await,
-                            tx_hash = trade.transaction_id,
-                            block = if let Ok(timestamp) = get_block_timestamp(BlockId::Height(trade.block_height)).await {
-                                format!("`{}` \\({}\\)", trade.block_height, markdown::escape(&timestamp.to_string()))
-                            } else {
-                                format!("`{}`", trade.block_height)
-                            },
-                        ))
-                        .parse_mode(ParseMode::MarkdownV2)
-                        .link_preview_options(LinkPreviewOptions {
-                            is_disabled: true,
-                            url: None,
-                            prefer_small_media: false,
-                            prefer_large_media: false,
-                            show_above_text: false,
-                        }),
-                    ))
-                    .reply_markup(InlineKeyboardMarkup::new(vec![vec![
-                        InlineKeyboardButton::switch_inline_query_current_chat(
-                            "Trader Info",
-                            account_id.as_str(),
-                        ),
-                    ]])))
-                }
-            });
+                                        balance_changes = markdown::escape(&match &trade
+                                            .balance_changes
+                                            .iter()
+                                            .collect::<Vec<_>>()[..]
+                                        {
+                                            [(token1, amount1), (token2, amount2)] => {
+                                                if **amount1 < 0 && **amount2 > 0 {
+                                                    format!(
+                                                        " {} ➡️ {}",
+                                                        format_tokens(
+                                                            amount1.unsigned_abs(),
+                                                            token1,
+                                                            None
+                                                        )
+                                                        .await,
+                                                        format_tokens(
+                                                            amount2.unsigned_abs(),
+                                                            token2,
+                                                            None
+                                                        )
+                                                        .await
+                                                    )
+                                                } else if **amount1 > 0 && **amount2 < 0 {
+                                                    format!(
+                                                        " {} ➡️ {}",
+                                                        format_tokens(
+                                                            amount2.unsigned_abs(),
+                                                            token2,
+                                                            None
+                                                        )
+                                                        .await,
+                                                        format_tokens(
+                                                            amount1.unsigned_abs(),
+                                                            token1,
+                                                            None
+                                                        )
+                                                        .await
+                                                    )
+                                                } else {
+                                                    let mut result = Vec::new();
+                                                    for (token, amount) in
+                                                        trade.balance_changes.iter()
+                                                    {
+                                                        let sign =
+                                                            if *amount < 0 { "-" } else { "" };
+                                                        let formatted = format_tokens(
+                                                            amount.unsigned_abs(),
+                                                            token,
+                                                            None,
+                                                        )
+                                                        .await;
+                                                        result.push(format!("{sign}{formatted}"));
+                                                    }
+                                                    format!("\n{}", result.join(", "))
+                                                }
+                                            }
+                                            _ => {
+                                                let mut result = Vec::new();
+                                                for (token, amount) in trade.balance_changes.iter()
+                                                {
+                                                    let sign = if *amount < 0 { "-" } else { "" };
+                                                    let formatted = format_tokens(
+                                                        amount.unsigned_abs(),
+                                                        token,
+                                                        None,
+                                                    )
+                                                    .await;
+                                                    result.push(format!("{sign}{formatted}"));
+                                                }
+                                                format!("\n{}", result.join(", "))
+                                            }
+                                        }),
+                                        trader = format_account_id(&trade.trader).await,
+                                        tx_links = format_tx_explorer_links(trade.transaction_id),
+                                        block = if let Ok(timestamp) =
+                                            get_block_timestamp(BlockId::Height(trade.block_height))
+                                                .await
+                                        {
+                                            format!(
+                                                "`{}` \\({}\\)",
+                                                trade.block_height,
+                                                markdown::escape(&timestamp.to_string())
+                                            )
+                                        } else {
+                                            format!("`{}`", trade.block_height)
+                                        },
+                                    ))
+                                    .parse_mode(ParseMode::MarkdownV2)
+                                    .link_preview_options(
+                                        LinkPreviewOptions {
+                                            is_disabled: true,
+                                            url: None,
+                                            prefer_small_media: false,
+                                            prefer_large_media: false,
+                                            show_above_text: false,
+                                        },
+                                    ),
+                                ),
+                            )
+                            .reply_markup(InlineKeyboardMarkup::new(
+                                vec![vec![
+                                    InlineKeyboardButton::switch_inline_query_current_chat(
+                                        "Trader Info",
+                                        account_id.as_str(),
+                                    ),
+                                ]],
+                            )),
+                        )
+                    }
+                });
 
             join_all(futures).await
         } else {
@@ -567,14 +791,22 @@ CA: `{ca}`
                         "Transaction {}...{}{}",
                         &tx_hash.to_string()[..4],
                         &tx_hash.to_string()[tx_hash.to_string().len() - 4..],
-                        if let Ok(timestamp) = get_block_timestamp(BlockId::Hash(outcome.transaction_outcome.block_hash)).await {
-                            format!(", {} ago", format_duration((Utc::now() - timestamp).to_std().unwrap()))
+                        if let Ok(timestamp) = get_block_timestamp(BlockId::Hash(
+                            outcome.transaction_outcome.block_hash
+                        ))
+                        .await
+                        {
+                            format!(
+                                ", {} ago",
+                                format_duration((Utc::now() - timestamp).to_std().unwrap())
+                            )
                         } else {
                             String::new()
                         },
                     ),
-                    InputMessageContent::Text(InputMessageContentText::new(format!(
-                        "
+                    InputMessageContent::Text(
+                        InputMessageContentText::new(format!(
+                            "
 *Transaction*: `{tx_hash}`
 *Status*: {status}
 *Signer*: `{signer}`
@@ -584,68 +816,95 @@ CA: `{ca}`
 *Actions*:
 {actions}
 
-[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://nearblocks.io/txns/{tx_hash})
+Tx: {tx_links}
                         ",
-                        signer = outcome.transaction.signer_id,
-                        receiver = outcome.transaction.receiver_id,
-                        in_block = if let Ok(timestamp) = get_block_timestamp(BlockId::Hash(outcome.transaction_outcome.block_hash)).await {
-                            format!("`{}` \\({}\\)", outcome.transaction_outcome.block_hash, markdown::escape(&timestamp.to_string()))
-                        } else {
-                            format!("`{}`", outcome.transaction_outcome.block_hash)
-                        },
-                        fees_burnt = markdown::escape(&format_near_amount(
-                            outcome.transaction_outcome.outcome.tokens_burnt.saturating_add(
-                                outcome.receipts_outcome.iter().map(|receipt| receipt.outcome.tokens_burnt).reduce(|a, b| a.saturating_add(b)).unwrap_or_default()
-                            ).as_yoctonear(),
-                            bot.xeon(),
-                        )
-                        .await),
-                        actions = {
-                            let mut result = Vec::new();
-                            for action in &outcome.transaction.actions {
-                                result.push(format!("\\- {}", format_action(action, bot).await));
-                            }
-                            result.join("\n")
-                        },
-                    ))
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .link_preview_options(LinkPreviewOptions {
-                        is_disabled: true,
-                        url: None,
-                        prefer_small_media: false,
-                        prefer_large_media: false,
-                        show_above_text: false,
-                    }),
-                )))]
+                            tx_links = format_tx_explorer_links(tx_hash),
+                            signer = outcome.transaction.signer_id,
+                            receiver = outcome.transaction.receiver_id,
+                            in_block = if let Ok(timestamp) = get_block_timestamp(BlockId::Hash(
+                                outcome.transaction_outcome.block_hash
+                            ))
+                            .await
+                            {
+                                format!(
+                                    "`{}` \\({}\\)",
+                                    outcome.transaction_outcome.block_hash,
+                                    markdown::escape(&timestamp.to_string())
+                                )
+                            } else {
+                                format!("`{}`", outcome.transaction_outcome.block_hash)
+                            },
+                            fees_burnt = markdown::escape(
+                                &format_near_amount(
+                                    outcome
+                                        .transaction_outcome
+                                        .outcome
+                                        .tokens_burnt
+                                        .saturating_add(
+                                            outcome
+                                                .receipts_outcome
+                                                .iter()
+                                                .map(|receipt| receipt.outcome.tokens_burnt)
+                                                .reduce(|a, b| a.saturating_add(b))
+                                                .unwrap_or_default()
+                                        )
+                                        .as_yoctonear(),
+                                    bot.xeon(),
+                                )
+                                .await
+                            ),
+                            actions = {
+                                let mut result = Vec::new();
+                                for action in &outcome.transaction.actions {
+                                    result
+                                        .push(format!("\\- {}", format_action(action, bot).await));
+                                }
+                                result.join("\n")
+                            },
+                        ))
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .link_preview_options(LinkPreviewOptions {
+                            is_disabled: true,
+                            url: None,
+                            prefer_small_media: false,
+                            prefer_large_media: false,
+                            show_above_text: false,
+                        }),
+                    ),
+                ))]
             } else {
                 vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
                     random_id(),
                     "Transaction (incomplete)",
-                    InputMessageContent::Text(InputMessageContentText::new(format!(
-                        "
+                    InputMessageContent::Text(
+                        InputMessageContentText::new(format!(
+                            "
 *Transaction*: `{tx_hash}`
 *Status*: {status}
 
-[Nearblocks](https://nearblocks.io/txns/{tx_hash}) \\| [Pikespeak](https://nearblocks.io/txns/{tx_hash})
+Tx: {tx_links}
                         ",
-                        status = match tx.final_execution_status {
-                            TxExecutionStatus::None => "⏳ Pending",
-                            TxExecutionStatus::Included => "⏳ Included in block",
-                            TxExecutionStatus::ExecutedOptimistic => "⏳ Executed (optimistic)",
-                            TxExecutionStatus::IncludedFinal => "⏳ Included in finalized block",
-                            TxExecutionStatus::Executed => "⏳ Executed",
-                            TxExecutionStatus::Final => "✅ Finalized",
-                        }
-                    ))
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .link_preview_options(LinkPreviewOptions {
-                        is_disabled: true,
-                        url: None,
-                        prefer_small_media: false,
-                        prefer_large_media: false,
-                        show_above_text: false,
-                    }),
-                )))]
+                            tx_links = format_tx_explorer_links(tx_hash),
+                            status = match tx.final_execution_status {
+                                TxExecutionStatus::None => "⏳ Pending",
+                                TxExecutionStatus::Included => "⏳ Included in block",
+                                TxExecutionStatus::ExecutedOptimistic => "⏳ Executed (optimistic)",
+                                TxExecutionStatus::IncludedFinal =>
+                                    "⏳ Included in finalized block",
+                                TxExecutionStatus::Executed => "⏳ Executed",
+                                TxExecutionStatus::Final => "✅ Finalized",
+                            }
+                        ))
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .link_preview_options(LinkPreviewOptions {
+                            is_disabled: true,
+                            url: None,
+                            prefer_small_media: false,
+                            prefer_large_media: false,
+                            show_above_text: false,
+                        }),
+                    ),
+                ))]
             }
         } else {
             vec![]

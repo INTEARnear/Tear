@@ -19,6 +19,7 @@ use tearbot_common::{
     tgbot::NotificationDestination,
     utils::{
         chat::{DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m},
+        explorers::format_tx_explorer_links,
         store::PersistentCachedStore,
         tokens::{format_account_id, format_usd_amount},
     },
@@ -115,6 +116,7 @@ impl BurrowLiquidationsModule {
                             if bot.reached_notification_limit(chat_id.chat_id()).await {
                                 return;
                             }
+                            let tx_links = format_tx_explorer_links(tx_hash);
                             let message = format!(
                                 "
 ⚠️ *Your Burrow account has been liquidated*\\!
@@ -124,7 +126,7 @@ impl BurrowLiquidationsModule {
 💰 *Amount*: {amount}
 💸 *Lost*: {amount_lost}
 
-[Check Burrow](https://app.burrow.finance/dashboard/) \\| [Tx](https://nearblocks.io/txns/{tx_hash})
+[Check Burrow](https://app.burrow.finance/dashboard/) \\| Tx: {tx_links}
                         ",
                                 account_id = format_account_id(&account_id).await,
                                 liquidator = format_account_id(&liquidator_id).await,

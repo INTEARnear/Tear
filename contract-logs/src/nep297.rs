@@ -17,6 +17,7 @@ use tearbot_common::{
     tgbot::NotificationDestination,
     utils::{
         chat::{DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m},
+        explorers::format_tx_explorer_links,
         store::PersistentCachedStore,
         tokens::format_account_id,
     },
@@ -96,13 +97,13 @@ impl ContractLogsNep297Module {
                                 return;
                             }
                             let message = format!(
-                                "{standard} {version} {event} event from {account_id}:\n```\n{log}\n```\n[Tx](https://nearblocks.io/txns/{tx_id}/detailed)",
+                                "{standard} {version} {event} event from {account_id}:\n```\n{log}\n```\nTx: {tx_links}",
                                 standard = markdown::escape(&standard),
                                 version = markdown::escape(&version),
                                 event = markdown::escape(&event),
                                 account_id = format_account_id(&account_id).await,
                                 log = markdown::escape_code(&log_serialized),
-                                tx_id = transaction_id,
+                                tx_links = format_tx_explorer_links(&transaction_id),
                             );
                             let buttons = if chat_id.is_user() {
                                 vec![vec![InlineKeyboardButton::callback(

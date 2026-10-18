@@ -15,10 +15,11 @@ use tearbot_common::tgbot::{
     TgCallbackContext,
 };
 use tearbot_common::utils::apis::search_token;
-use tearbot_common::utils::badges::get_selected_badge;
 use tearbot_common::utils::chat::{
     DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m,
 };
+use tearbot_common::utils::cosmetics::{get_referrer_emoji, get_user_emoji};
+use tearbot_common::utils::explorers::{format_account_explorer_links, format_tx_explorer_links};
 use tearbot_common::utils::nep297_events::MemeCookingEventKind;
 use tearbot_common::utils::requests::get_cached_1h;
 use tearbot_common::utils::rpc::{view_account_cached_1h, view_at, view_cached_1h};
@@ -49,6 +50,8 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 const MAX_EMOJI_STRING_LENGTH: usize = 2000;
 const MAX_EMOJI_VECTOR_LENGTH: usize = 1000;
+/// 💦 as a custom emoji, written the way custom emojis a user sends are kept
+const DEFAULT_EMOJI: &str = "![💦](tg://emoji?id=5953988320630415439)";
 
 const NOT_MEMECOINS: &[&str] = &[
     "dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near",
@@ -313,11 +316,8 @@ impl FtBuybotModule {
                                         },
                                     );
                                     let referrer_prefix = match referrer.as_deref() {
-                                        Some("intear.near" | "dex-aggregator.intear.near" | "wallet.intear.near" | "user.intear.near" | "dex.intear.near") => "💦 ",
-                                        Some("owner.herewallet.near") => "🔥 ",
-                                        Some("shitzu.sputnik-dao.near") => "🐶 ",
-                                        Some("meteor-swap.near") => "☄️ ",
-                                        _ => "",
+                                        Some(referrer) => get_referrer_emoji(referrer).await,
+                                        None => "".to_string(),
                                     };
                                     let message = format!(
                                         "
@@ -325,8 +325,9 @@ impl FtBuybotModule {
 
 {components}
 
-[*Tx*](https://nearblocks.io/txns/{tx_hash}){links}
+*Tx:* {tx_links}{links}
                                         ",
+                                        tx_links = format_tx_explorer_links(&tx_hash),
                                         emoji = if chat_id.is_user() {
                                             if amount > 0 {
                                                 "🟢 "
@@ -654,8 +655,9 @@ impl FtBuybotModule {
 {emoji_other} *{token_name_other}*: {amount_other_str}
 👤 *LP provider*: {lp_provider}
 
-[*Tx*](https://nearblocks.io/txns/{tx_hash}){links}
-"
+*Tx:* {tx_links}{links}
+",
+                                    tx_links = format_tx_explorer_links(&tx_hash),
                                 );
                                 let buttons = if chat_id.is_user() {
                                     vec![vec![InlineKeyboardButton::callback(
@@ -796,8 +798,9 @@ impl FtBuybotModule {
 
 {components}
 
-[*Tx*](https://nearblocks.io/txns/{tx_hash}){links}
+*Tx:* {tx_links}{links}
                                         ",
+                                    tx_links = format_tx_explorer_links(&tx_hash),
                                     action_name = if near_amount > 0 { "BUY" } else { "SELL" },
                                     components = {
                                         let mut components = Vec::new();
@@ -1131,16 +1134,10 @@ impl FtBuybotComponent {
                     format_account_id(trader).await
                 } else {
                     format!(
-                        "{}{}",
-                        {
-                            let selected_badge = get_selected_badge(trader).await;
-                            if !selected_badge.is_empty() {
-                                format!("{selected_badge} ")
-                            } else {
-                                "".to_string()
-                            }
-                        },
-                        markdown::escape(trader.as_str())
+                        "{}{} {}",
+                        get_user_emoji(trader.as_str()).await,
+                        markdown::escape(trader.as_str()),
+                        format_account_explorer_links(trader)
                     )
                 };
                 result_lines.push(format!("👤 *Trader:* {name}{suffix}"));
@@ -4038,8 +4035,9 @@ Message Preview:
 
 {components}
 
-[*Tx*](https://nearblocks.io/txns/{tx_hash}){links}
+*Tx:* {tx_links}{links}
                         ",
+                        tx_links = format_tx_explorer_links(&tx_hash),
                         action_name = if amount > 0 { "BUY" } else { "SELL" },
                         components = {
                             let mut components = Vec::new();
@@ -5957,7 +5955,7 @@ Current emojis: {}
                     subscribed_token.components.insert(
                         0,
                         FtBuybotComponent::Emojis {
-                            emojis: vec!['🚀'.to_string(), '🌒'.to_string()],
+                            emojis: vec![DEFAULT_EMOJI.to_string()],
                             amount_formula: EmojiFormula::Linear {
                                 step: TokenOrUsdAmount::Usd(1.0),
                             },
@@ -6984,7 +6982,7 @@ impl FtBuybotModule {
                     min_amount: TokenOrUsdAmount::Usd(1.00),
                     components: vec![
                         FtBuybotComponent::Emojis {
-                            emojis: vec!['🚀'.to_string(), '🌒'.to_string()],
+                            emojis: vec![DEFAULT_EMOJI.to_string()],
                             amount_formula: EmojiFormula::Linear {
                                 step: TokenOrUsdAmount::Usd(1.0),
                             },

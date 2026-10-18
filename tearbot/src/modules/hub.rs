@@ -18,7 +18,9 @@ use serde::{Deserialize, Serialize};
 #[allow(unused_imports)]
 use tearbot_common::near_primitives::types::AccountId;
 use tearbot_common::utils::{
-    apis::parse_meme_cooking_link, badges::get_all_badges, requests::get_reqwest_client,
+    apis::parse_meme_cooking_link,
+    cosmetics::{get_referrer, get_user},
+    requests::get_reqwest_client,
     rpc::account_exists,
 };
 use tearbot_common::{
@@ -1856,25 +1858,32 @@ impl XeonBotModule for HubModule {
                     }
                 }
                 if let Some(account_id) = data.strip_prefix("badge-") {
-                    if let Ok(account_id) = account_id.parse::<u64>() {
-                        let all_badges = get_all_badges().await;
-                        if let Some(badge) = all_badges.iter().find(|badge| badge.id == account_id)
-                        {
-                            let message = format!(
-                                "
-Badge: {name}
-
-_{description}_
-
-Sign up on [Imminent\\.build](https://imminent.build) to start collecting badges\\!
-                                ",
-                                name = markdown::escape(&badge.name),
-                                description = markdown::escape(&badge.description)
-                            );
-                            let reply_markup = InlineKeyboardMarkup::default();
-                            bot.send_text_message(chat_id.into(), message, reply_markup)
-                                .await?;
-                        }
+                    if let Ok(account_id) = account_id.replace('=', ".").parse::<AccountId>() {
+                        let message = format!(
+                            "{account_id} has {badge} badge\\. Buy badges on [intea\\.rs/badges](https://intea.rs/badges)",
+                            account_id = markdown::escape(account_id.as_str()),
+                            badge = match get_user(account_id.as_str()).await {
+                                Some(user) => markdown::escape(&user.emoji),
+                                None => "no".to_string(),
+                            },
+                        );
+                        let reply_markup = InlineKeyboardMarkup::default();
+                        bot.send_text_message(chat_id.into(), message, reply_markup)
+                            .await?;
+                    }
+                }
+                if let Some(referrer) = data.strip_prefix("referrer-") {
+                    if let Ok(referrer) = referrer.replace('=', ".").parse::<AccountId>() {
+                        let message = format!(
+                            "This swap happened on {name}",
+                            name = markdown::escape(&match get_referrer(referrer.as_str()).await {
+                                Some(cosmetics) => cosmetics.name,
+                                None => referrer.to_string(),
+                            }),
+                        );
+                        let reply_markup = InlineKeyboardMarkup::default();
+                        bot.send_text_message(chat_id.into(), message, reply_markup)
+                            .await?;
                     }
                 }
             }

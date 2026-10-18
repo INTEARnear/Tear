@@ -15,6 +15,7 @@ use tearbot_common::{
     tgbot::NotificationDestination,
     utils::{
         chat::{DM_CHAT, check_admin_permission_in_chat, get_chat_title_cached_5m},
+        explorers::format_tx_explorer_links,
         store::PersistentCachedStore,
         tokens::format_account_id,
     },
@@ -86,10 +87,10 @@ impl ContractLogsTextModule {
                                 return;
                             }
                             let message = format!(
-                                "Text log from {account_id}:\n```\n{log}\n```\n[Tx](https://nearblocks.io/txns/{tx_id}/detailed)",
+                                "Text log from {account_id}:\n```\n{log}\n```\nTx: {tx_links}",
                                 account_id = format_account_id(&account_id).await,
                                 log = markdown::escape_code(&log_text),
-                                tx_id = transaction_id,
+                                tx_links = format_tx_explorer_links(&transaction_id),
                             );
                             let buttons = vec![vec![InlineKeyboardButton::callback(
                                 "✏️ Edit log filters",

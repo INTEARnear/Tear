@@ -45,6 +45,7 @@ use tokio::sync::RwLock;
 
 use crate::near_utils::FtBalance;
 use crate::utils::chat::ChatPermissionLevel;
+use crate::utils::markdownv2;
 use crate::utils::requests::fetch_file_cached_1d;
 use crate::utils::store::PersistentCachedStore;
 use crate::utils::tokens::{StringifiedBalance, WRAP_NEAR};
@@ -1258,6 +1259,33 @@ impl BotData {
         Ok(())
     }
 
+    async fn send_as_document(
+        &self,
+        chat_id: NotificationDestination,
+        mut text: String,
+        reply_markup: ReplyMarkup,
+    ) -> Result<Message, anyhow::Error> {
+        const CHARS: [char; 19] = [
+            '\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}',
+            '.', '!',
+        ];
+
+        for c in CHARS {
+            text = text.replace(&format!("\\{c}"), &c.to_string());
+        }
+        Ok(attach_thread_id!(
+            self.bot.send_document(
+                chat_id.chat_id(),
+                InputFile::memory(text).file_name("message.txt"),
+            ),
+            chat_id
+        )
+        .caption("The response was too long, so it was sent as a file\\.")
+        .parse_mode(ParseMode::MarkdownV2)
+        .reply_markup(reply_markup)
+        .await?)
+    }
+
     pub async fn send(
         &self,
         chat_id: impl Into<NotificationDestination>,
@@ -1270,46 +1298,32 @@ impl BotData {
 
         Ok(match attachment {
             Attachment::None => {
-                if text.len() < 4096 {
-                    attach_thread_id!(
-                        self.bot.send_message(chat_id.chat_id(), text.clone()),
-                        chat_id
-                    )
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .link_preview_options(LinkPreviewOptions {
-                        is_disabled: true,
-                        url: None,
-                        prefer_small_media: false,
-                        prefer_large_media: false,
-                        show_above_text: false,
-                    })
-                    .await
-                    .inspect_err(log_parse_error(text))?
-                } else {
-                    attach_thread_id!(
-                        self.bot.send_document(
-                            chat_id.chat_id(),
-                            InputFile::memory({
-                                const CHARS: [char; 19] = [
-                                    '\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+',
-                                    '-', '=', '|', '{', '}', '.', '!',
-                                ];
-
-                                let mut text = text;
-                                for c in CHARS {
-                                    text = text.replace(&format!("\\{c}"), &c.to_string());
-                                }
-                                text
-                            })
-                            .file_name("message.txt"),
-                        ),
-                        chat_id
-                    )
-                    .caption("The response was too long, so it was sent as a file\\.")
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(reply_markup)
-                    .await?
+                let reply_markup: ReplyMarkup = reply_markup.into();
+                if !markdownv2::fits_in_message(&text) {
+                    return self.send_as_document(chat_id, text, reply_markup).await;
+                }
+                let result = attach_thread_id!(
+                    self.bot.send_message(chat_id.chat_id(), text.clone()),
+                    chat_id
+                )
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_markup(reply_markup.clone())
+                .link_preview_options(LinkPreviewOptions {
+                    is_disabled: true,
+                    url: None,
+                    prefer_small_media: false,
+                    prefer_large_media: false,
+                    show_above_text: false,
+                })
+                .await;
+                match result {
+                    Err(RequestError::Api(ApiError::Unknown(error_text)))
+                        if error_text == ENTITIES_TOO_LONG =>
+                    {
+                        log::warn!("Message entities are too long, sending as a file: {text:?}");
+                        return self.send_as_document(chat_id, text, reply_markup).await;
+                    }
+                    result => result.inspect_err(log_parse_error(text))?,
                 }
             }
             Attachment::PhotoUrl(url) => attach_thread_id!(
@@ -1616,7 +1630,7 @@ impl<'a> TgCallbackContext<'a> {
         reply_markup: InlineKeyboardMarkup,
     ) -> Result<(), anyhow::Error> {
         let text = text.into();
-        if text.len() >= 4096 {
+        if !markdownv2::fits_in_message(&text) {
             // Will send as a .txt document
             let message = self.send(text, reply_markup, Attachment::None).await?;
             self.last_message = Some(message.id);
@@ -1643,6 +1657,13 @@ impl<'a> TgCallbackContext<'a> {
                 Err(RequestError::Api(ApiError::Unknown(error_text))) => {
                     if error_text == "Bad Request: there is no text in the message to edit" {
                         let message = self.send(text, reply_markup, Attachment::None).await?;
+                        self.last_message = Some(message.id);
+                    } else if error_text == ENTITIES_TOO_LONG {
+                        log::warn!("Message entities are too long, sending as a file: {text:?}");
+                        let message = self
+                            .bot
+                            .send_as_document(self.chat_id, text, reply_markup.into())
+                            .await?;
                         self.last_message = Some(message.id);
                     } else {
                         return Err(anyhow::anyhow!(
@@ -1771,6 +1792,9 @@ impl Drop for MustAnswerCallbackQuery {
         }
     }
 }
+
+/// Undocumented server limit on the total size of message entities, mostly link URLs
+const ENTITIES_TOO_LONG: &str = "Bad Request: ENTITIES_TOO_LONG";
 
 fn log_parse_error(text: impl Into<String>) -> impl FnOnce(&RequestError) {
     let text = text.into();
