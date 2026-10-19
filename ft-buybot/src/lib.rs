@@ -2911,9 +2911,9 @@ Enter token name, ticker, or contract address of the token you want to track\\.
 NEW: The bot now supports meme\\.cooking tokens\\! To add a meme\\.cooking token, enter the link to the meme\\.cooking page\\.
 
 Examples:
-`intel.tkn.near`
-`$intel`
-`bd`
+`token.intear.near`
+`$tear`
+`blackdragon`
 `https://meme.cooking/meme/1`
 "
                 );
