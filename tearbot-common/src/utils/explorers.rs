@@ -1,8 +1,10 @@
 use std::fmt::Display;
 
 use near_primitives::types::AccountId;
+use teloxide::utils::markdown;
 
 struct Explorer {
+    name: &'static str,
     emoji: &'static str,
     custom_emoji_id: &'static str,
     account_url: &'static str,
@@ -11,18 +13,21 @@ struct Explorer {
 
 const EXPLORERS: &[Explorer] = &[
     Explorer {
+        name: "Nearblocks",
         emoji: "🔎",
         custom_emoji_id: "5953845903809847384",
         account_url: "https://nearblocks.io/address/",
         transaction_url: "https://nearblocks.io/txns/",
     },
     Explorer {
+        name: "Pikespeak",
         emoji: "🏔",
         custom_emoji_id: "5954148960997219836",
         account_url: "https://pikespeak.ai/wallet-explorer/",
         transaction_url: "https://pikespeak.ai/transaction-viewer/",
     },
     Explorer {
+        name: "near.rocks",
         emoji: "🪨",
         custom_emoji_id: "5953967348305109515",
         account_url: "https://near.rocks/account/",
@@ -35,13 +40,15 @@ fn format_explorer_links(url: fn(&Explorer) -> &'static str, id: &str) -> String
         .iter()
         .map(|explorer| {
             format!(
-                "[![{}](tg://emoji?id={})]({}{id})",
+                "![{}](tg://emoji?id={}) [{}]({}{id})",
                 explorer.emoji,
                 explorer.custom_emoji_id,
+                markdown::escape(explorer.name),
                 url(explorer)
             )
         })
-        .collect()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn format_account_explorer_links(account_id: &AccountId) -> String {
