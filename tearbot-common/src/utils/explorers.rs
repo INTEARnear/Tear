@@ -13,21 +13,21 @@ struct Explorer {
 
 const EXPLORERS: &[Explorer] = &[
     Explorer {
-        name: "Nearblocks",
+        name: "NB",
         emoji: "🔎",
         custom_emoji_id: "5953845903809847384",
         account_url: "https://nearblocks.io/address/",
         transaction_url: "https://nearblocks.io/txns/",
     },
     Explorer {
-        name: "Pikespeak",
+        name: "PP",
         emoji: "🏔",
         custom_emoji_id: "5954148960997219836",
         account_url: "https://pikespeak.ai/wallet-explorer/",
         transaction_url: "https://pikespeak.ai/transaction-viewer/",
     },
     Explorer {
-        name: "near.rocks",
+        name: "NR",
         emoji: "🪨",
         custom_emoji_id: "5953967348305109515",
         account_url: "https://near.rocks/account/",
@@ -36,19 +36,20 @@ const EXPLORERS: &[Explorer] = &[
 ];
 
 fn format_explorer_links(url: fn(&Explorer) -> &'static str, id: &str) -> String {
-    EXPLORERS
-        .iter()
-        .map(|explorer| {
-            format!(
-                "![{}](tg://emoji?id={}) [{}]({}{id})",
-                explorer.emoji,
-                explorer.custom_emoji_id,
-                markdown::escape(explorer.name),
-                url(explorer)
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+    format!(
+        "\\[{}\\]",
+        EXPLORERS
+            .iter()
+            .map(|explorer| {
+                format!(
+                    "[{}]({}{id})",
+                    explorer.emoji,
+                    url(explorer)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    )
 }
 
 pub fn format_account_explorer_links(account_id: &AccountId) -> String {

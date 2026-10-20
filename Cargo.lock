@@ -4110,6 +4110,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nanoid"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8628de41fe064cc3f0cf07f3d299ee3e73521adaff72278731d5c8cae3797873"
+dependencies = [
+ "rand 0.9.5",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9955,9 +9964,11 @@ dependencies = [
  "lazy_static",
  "log",
  "mpl-token-metadata",
+ "nanoid",
  "near-api",
  "near-crypto",
  "near-gas",
+ "near-openapi-client",
  "near-openapi-types",
  "near-primitives",
  "near-token",
