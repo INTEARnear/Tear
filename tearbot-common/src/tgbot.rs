@@ -47,12 +47,15 @@ use crate::near_utils::FtBalance;
 use crate::utils::chat::ChatPermissionLevel;
 use crate::utils::markdownv2;
 use crate::utils::requests::fetch_file_cached_1d;
+use crate::utils::rpc::view_cached_30s;
 use crate::utils::store::PersistentCachedStore;
 use crate::utils::tokens::{StringifiedBalance, WRAP_NEAR};
 use crate::utils::{NETWORK_CONFIG, UserInChat, format_duration};
 use crate::xeon::XeonState;
 use crate::{
-    bot_commands::{MessageCommand, PaymentReference, TgCommand},
+    bot_commands::{
+        ConnectedAccounts, ConnectedNearAccount, MessageCommand, PaymentReference, TgCommand,
+    },
     utils::store::PersistentUncachedStore,
 };
 
@@ -71,6 +74,9 @@ pub type TgBot = CacheMe<Throttle<Bot>>;
 /// Use this as callback data if you're 100% sure that the callback data will never be used
 pub const DONT_CARE: &str = "dontcare";
 pub const BASE_REFERRAL_SHARE: f64 = 0.25;
+pub const TEAR_STAKING_CONTRACT_ID: &str = "stakeyourtears.intear.near";
+pub const TEAR_STAKE_REFERRAL_SHARES: [(FtBalance, f64); 3] =
+    [(100_000, 0.8), (10_000, 0.6), (1_000, 0.4)];
 pub const STARS_PER_USD: u32 = 75;
 pub const NOTIFICATION_LIMIT_5M: usize = 20;
 pub const NOTIFICATION_LIMIT_1H: usize = 150;
@@ -364,12 +370,48 @@ impl BotData {
         self.give_referrer_share(user_id, token_id, amount).await;
     }
 
-    pub fn get_referral_share(&self, user_id: UserId) -> f64 {
+    pub async fn get_referral_share(&self, user_id: UserId) -> f64 {
         // Meme.cooking (Mario)
-        if user_id == UserId(28757995) {
+        let base_share = if user_id == UserId(28757995) {
             0.5
         } else {
             BASE_REFERRAL_SHARE
+        };
+        let staked_tear = self.get_staked_tear(user_id).await / 10u128.pow(24);
+        TEAR_STAKE_REFERRAL_SHARES
+            .into_iter()
+            .find(|(min_tear, _)| staked_tear >= *min_tear)
+            .map_or(base_share, |(_, share)| share.max(base_share))
+    }
+
+    async fn get_staked_tear(&self, user_id: UserId) -> FtBalance {
+        #[derive(Deserialize)]
+        struct StakingAccount {
+            locked: StringifiedBalance,
+        }
+
+        let Some(ConnectedNearAccount(account_id)) = self
+            .xeon
+            .get_resource::<ConnectedAccounts>(user_id)
+            .await
+            .and_then(|accounts| accounts.near)
+        else {
+            return 0;
+        };
+        match view_cached_30s::<_, Option<StakingAccount>>(
+            TEAR_STAKING_CONTRACT_ID,
+            "get_account",
+            serde_json::json!({ "account_id": account_id }),
+        )
+        .await
+        {
+            Ok(account) => account.map_or(0, |account| account.locked.0),
+            Err(err) => {
+                log::error!(
+                    "Failed to get TEAR staked by {account_id}, using the base referral share: {err:?}"
+                );
+                0
+            }
         }
     }
 
@@ -383,7 +425,7 @@ impl BotData {
             self.give_to(
                 referrer_id,
                 token_id,
-                (amount as f64 * self.get_referral_share(referrer_id)) as FtBalance,
+                (amount as f64 * self.get_referral_share(referrer_id).await) as FtBalance,
             )
             .await;
         }

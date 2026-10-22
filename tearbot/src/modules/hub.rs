@@ -2561,10 +2561,12 @@ Your referrals: {}
 
 When your referral spends tokens in this bot, you will get {}% of it\\!
 
+NEW: Stake TEAR on dex\\.intea\\.rs/tear to increase it\: 40% for 1,000 TEAR, 60% for 10,000, 80% for 100,000
+
 Your withdrawable balance: {}, connected account: {}
                 ",
                     context.bot().get_referrals(context.user_id()).await.len(),
-                    (context.bot().get_referral_share(context.user_id()) * 100f64).floor(),
+                    (context.bot().get_referral_share(context.user_id()).await * 100f64).floor(),
                     if balance.is_empty() {
                         "None".to_string()
                     } else {
