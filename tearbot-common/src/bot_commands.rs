@@ -537,6 +537,7 @@ pub enum TgCommand {
     ReferralWithdraw,
     OpenAccountConnectionMenu,
     SetReferralNotifications(bool),
+    DisconnectNearAccount,
     #[cfg(feature = "ft-buybot-module")]
     FtNotificationsEnableSubscriptionLpAdd(NotificationDestination, Token),
     #[cfg(feature = "ft-buybot-module")]

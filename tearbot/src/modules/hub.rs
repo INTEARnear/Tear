@@ -2553,6 +2553,11 @@ impl XeonBotModule for HubModule {
                     user_id = context.user_id()
                 );
                 let balance = context.bot().get_referral_balance(context.user_id()).await;
+                let connected_near = self
+                    .connected_accounts
+                    .get(&context.user_id())
+                    .await
+                    .and_then(|c| c.near);
                 let message = format!(
                     "
 Your referral link: `{link}` \\(click to copy\\)
@@ -2561,7 +2566,7 @@ Your referrals: {}
 
 When your referral spends tokens in this bot, you will get {}% of it\\!
 
-NEW: Stake TEAR on dex\\.intea\\.rs/tear to increase it\: 40% for 1,000 TEAR, 60% for 10,000, 80% for 100,000
+NEW: Stake TEAR on dex\\.intea\\.rs/tear to increase it: 40% for 1,000 TEAR, 60% for 10,000, 80% for 100,000
 
 Your withdrawable balance: {}, connected account: {}
                 ",
@@ -2578,12 +2583,7 @@ Your withdrawable balance: {}, connected account: {}
                         }
                         tokens.into_iter().join(", ")
                     },
-                    if let Some(connected) = self
-                        .connected_accounts
-                        .get(&context.user_id())
-                        .await
-                        .and_then(|c| c.near)
-                    {
+                    if let Some(connected) = &connected_near {
                         format_account_id(&connected.0).await
                     } else {
                         "None".to_string()
@@ -2623,6 +2623,23 @@ Your withdrawable balance: {}, connected account: {}
                             )
                         },
                     ],
+                    vec![if connected_near.is_some() {
+                        InlineKeyboardButton::callback(
+                            "🔌 Disconnect account",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::DisconnectNearAccount)
+                                .await,
+                        )
+                    } else {
+                        InlineKeyboardButton::callback(
+                            "🖇Connect account",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::OpenAccountConnectionMenu)
+                                .await,
+                        )
+                    }],
                     vec![InlineKeyboardButton::callback(
                         "⬅️ Back",
                         context
@@ -2632,6 +2649,53 @@ Your withdrawable balance: {}, connected account: {}
                     )],
                 ]);
                 context.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::DisconnectNearAccount => {
+                match self.disconnect_near_account(context.user_id()).await {
+                    Ok(()) => {
+                        self.handle_callback(
+                            TgCallbackContext::new(
+                                context.bot(),
+                                context.user_id(),
+                                context.chat_id(),
+                                context.message_id(),
+                                &context
+                                    .bot()
+                                    .to_callback_data(&TgCommand::ReferralDashboard)
+                                    .await,
+                            ),
+                            &mut None,
+                        )
+                        .await?;
+                    }
+                    Err(err) => {
+                        log::warn!(
+                            "Failed to disconnect the NEAR account of {}: {err:?}",
+                            context.user_id()
+                        );
+                        let message = format!(
+                            "Failed to disconnect: {}",
+                            markdown::escape(&format!("{err}"))
+                        );
+                        let reply_markup = InlineKeyboardMarkup::new(vec![
+                            vec![InlineKeyboardButton::callback(
+                                "🔄 Retry",
+                                context
+                                    .bot()
+                                    .to_callback_data(&TgCommand::DisconnectNearAccount)
+                                    .await,
+                            )],
+                            vec![InlineKeyboardButton::callback(
+                                "⬅️ Back",
+                                context
+                                    .bot()
+                                    .to_callback_data(&TgCommand::ReferralDashboard)
+                                    .await,
+                            )],
+                        ]);
+                        context.edit_or_send(message, reply_markup).await?;
+                    }
+                }
             }
             TgCommand::ReferralWithdraw => {
                 if let Some(account_id) = self
@@ -2809,6 +2873,32 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         Ok(())
     }
 
+    async fn disconnect_near_account(&self, user_id: UserId) -> Result<(), anyhow::Error> {
+        let connection_host = std::env::var("CONNECTION_HOST")?;
+        get_reqwest_client()
+            .post(format!(
+                "{}/api/disconnect",
+                connection_host.trim_end_matches('/')
+            ))
+            .json(&serde_json::json!({
+                "token": connection_token(user_id, ""),
+                "type": "near",
+            }))
+            .send()
+            .await?
+            .error_for_status()?;
+        let mut connected = self
+            .connected_accounts
+            .get(&user_id)
+            .await
+            .unwrap_or_default();
+        connected.near = None;
+        self.connected_accounts
+            .insert_or_update(user_id, connected)
+            .await?;
+        Ok(())
+    }
+
     async fn open_connection_menu(
         &self,
         mut context: TgCallbackContext<'_>,
@@ -2845,35 +2935,17 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 format_account_id(&near_account_id.0).await
             );
         }
+        let chat = context
+            .bot()
+            .bot()
+            .get_chat(context.chat_id().chat_id())
+            .await?;
         let reply_markup = InlineKeyboardMarkup::new(vec![
             vec![InlineKeyboardButton::url(
                 "Connect Accounts",
                 format!(
                     "https://connect.intea.rs/?token={}",
-                    BASE64_URL_SAFE.encode(
-                        [
-                            std::env::var("CONNECTION_KEY")
-                                .unwrap()
-                                .parse::<SecretKey>()
-                                .unwrap()
-                                .sign(context.user_id().to_string().as_bytes())
-                                .to_string()
-                                .into_bytes(),
-                            b",".to_vec(),
-                            context.user_id().to_string().into_bytes(),
-                            b",".to_vec(),
-                            context
-                                .bot()
-                                .bot()
-                                .get_chat(context.chat_id().chat_id())
-                                .await?
-                                .first_name()
-                                .unwrap_or_default()
-                                .as_bytes()
-                                .to_vec(),
-                        ]
-                        .concat()
-                    )
+                    connection_token(context.user_id(), chat.first_name().unwrap_or_default())
                 )
                 .parse()
                 .unwrap(),
@@ -3102,6 +3174,17 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
         context.edit_or_send(message, reply_markup).await?;
         Ok(())
     }
+}
+
+/// What connect.intea.rs takes to act for the user: the user id signed with `CONNECTION_KEY`, and
+/// the name to show
+fn connection_token(user_id: UserId, name: &str) -> String {
+    let signature = std::env::var("CONNECTION_KEY")
+        .unwrap()
+        .parse::<SecretKey>()
+        .unwrap()
+        .sign(user_id.to_string().as_bytes());
+    BASE64_URL_SAFE.encode(format!("{signature},{user_id},{name}"))
 }
 
 async fn create_notificatons_buttons(

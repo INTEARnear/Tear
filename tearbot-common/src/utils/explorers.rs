@@ -40,13 +40,7 @@ fn format_explorer_links(url: fn(&Explorer) -> &'static str, id: &str) -> String
         "\\[{}\\]",
         EXPLORERS
             .iter()
-            .map(|explorer| {
-                format!(
-                    "[{}]({}{id})",
-                    explorer.emoji,
-                    url(explorer)
-                )
-            })
+            .map(|explorer| { format!("[{}]({}{id})", explorer.emoji, url(explorer)) })
             .collect::<Vec<_>>()
             .join("")
     )
