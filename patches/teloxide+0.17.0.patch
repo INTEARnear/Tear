@@ -1,0 +1,59 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index ebd2aeb..c85379f 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -3,12 +3,12 @@ name = "teloxide"
+ version = "0.17.0"
+ description = "An elegant Telegram bots framework for Rust"
+ 
+-rust-version.workspace = true
++rust-version = "1.85"
+ 
+-edition.workspace = true
+-license.workspace = true
+-homepage.workspace = true
+-repository.workspace = true
++edition = "2021"
++license = "MIT"
++homepage = "https://github.com/teloxide/teloxide"
++repository = "https://github.com/teloxide/teloxide"
+ 
+ documentation = "https://docs.rs/teloxide/"
+ readme = "../../README.md"
+diff --git a/src/utils/markdown.rs b/src/utils/markdown.rs
+index 05e259d..19dca4a 100644
+--- a/src/utils/markdown.rs
++++ b/src/utils/markdown.rs
+@@ -85,7 +85,7 @@ pub fn strike(s: &str) -> String {
+ 
+ /// Builds an inline link with an anchor.
+ ///
+-/// Escapes `)` and ``` characters inside the link url.
++/// Escapes `)`, ``` and `\` characters inside the link url.
+ #[must_use = "This function returns a new string, rather than mutating the argument, so calling it \
+               without using its output does nothing useful"]
+ pub fn link(url: &str, text: &str) -> String {
+@@ -143,12 +143,12 @@ pub fn escape(s: &str) -> String {
+ }
+ 
+ /// Escapes all markdown special characters specific for the inline link URL
+-/// (``` and `)`).
++/// (```, `)` and `\`).
+ #[must_use = "This function returns a new string, rather than mutating the argument, so calling it \
+               without using its output does nothing useful"]
+ pub fn escape_link_url(s: &str) -> String {
+     s.chars().fold(String::with_capacity(s.len()), |mut s, c| {
+-        if ['`', ')'].contains(&c) {
++        if ['`', ')', '\\'].contains(&c) {
+             s.push('\\');
+         }
+         s.push(c);
+@@ -286,7 +286,7 @@ mod tests {
+             escape_link_url(r"https://en.wikipedia.org/wiki/`"),
+             r"https://en.wikipedia.org/wiki/\`"
+         );
+-        assert_eq!(escape_link_url(r"_*[]()~`#+-=|{}.!\"), r"_*[](\)~\`#+-=|{}.!\");
++        assert_eq!(escape_link_url(r"_*[]()~`#+-=|{}.!\"), r"_*[](\)~\`#+-=|{}.!\\");
+     }
+ 
+     #[test]

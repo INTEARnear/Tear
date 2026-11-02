@@ -31,8 +31,8 @@ use teloxide::prelude::Update;
 use teloxide::prelude::UserId;
 use teloxide::prelude::{LoggingErrorHandler, dptree};
 use teloxide::types::{
-    InlineKeyboardMarkup, InlineQuery, InputFile, LinkPreviewOptions, MaybeInaccessibleMessage,
-    MessageId, ParseMode, ReplyMarkup, ThreadId,
+    CallbackQueryId, FileId, InlineKeyboardMarkup, InlineQuery, InputFile, LinkPreviewOptions,
+    MaybeInaccessibleMessage, MessageId, ParseMode, ReplyMarkup, ThreadId,
 };
 use teloxide::update_listeners::webhooks;
 use teloxide::utils::markdown;
@@ -126,9 +126,9 @@ pub struct BotData {
     bot_type: BotType,
     bot_id: UserId,
     xeon: Arc<XeonState>,
-    photo_file_id_cache: PersistentCachedStore<String, String>,
-    animation_file_id_cache: PersistentCachedStore<String, String>,
-    audio_file_id_cache: PersistentCachedStore<String, String>,
+    photo_file_id_cache: PersistentCachedStore<String, FileId>,
+    animation_file_id_cache: PersistentCachedStore<String, FileId>,
+    audio_file_id_cache: PersistentCachedStore<String, FileId>,
     callback_data_cache: PersistentCachedStore<String, String>,
     global_callback_data_storage: PersistentUncachedStore<String, String>,
     message_commands: PersistentCachedStore<UserInChat, MessageCommand>,
@@ -698,11 +698,8 @@ impl BotData {
                                                     &bot,
                                                     from_id,
                                                     msg.chat.id,
-                                                    payment.subscription_expiration_date.map(|t| {
-                                                        DateTime::from_timestamp_millis(t as i64)
-                                                            .unwrap()
-                                                    }),
-                                                    payment.telegram_payment_charge_id.clone(),
+                                                    payment.subscription_expiration_date,
+                                                    payment.telegram_payment_charge_id.0.clone(),
                                                     payment.is_recurring,
                                                     payment.is_first_recurring,
                                                     payload,
@@ -1035,7 +1032,7 @@ impl BotData {
     pub async fn send_photo_by_file_id(
         &self,
         chat_id: NotificationDestination,
-        file_id: String,
+        file_id: FileId,
         caption: String,
         reply_markup: impl Into<ReplyMarkup>,
     ) -> Result<(), anyhow::Error> {
@@ -1054,7 +1051,7 @@ impl BotData {
     pub async fn send_animation_by_file_id(
         &self,
         chat_id: NotificationDestination,
-        file_id: String,
+        file_id: FileId,
         caption: String,
         reply_markup: impl Into<ReplyMarkup>,
     ) -> Result<(), anyhow::Error> {
@@ -1073,7 +1070,7 @@ impl BotData {
     pub async fn send_audio_by_file_id(
         &self,
         chat_id: NotificationDestination,
-        file_id: String,
+        file_id: FileId,
         caption: String,
         reply_markup: impl Into<ReplyMarkup>,
     ) -> Result<(), anyhow::Error> {
@@ -1793,22 +1790,22 @@ pub enum Attachment {
     #[default]
     None,
     PhotoUrl(Url),
-    PhotoFileId(String),
+    PhotoFileId(FileId),
     PhotoBytes(Vec<u8>),
     AnimationUrl(Url),
-    AnimationFileId(String),
+    AnimationFileId(FileId),
     AudioUrl(Url),
-    AudioFileId(String),
+    AudioFileId(FileId),
     VideoUrl(Url),
-    VideoFileId(String),
+    VideoFileId(FileId),
     DocumentUrl(Url, String),
     DocumentText(String, String),
-    DocumentFileId(String, String),
+    DocumentFileId(FileId, String),
 }
 
 pub struct MustAnswerCallbackQuery {
     bot_id: UserId,
-    callback_query: String,
+    callback_query: CallbackQueryId,
     callback_query_answered: bool,
 }
 
@@ -1817,7 +1814,11 @@ impl MustAnswerCallbackQuery {
         let bot = xeon
             .bot(&self.bot_id)
             .expect("Bot not found while answering a callbakc query");
-        if let Err(err) = bot.bot().answer_callback_query(&self.callback_query).await {
+        if let Err(err) = bot
+            .bot()
+            .answer_callback_query(self.callback_query.clone())
+            .await
+        {
             warn!(
                 "Error answering callback query {}: {:?}",
                 self.callback_query, err

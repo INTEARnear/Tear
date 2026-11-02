@@ -3,7 +3,7 @@ use tearbot_common::{
     teloxide::{
         ApiError, RequestError,
         prelude::{ChatId, Requester},
-        types::{ChatKind, InlineKeyboardButton, InlineKeyboardMarkup, MessageId},
+        types::{ChatFullInfoKind, InlineKeyboardButton, InlineKeyboardMarkup, MessageId},
         utils::markdown,
     },
     tgbot::{Attachment, TgCallbackContext},
@@ -18,7 +18,8 @@ pub async fn handle_button(
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    let ChatKind::Private(admin) = ctx.bot().bot().get_chat(ctx.user_id()).await?.kind else {
+    let ChatFullInfoKind::Private(admin) = ctx.bot().bot().get_chat(ctx.user_id()).await?.kind
+    else {
         return Ok(());
     };
     if let Err(RequestError::Api(err)) = ctx

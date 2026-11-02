@@ -3,7 +3,6 @@ cargo-features = ["profile-rustflags"]
 [workspace]
 resolver = "2"
 members = ["tearbot", "wallet-tracking", "explorer", "tip-bot", "raid-bot", "house-of-stake", "subscription-lists"]
-exclude = ["teloxide"]
 
 [workspace.package]
 version = "0.1.0"
@@ -25,7 +24,7 @@ rand = "0.8.5"
 reqwest = "0.11"
 serde = "1.0.197"
 serde_json = "1.0.115"
-teloxide = { path = "./teloxide/crates/teloxide" }
+teloxide = { git = "https://github.com/teloxide/teloxide", rev = "3c46b96e0dc0cabc75d6430c4566d7e2e12fd233" }
 tokio = "1.37.0"
 tokio-stream = "0.1.15"
 near-primitives = "0.37.4"
@@ -51,3 +50,10 @@ near-jsonrpc-primitives = "0.37.4"
 near-crypto = "0.37.4"
 regex = "1.11.1"
 axum = "0.8.6"
+
+[workspace.metadata.patch]
+crates = ["teloxide", "teloxide-core"]
+
+[patch."https://github.com/teloxide/teloxide"]
+teloxide = { path = "./target/patch/teloxide" }
+teloxide-core = { path = "./target/patch/teloxide-core" }

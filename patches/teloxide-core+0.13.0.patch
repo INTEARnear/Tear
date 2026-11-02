@@ -1,0 +1,251 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 77d70a6..9d86201 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -3,11 +3,11 @@ name = "teloxide-core"
+ version = "0.13.0"
+ description = "Core part of the `teloxide` library - telegram bot API client"
+ 
+-rust-version.workspace = true
+-edition.workspace = true
+-license.workspace = true
+-homepage.workspace = true
+-repository.workspace = true
++rust-version = "1.85"
++edition = "2021"
++license = "MIT"
++homepage = "https://github.com/teloxide/teloxide"
++repository = "https://github.com/teloxide/teloxide"
+ 
+ documentation = "https://docs.rs/teloxide-core/"
+ readme = "README.md"
+diff --git a/src/adaptors/throttle/request.rs b/src/adaptors/throttle/request.rs
+index a785ccc..dda0d27 100644
+--- a/src/adaptors/throttle/request.rs
++++ b/src/adaptors/throttle/request.rs
+@@ -2,7 +2,6 @@ use std::{
+     future::{Future, IntoFuture},
+     pin::Pin,
+     sync::Arc,
+-    time::Instant,
+ };
+ 
+ use futures::{
+@@ -204,15 +203,13 @@ where
+         let retry_after = res.as_ref().err().and_then(<_>::retry_after);
+         if let Some(retry_after) = retry_after {
+             let after = retry_after.duration();
+-            let until = Instant::now() + after;
+ 
+             // If we'll retry, we check that worker hasn't died at the start of the loop
+             // otherwise we don't care if the worker is alive or not
+-            let _ = freeze.send(FreezeUntil { until, after, chat }).await;
++            let _ = freeze.send(FreezeUntil { after, chat }).await;
+ 
+             if retry {
+-                log::warn!("Freezing, before retrying: {retry_after:?}");
+-                tokio::time::sleep_until(until.into()).await;
++                log::warn!("Retrying without freezing after: {retry_after:?}");
+             }
+         }
+ 
+diff --git a/src/adaptors/throttle/worker.rs b/src/adaptors/throttle/worker.rs
+index 6879628..255bab4 100644
+--- a/src/adaptors/throttle/worker.rs
++++ b/src/adaptors/throttle/worker.rs
+@@ -45,7 +45,6 @@ struct RequestsSentToChats {
+ }
+ 
+ pub(super) struct FreezeUntil {
+-    pub(super) until: Instant,
+     pub(super) after: Duration,
+     pub(super) chat: ChatIdHash,
+ }
+@@ -306,7 +305,7 @@ async fn freeze(
+     mut imm: Option<FreezeUntil>,
+ ) {
+     while let Some(freeze_until) = imm.take().or_else(|| rx.try_recv().ok()) {
+-        let FreezeUntil { until, after, chat } = freeze_until;
++        let FreezeUntil { after, chat } = freeze_until;
+ 
+         // Clippy thinks that this `.as_deref_mut()` doesn't change the type (&mut
+         // HashMap -> &mut HashMap), but it's actually a reborrow (the lifetimes
+@@ -344,13 +343,9 @@ async fn freeze(
+         // by the said slow mode and not by the global limits.
+         if !slow_mode_enabled_and_likely_the_cause {
+             log::warn!(
+-                "freezing the bot for approximately {after:?} due to `RetryAfter` error from \
+-                 telegram"
++                "not freezing the bot despite `RetryAfter` error from telegram asking to wait \
++                 {after:?}"
+             );
+-
+-            tokio::time::sleep_until(until.into()).await;
+-
+-            log::warn!("unfreezing the bot");
+         }
+     }
+ }
+diff --git a/src/types/external_reply_info.rs b/src/types/external_reply_info.rs
+index 0495434..6d95f00 100644
+--- a/src/types/external_reply_info.rs
++++ b/src/types/external_reply_info.rs
+@@ -18,7 +18,7 @@ pub struct ExternalReplyInfo {
+     pub chat: Option<Chat>,
+     /// Unique message identifier inside the original chat. Available only if
+     /// the original chat is a supergroup or a channel.
+-    #[serde(with = "crate::types::option_msg_id_as_int")]
++    #[serde(with = "crate::types::option_msg_id_as_int", default)]
+     #[cfg_attr(test, schemars(with = "Option<i32>"))]
+     pub message_id: Option<MessageId>,
+     /// Options used for link preview generation for the original message, if it
+@@ -28,8 +28,10 @@ pub struct ExternalReplyInfo {
+     #[serde(default)]
+     pub has_media_spoiler: bool,
+ 
++    /// Content of the original message. `None` for messages without media,
++    /// such as text messages.
+     #[serde(flatten)]
+-    pub kind: ExternalReplyInfoKind,
++    pub kind: Option<ExternalReplyInfoKind>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+@@ -65,3 +67,39 @@ pub enum ExternalReplyInfoKind {
+     Voice(Voice),
+     Invoice(Invoice),
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn text_message_from_private_chat() {
++        let json = r#"{
++            "origin": {
++                "type": "user",
++                "sender_user": {"id": 1, "is_bot": false, "first_name": "A"},
++                "date": 1700000000
++            }
++        }"#;
++        let info: ExternalReplyInfo = serde_json::from_str(json).unwrap();
++        assert_eq!(info.message_id, None);
++        assert_eq!(info.kind, None);
++    }
++
++    #[test]
++    fn dice_message_from_supergroup() {
++        let json = r#"{
++            "origin": {
++                "type": "user",
++                "sender_user": {"id": 1, "is_bot": false, "first_name": "A"},
++                "date": 1700000000
++            },
++            "chat": {"id": -1001, "type": "supergroup", "title": "G"},
++            "message_id": 5,
++            "dice": {"emoji": "🎲", "value": 3}
++        }"#;
++        let info: ExternalReplyInfo = serde_json::from_str(json).unwrap();
++        assert_eq!(info.message_id, Some(MessageId(5)));
++        assert!(matches!(info.kind, Some(ExternalReplyInfoKind::Dice(_))));
++    }
++}
+diff --git a/src/types/message.rs b/src/types/message.rs
+index 960e30b..c281327 100644
+--- a/src/types/message.rs
++++ b/src/types/message.rs
+@@ -557,6 +557,18 @@ pub struct MediaDocument {
+ pub struct MediaPaid {
+     /// Message contains paid media; information about the paid media.
+     pub paid_media: PaidMediaInfo,
++
++    /// Caption for the paid media, 0-1024 characters.
++    pub caption: Option<String>,
++
++    /// For messages with a caption, special entities like usernames, URLs,
++    /// bot commands, etc. that appear in the caption.
++    #[serde(default, skip_serializing_if = "Vec::is_empty")]
++    pub caption_entities: Vec<MessageEntity>,
++
++    /// `true`, if the caption must be shown above the message media.
++    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
++    pub show_caption_above_media: bool,
+ }
+ 
+ #[serde_with::skip_serializing_none]
+@@ -1239,6 +1251,10 @@ mod getters {
+                     media_kind: MediaKind::Document(MediaDocument { caption_entities, .. }),
+                     ..
+                 })
++                | Common(MessageCommon {
++                    media_kind: MediaKind::PaidMedia(MediaPaid { caption_entities, .. }),
++                    ..
++                })
+                 | Common(MessageCommon {
+                     media_kind: MediaKind::Photo(MediaPhoto { caption_entities, .. }),
+                     ..
+@@ -1258,13 +1274,15 @@ mod getters {
+         /// Returns `true` if the caption must be shown above the message media.
+         ///
+         /// Getter for [`MediaPhoto::show_caption_above_media`],
+-        /// [`MediaVideo::show_caption_above_media`] and
+-        /// [`MediaAnimation::show_caption_above_media`].
++        /// [`MediaVideo::show_caption_above_media`],
++        /// [`MediaAnimation::show_caption_above_media`] and
++        /// [`MediaPaid::show_caption_above_media`].
+         #[must_use]
+         pub fn show_caption_above_media(&self) -> bool {
+             self.common()
+                 .map(|m| match m.media_kind {
+                     MediaKind::Animation(MediaAnimation { show_caption_above_media, .. })
++                    | MediaKind::PaidMedia(MediaPaid { show_caption_above_media, .. })
+                     | MediaKind::Photo(MediaPhoto { show_caption_above_media, .. })
+                     | MediaKind::Video(MediaVideo { show_caption_above_media, .. }) => {
+                         show_caption_above_media
+@@ -1272,7 +1290,6 @@ mod getters {
+                     MediaKind::Audio(_)
+                     | MediaKind::Contact(_)
+                     | MediaKind::Document(_)
+-                    | MediaKind::PaidMedia(_)
+                     | MediaKind::Game(_)
+                     | MediaKind::Venue(_)
+                     | MediaKind::Location(_)
+@@ -1449,6 +1466,7 @@ mod getters {
+                         MediaKind::Animation(MediaAnimation { caption, .. })
+                         | MediaKind::Audio(MediaAudio { caption, .. })
+                         | MediaKind::Document(MediaDocument { caption, .. })
++                        | MediaKind::PaidMedia(MediaPaid { caption, .. })
+                         | MediaKind::Photo(MediaPhoto { caption, .. })
+                         | MediaKind::Video(MediaVideo { caption, .. })
+                         | MediaKind::Voice(MediaVoice { caption, .. }),
+@@ -3524,4 +3542,29 @@ mod tests {
+         let message: Message = from_str(json).unwrap();
+         assert!(message.show_caption_above_media())
+     }
++
++    #[test]
++    fn paid_media_caption() {
++        let json = r#"{
++            "message_id": 141,
++            "chat": {
++                "id": -1001234567890,
++                "title": "Channel",
++                "type": "channel"
++            },
++            "date": 1739041615,
++            "paid_media": {
++                "star_count": 10,
++                "paid_media": [{"type": "preview", "width": 100, "height": 100}]
++            },
++            "caption": "Buy https://example.com",
++            "caption_entities": [{"type": "url", "offset": 4, "length": 19}],
++            "show_caption_above_media": true
++        }"#;
++        let message: Message = from_str(json).unwrap();
++        assert!(message.paid_media().is_some());
++        assert_eq!(message.caption(), Some("Buy https://example.com"));
++        assert_eq!(message.caption_entities().map(<[_]>::len), Some(1));
++        assert!(message.show_caption_above_media());
++    }
+ }

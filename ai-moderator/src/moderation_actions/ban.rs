@@ -5,7 +5,7 @@ use tearbot_common::{
         ApiError, RequestError,
         payloads::BanChatMemberSetters,
         prelude::{ChatId, Requester, UserId},
-        types::{ChatKind, InlineKeyboardButton, InlineKeyboardMarkup},
+        types::{ChatFullInfoKind, InlineKeyboardButton, InlineKeyboardMarkup},
         utils::markdown,
     },
     tgbot::{Attachment, TgCallbackContext},
@@ -23,7 +23,8 @@ pub async fn handle_button(
     if !check_admin_permission_in_chat(ctx.bot(), target_chat_id, ctx.user_id()).await {
         return Ok(());
     }
-    let ChatKind::Private(admin) = ctx.bot().bot().get_chat(ctx.user_id()).await?.kind else {
+    let ChatFullInfoKind::Private(admin) = ctx.bot().bot().get_chat(ctx.user_id()).await?.kind
+    else {
         return Ok(());
     };
     let result = if let Some(user_id) = target_user_id.as_user() {

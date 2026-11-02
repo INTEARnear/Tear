@@ -28,7 +28,10 @@ use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 #[cfg(feature = "trading-bot-module")]
 use solana_sdk::signature::Keypair as SolanaKeypair;
-use teloxide::{prelude::UserId, types::ChatId};
+use teloxide::{
+    prelude::UserId,
+    types::{ChatId, FileId},
+};
 
 use crate::{
     near_utils::FtBalance,
@@ -2045,8 +2048,8 @@ pub enum NftBuybotMessageAttachment {
     Image,
     Animation, // not tested
     Audio,     // not tested
-    FixedImage { file_id: String },
-    FixedAnimation { file_id: String },
+    FixedImage { file_id: FileId },
+    FixedAnimation { file_id: FileId },
 }
 
 #[cfg(feature = "nft-buybot-module")]

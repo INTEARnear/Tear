@@ -110,7 +110,7 @@ fn main() -> Result<(), anyhow::Error> {
                     CacheMe::new(
                         Bot::with_client(
                             main_bot_token,
-                            reqwest::Client::builder()
+                            tearbot_common::teloxide::net::default_reqwest_settings()
                                 .timeout(Duration::from_secs(30))
                                 .build()
                                 .unwrap(),

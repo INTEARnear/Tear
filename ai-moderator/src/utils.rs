@@ -20,7 +20,7 @@ use tearbot_common::{
     teloxide::{
         net::Download,
         prelude::{ChatId, Message, Requester, UserId},
-        types::{MessageEntityKind, MessageKind},
+        types::{InlineKeyboardButtonKind, MessageEntityKind, MessageEntityRef, MessageKind},
         utils::markdown,
     },
     tgbot::BotData,
@@ -109,11 +109,7 @@ pub async fn get_message_rating(
     bot_config: &AiModeratorBotConfig,
 ) -> MessageRating {
     if let Some(user) = message.from.as_ref() {
-        let message_text = message
-            .text()
-            .or(message.caption())
-            .unwrap_or_default()
-            .to_string();
+        let message_text = get_user_written_text(&message).unwrap_or_default();
 
         if bot_config
             .mute_flood_data
@@ -161,13 +157,9 @@ pub async fn get_message_rating(
                 };
         }
     }
-    let mut message_text = message
-        .text()
-        .or(message.caption())
-        .map(|s| s.to_owned())
-        .unwrap_or_else(|| {
-            "[No text. Pass this as 'Good' unless you see a suspicious image]".to_string()
-        });
+    let mut message_text = get_user_written_text(&message).unwrap_or_else(|| {
+        "[No text. Pass this as 'Good' unless you see a suspicious image]".to_string()
+    });
     if let Some(quote) = message.quote() {
         message_text = format!("Quote:\n{}\n\nMessage:\n{message_text}", quote.text);
     }
@@ -199,17 +191,43 @@ pub async fn get_message_rating(
             image_jpeg: None,
         };
     }
+    let checklist_title = message
+        .checklist()
+        .map(|checklist| (&checklist.title, &checklist.title_entities));
+    let checklist_tasks = message
+        .checklist()
+        .map(|checklist| &checklist.tasks)
+        .into_iter()
+        .chain(message.checklist_tasks_added().map(|added| &added.tasks))
+        .flatten()
+        .map(|task| (&task.text, &task.text_entities));
+    let has_link_buttons = message.reply_markup().is_some_and(|markup| {
+        markup.inline_keyboard.iter().flatten().any(|button| {
+            matches!(
+                button.kind,
+                InlineKeyboardButtonKind::Url(_)
+                    | InlineKeyboardButtonKind::LoginUrl(_)
+                    | InlineKeyboardButtonKind::WebApp(_)
+            )
+        })
+    });
     if config.block_links
-        && message
-            .parse_entities()
-            .unwrap_or_default()
-            .into_iter()
-            .chain(message.parse_caption_entities().unwrap_or_default())
-            .any(|entity| match entity.kind() {
-                MessageEntityKind::Url if !entity.text().ends_with(".tg") => true,
-                MessageEntityKind::TextLink { .. } => true,
-                _ => false,
-            })
+        && (has_link_buttons
+            || message
+                .parse_entities()
+                .unwrap_or_default()
+                .into_iter()
+                .chain(message.parse_caption_entities().unwrap_or_default())
+                .chain(checklist_title.into_iter().chain(checklist_tasks).flat_map(
+                    |(text, entities)| {
+                        MessageEntityRef::parse(text, entities.as_deref().unwrap_or_default())
+                    },
+                ))
+                .any(|entity| match entity.kind() {
+                    MessageEntityKind::Url if !entity.text().ends_with(".tg") => true,
+                    MessageEntityKind::TextLink { .. } => true,
+                    _ => false,
+                }))
     {
         return MessageRating::Ok {
             judgement: ModerationJudgement::Suspicious,
@@ -294,7 +312,10 @@ pub async fn get_message_rating(
         .photo()
         .map(|photo| photo.last().unwrap().file.id.clone());
     let bot = xeon.bot(&bot_id).unwrap();
-    if !matches!(message.kind, MessageKind::Common(_)) {
+    if !matches!(
+        message.kind,
+        MessageKind::Common(_) | MessageKind::ChecklistTasksAdded(_)
+    ) {
         return MessageRating::NotApplicableSystemMessage;
     }
     if message_text.is_empty() {
@@ -383,6 +404,59 @@ Note that if something can be harmful, but is not explicitly mentioned in the ru
                 image_jpeg,
             }
         }
+    }
+}
+
+pub fn get_user_written_text(message: &Message) -> Option<String> {
+    let content = if let Some(text) = message.text().or(message.caption()) {
+        Some(text.to_owned())
+    } else if let Some(checklist) = message.checklist() {
+        let tasks = checklist
+            .tasks
+            .iter()
+            .map(|task| format!("- {}", task.text))
+            .collect::<Vec<_>>()
+            .join("\n");
+        Some(format!("Checklist: {}\n{tasks}", checklist.title))
+    } else if let Some(tasks_added) = message.checklist_tasks_added() {
+        let tasks = tasks_added
+            .tasks
+            .iter()
+            .map(|task| format!("- {}", task.text))
+            .collect::<Vec<_>>()
+            .join("\n");
+        Some(format!("Added checklist tasks:\n{tasks}"))
+    } else {
+        None
+    };
+    let buttons = message
+        .reply_markup()
+        .map(|markup| {
+            markup
+                .inline_keyboard
+                .iter()
+                .flatten()
+                .map(|button| match &button.kind {
+                    InlineKeyboardButtonKind::Url(url) => format!("- {} ({url})", button.text),
+                    InlineKeyboardButtonKind::LoginUrl(login_url) => {
+                        format!("- {} ({})", button.text, login_url.url)
+                    }
+                    InlineKeyboardButtonKind::WebApp(web_app) => {
+                        format!("- {} (Mini App: {})", button.text, web_app.url)
+                    }
+                    InlineKeyboardButtonKind::CopyText(copy_text) => {
+                        format!("- {} (copies: {})", button.text, copy_text.text)
+                    }
+                    _ => format!("- {}", button.text),
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .filter(|buttons| !buttons.is_empty());
+    match (content, buttons) {
+        (Some(content), Some(buttons)) => Some(format!("{content}\n\nButtons:\n{buttons}")),
+        (None, Some(buttons)) => Some(format!("Buttons:\n{buttons}")),
+        (content, None) => content,
     }
 }
 

@@ -1458,6 +1458,8 @@ impl AiModeratorModule {
                 } else if message.story().is_some() {
                     // TODO moderate random frame of video note
                     (Attachment::None, Some("+ Forwarded story"))
+                } else if message.paid_media().is_some() {
+                    (Attachment::None, Some("+ Paid media"))
                 } else {
                     (Attachment::None, None)
                 };
@@ -1488,7 +1490,7 @@ impl AiModeratorModule {
                     }
                 };
                 let chat_name = markdown::escape(&get_chat_title_cached_5m(bot.bot(), chat_id.into()).await?.unwrap_or_default());
-                let mut original_message_text = message.text().or(message.caption()).unwrap_or_default().to_string();
+                let mut original_message_text = utils::get_user_written_text(&message).unwrap_or_default();
                 if let Some(quote) = message.quote() {
                     original_message_text = format!("Quote:\n{}\n\nMessage:\n{original_message_text}", quote.text);
                 }

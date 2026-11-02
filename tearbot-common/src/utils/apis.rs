@@ -157,7 +157,7 @@ pub async fn search_token(
         // Search with AI
         let image_jpeg = if let Some(image) = image {
             let image = image.last().unwrap();
-            if let Ok(file) = bot.bot().get_file(&image.file.id).await {
+            if let Ok(file) = bot.bot().get_file(image.file.id.clone()).await {
                 let mut buf = Vec::new();
                 if let Ok(()) = bot.bot().download_file(&file.path, &mut buf).await {
                     Some(buf)

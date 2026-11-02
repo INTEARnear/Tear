@@ -1954,16 +1954,16 @@ impl XeonBotModule for HubModule {
                 } else {
                     return Ok(());
                 };
-                if let Some(UsersShared { user_ids, .. }) = user_message.shared_users() {
+                if let Some(UsersShared { users, .. }) = user_message.shared_users() {
                     let old_length = whitelist.len();
-                    whitelist.extend(user_ids);
+                    whitelist.extend(users.iter().map(|user| user.user_id));
                     let text_message = format!(
                         "Added {} admins to the whitelist{}",
                         whitelist.len() - old_length,
-                        if whitelist.len() - old_length != user_ids.len() {
+                        if whitelist.len() - old_length != users.len() {
                             format!(
                                 " \\({} already whitelisted\\)",
-                                user_ids.len() - (whitelist.len() - old_length)
+                                users.len() - (whitelist.len() - old_length)
                             )
                         } else {
                             "".to_string()
@@ -2422,6 +2422,9 @@ impl XeonBotModule for HubModule {
                             user_is_bot: None,
                             user_is_premium: None,
                             max_quantity: 10,
+                            request_name: false,
+                            request_username: false,
+                            request_photo: false,
                         }),
                     )],
                     vec![KeyboardButton::new(CANCEL_TEXT)],
@@ -2996,6 +2999,7 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 can_post_stories: None,
                 can_edit_stories: None,
                 can_delete_stories: None,
+                can_manage_direct_messages: false,
             })
         };
         let mut chat_selection = vec![KeyboardButton {
@@ -3009,6 +3013,9 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 user_administrator_rights: requested_bot_rights.clone(),
                 bot_administrator_rights: requested_bot_rights.clone(),
                 bot_is_member: false,
+                request_title: false,
+                request_username: false,
+                request_photo: false,
             })),
         }];
         if cfg!(feature = "configure-channels") {
@@ -3023,6 +3030,9 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                     user_administrator_rights: requested_bot_rights.clone(),
                     bot_administrator_rights: requested_bot_rights.clone(),
                     bot_is_member: false,
+                    request_title: false,
+                    request_username: false,
+                    request_photo: false,
                 })),
             });
         }
@@ -3068,9 +3078,10 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 .bot()
                 .get_chat(target_chat_id.chat_id())
                 .await?;
-            if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
-                if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
-                | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
+            if let tearbot_common::teloxide::types::ChatFullInfoKind::Public(chat) = chat.kind {
+                if let tearbot_common::teloxide::types::ChatFullInfoPublicKind::Group(_)
+                | tearbot_common::teloxide::types::ChatFullInfoPublicKind::Supergroup(_) =
+                    chat.kind
                 {
                     if target_chat_id.thread_id().is_none() {
                         buttons.push(vec![InlineKeyboardButton::callback(
@@ -3091,9 +3102,10 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                 .bot()
                 .get_chat(target_chat_id.chat_id())
                 .await?;
-            if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
-                if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
-                | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) = chat.kind
+            if let tearbot_common::teloxide::types::ChatFullInfoKind::Public(chat) = chat.kind {
+                if let tearbot_common::teloxide::types::ChatFullInfoPublicKind::Group(_)
+                | tearbot_common::teloxide::types::ChatFullInfoPublicKind::Supergroup(_) =
+                    chat.kind
                 {
                     if target_chat_id.thread_id().is_none() {
                         buttons.push(vec![InlineKeyboardButton::callback(
@@ -3132,10 +3144,13 @@ Welcome to Int, an AI\\-powered bot for fun and moderation 🤖
                         .bot()
                         .get_chat(target_chat_id.chat_id())
                         .await?;
-                    if let tearbot_common::teloxide::types::ChatKind::Public(chat) = chat.kind {
-                        if let tearbot_common::teloxide::types::PublicChatKind::Group(_)
-                        | tearbot_common::teloxide::types::PublicChatKind::Supergroup(_) =
-                            chat.kind
+                    if let tearbot_common::teloxide::types::ChatFullInfoKind::Public(chat) =
+                        chat.kind
+                    {
+                        if let tearbot_common::teloxide::types::ChatFullInfoPublicKind::Group(_)
+                        | tearbot_common::teloxide::types::ChatFullInfoPublicKind::Supergroup(
+                            _,
+                        ) = chat.kind
                         {
                             if target_chat_id.thread_id().is_none() {
                                 row.push(InlineKeyboardButton::callback(

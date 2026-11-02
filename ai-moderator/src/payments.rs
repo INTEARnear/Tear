@@ -199,7 +199,6 @@ pub async fn send_stars_invoice(
             format!("AI Moderator - {credits} Credits"),
             format!("{credits} credits for AI Moderator (${credits} USD)"),
             payload,
-            "",
             "XTR",
             vec![LabeledPrice::new(format!("{credits} credits"), stars)],
         )

@@ -137,6 +137,7 @@ pub async fn handle_button(
                     can_post_stories: None,
                     can_edit_stories: None,
                     can_delete_stories: None,
+                    can_manage_direct_messages: false,
                 }),
                 bot_administrator_rights: Some(ChatAdministratorRights {
                     can_manage_chat: true,
@@ -154,8 +155,12 @@ pub async fn handle_button(
                     can_post_stories: None,
                     can_edit_stories: None,
                     can_delete_stories: None,
+                    can_manage_direct_messages: false,
                 }),
                 bot_is_member: false,
+                request_title: false,
+                request_username: false,
+                request_photo: false,
             })),
         }],
         vec![KeyboardButton {

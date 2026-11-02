@@ -4,7 +4,10 @@ use cached::{TimedSizedCache, proc_macro::cached};
 use serde::{Deserialize, Serialize};
 use teloxide::{
     prelude::{ChatId, Message, Requester, UserId},
-    types::{ChatKind, ChatMemberKind, PublicChatKind, ReplyMarkup},
+    types::{
+        ChatFullInfoKind, ChatFullInfoPublicKind, ChatKind, ChatMemberKind, PublicChatKind,
+        ReplyMarkup,
+    },
     utils::markdown,
 };
 
@@ -16,7 +19,7 @@ pub const DM_CHAT: &str = "you in DM";
 async fn _internal_get_chat<R: Requester>(
     bot: &R,
     chat_id: ChatId,
-) -> Result<teloxide::types::Chat, anyhow::Error>
+) -> Result<teloxide::types::ChatFullInfo, anyhow::Error>
 where
     <R as Requester>::Err: Send + Sync + 'static,
 {
@@ -26,20 +29,20 @@ where
 #[cached(
     result = true,
     convert = "{ chat_id.0 }",
-    ty = "TimedSizedCache<i64, teloxide::types::Chat>",
+    ty = "TimedSizedCache<i64, teloxide::types::ChatFullInfo>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 300) }"
 )]
 pub async fn get_chat_cached_5m(
     bot: &TgBot,
     chat_id: ChatId,
-) -> Result<teloxide::types::Chat, anyhow::Error> {
+) -> Result<teloxide::types::ChatFullInfo, anyhow::Error> {
     _internal_get_chat(bot, chat_id).await
 }
 
 pub async fn get_chat_not_cached(
     bot: &TgBot,
     chat_id: ChatId,
-) -> Result<teloxide::types::Chat, anyhow::Error> {
+) -> Result<teloxide::types::ChatFullInfo, anyhow::Error> {
     _internal_get_chat(bot, chat_id).await
 }
 
@@ -171,11 +174,7 @@ pub fn mention_sender(message: &Message) -> String {
                 (chat.id, full_name)
             }
             ChatKind::Public(public) => {
-                let full_name = public
-                    .title
-                    .clone()
-                    .or_else(|| public.invite_link.clone())
-                    .unwrap_or_else(|| from.full_name());
+                let full_name = public.title.clone().unwrap_or_else(|| from.full_name());
                 (chat.id, full_name)
             }
         }
@@ -194,7 +193,7 @@ pub fn mention_sender(message: &Message) -> String {
             },
             ChatKind::Public(public) => match &public.kind {
                 // Probably unreachable
-                PublicChatKind::Group(_) => markdown::escape(&full_name),
+                PublicChatKind::Group => markdown::escape(&full_name),
                 // Probably unreachable
                 PublicChatKind::Supergroup(supergroup) => format!(
                     "[{name}](tg://resolve?domain={username})",
@@ -228,35 +227,35 @@ pub async fn mention_user_or_chat(bot: &TgBot, sender_id: ChatId, chat_id: ChatI
     } else if let Ok(chat) = bot.get_chat(sender_id).await {
         let chat_name = match &chat.kind {
             // Probably unreachable
-            ChatKind::Private(private) => match (&private.first_name, &private.last_name) {
+            ChatFullInfoKind::Private(private) => match (&private.first_name, &private.last_name) {
                 (Some(first_name), Some(last_name)) => {
                     format!("{first_name} {last_name}")
                 }
                 (Some(one_part), None) | (None, Some(one_part)) => one_part.clone(),
                 (None, None) => "Unknown".to_string(),
             },
-            ChatKind::Public(public) => public
+            ChatFullInfoKind::Public(public) => public
                 .title
                 .clone()
                 .or_else(|| public.invite_link.clone())
                 .unwrap_or_else(|| "Unknown".to_string()),
         };
         match chat.kind {
-            ChatKind::Private(private) => match private.username.clone() {
+            ChatFullInfoKind::Private(private) => match private.username.clone() {
                 Some(username) => format!(
                     "[{name}](tg://resolve?domain={username})",
                     name = markdown::escape(&chat_name)
                 ),
                 None => markdown::escape(&chat_name),
             },
-            ChatKind::Public(public) => match &public.kind {
-                PublicChatKind::Group(_) => markdown::escape(&chat_name),
-                PublicChatKind::Supergroup(supergroup) => format!(
+            ChatFullInfoKind::Public(public) => match &public.kind {
+                ChatFullInfoPublicKind::Group(_) => markdown::escape(&chat_name),
+                ChatFullInfoPublicKind::Supergroup(supergroup) => format!(
                     "[{name}](tg://resolve?domain={username})",
                     name = markdown::escape(&chat_name),
                     username = supergroup.username.clone().unwrap_or_default(),
                 ),
-                PublicChatKind::Channel(channel) => format!(
+                ChatFullInfoPublicKind::Channel(channel) => format!(
                     "[{name}](tg://resolve?domain={username})",
                     name = markdown::escape(&chat_name),
                     username = channel.username.clone().unwrap_or_default(),
