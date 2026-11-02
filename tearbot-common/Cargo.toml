@@ -38,6 +38,15 @@ redis = { workspace = true, features = [
 ], optional = true }
 inevents-redis-old = { git = "https://github.com/INTEARnear/inevents", rev = "81226476284317b4945f3470265b05a58b033633", package = "inevents-redis", optional = true }
 inevents-redis = { git = "https://github.com/INTEARnear/inevents", optional = true }
+nft-indexer = { git = "https://github.com/INTEARnear/nft-indexer", optional = true }
+ft-indexer = { git = "https://github.com/INTEARnear/ft-indexer", optional = true }
+potlock-indexer = { git = "https://github.com/INTEARnear/potlock-indexer", optional = true }
+trade-indexer = { git = "https://github.com/INTEARnear/trade-indexer", optional = true }
+new-token-indexer = { git = "https://github.com/INTEARnear/new-token-indexer", optional = true }
+socialdb-indexer = { git = "https://github.com/INTEARnear/socialdb-indexer", optional = true }
+log-indexer = { git = "https://github.com/INTEARnear/log-indexer", optional = true }
+tx-indexer = { git = "https://github.com/INTEARnear/tx-indexer", optional = true }
+near-min-api = { git = "https://github.com/INTEARnear/wallet", optional = true }
 intear-events = { workspace = true }
 futures-util = { workspace = true }
 semver = { workspace = true, optional = true }
@@ -56,6 +65,19 @@ near-crypto = { workspace = true }
 [features]
 redis-events = ["redis", "inevents-redis", "inevents-redis-old"]
 websocket-events = ["tokio-tungstenite"]
+inindexer-events = [
+    "inindexer/teardata",
+    "inindexer/redb",
+    "nft-indexer",
+    "ft-indexer",
+    "potlock-indexer",
+    "trade-indexer",
+    "new-token-indexer",
+    "socialdb-indexer",
+    "log-indexer",
+    "tx-indexer",
+    "near-min-api",
+]
 contract-logs-module = ["semver"]
 ft-buybot-module = []
 new-liquidity-pools-module = []

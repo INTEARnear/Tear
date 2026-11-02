@@ -18,7 +18,6 @@ pub const RPC_URLS: &[&str] = &[
     "https://rpc.intea.rs",
     "https://rpc.shitzuapes.xyz",
     "https://free.rpc.fastnear.com",
-    "https://near.lava.build",
 ];
 lazy_static::lazy_static! {
     pub static ref ARCHIVE_RPC_URL: String = if let Ok(url) = std::env::var("ARCHIVE_RPC_URL") {

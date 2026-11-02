@@ -28,7 +28,7 @@ teloxide = { git = "https://github.com/teloxide/teloxide", rev = "3c46b96e0dc0ca
 tokio = "1.37.0"
 tokio-stream = "0.1.15"
 near-primitives = "0.37.4"
-inindexer = "8.0.0"
+inindexer = { git = "https://github.com/INTEARnear/inindexer" }
 redis = "0.25.4"
 intear-events = { git = "https://github.com/INTEARnear/intear-events" }
 futures-util = "0.3.30"

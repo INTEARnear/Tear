@@ -125,7 +125,8 @@ One struct you would notice particularly often in the codebase is `PersistentCac
 
 ### Event source
 
-Some modules (for example, Contract Logs) get events from blockchain using an indexer. There are 2 event sources available:
+Some modules (for example, Contract Logs) get events from blockchain using an indexer. There are 3 event sources available:
 
 1. WebSocket `wss://ws-events-v3.intear.tech/`: An indexer hosted by Intear, the easiest and the default option.
 2. Self-hosted [`all-indexers`](https://github.com/INTEARnear/all-indexers). To use this, install Redis, run `all-indexers` in the background, set `REDIS_URL` and `REDIS_URL_TESTNET` environment variables, and run the bot with `redis-events` feature.
+3. The indexers of [`all-indexers`](https://github.com/INTEARnear/all-indexers) running inside the bot, without Redis. To use this, run the bot with `inindexer-events` feature.

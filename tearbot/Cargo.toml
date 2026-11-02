@@ -79,7 +79,7 @@ xeon = [
     "utilities-module",
     "ai-moderator-module",
     "ai-moderator/near",
-    "redis-events",
+    "inindexer-events",
     "configure-channels",
     "burrow-liquidations-module",
     "house-of-stake-module",
@@ -102,6 +102,7 @@ configure-channels = []
 
 redis-events = ["tearbot-common/redis-events"]
 websocket-events = ["tearbot-common/websocket-events"]
+inindexer-events = ["tearbot-common/inindexer-events"]
 contract-logs-module = ["tearbot-common/contract-logs-module", "contract-logs"]
 ft-buybot-module = ["tearbot-common/ft-buybot-module", "ft-buybot"]
 new-liquidity-pools-module = [

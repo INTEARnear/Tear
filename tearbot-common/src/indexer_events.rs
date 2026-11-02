@@ -17,11 +17,13 @@ use intear_events::events::{
     trade::{trade_pool_change::TradePoolChangeEvent, trade_swap::TradeSwapEvent},
 };
 
+#[cfg(feature = "inindexer-events")]
+mod inindexer_backend;
+
 #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
-pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
+async fn start_v3_event_streams(tx: tokio::sync::mpsc::Sender<IndexerEvent>) {
     use intear_events::events::ft::ft_transfer::FtTransferEvent;
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel(1000);
     #[cfg(feature = "redis-events")]
     let redis_client = redis::Client::open(
         std::env::var("REDIS_URL").expect("REDIS_URL enviroment variable not set"),
@@ -203,6 +205,19 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
         #[cfg(feature = "websocket-events")]
         "wss://ws-events-v3.intear.tech/events",
     ));
+}
+
+#[cfg(any(
+    feature = "redis-events",
+    feature = "websocket-events",
+    feature = "inindexer-events"
+))]
+pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1000);
+    #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
+    start_v3_event_streams(tx).await;
+    #[cfg(feature = "inindexer-events")]
+    inindexer_backend::start_indexers(tx).await;
 
     tokio::spawn(async move {
         let status_ping_url = std::env::var("STATUS_PING_URL").ok();
@@ -252,8 +267,12 @@ pub async fn start_stream(state: std::sync::Arc<crate::xeon::XeonState>) {
     });
 }
 
-#[cfg(all(feature = "redis-events", feature = "websocket-events"))]
-compile_error!("Only one of redis-events and websocket-events can be enabled");
+#[cfg(any(
+    all(feature = "redis-events", feature = "websocket-events"),
+    all(feature = "redis-events", feature = "inindexer-events"),
+    all(feature = "websocket-events", feature = "inindexer-events"),
+))]
+compile_error!("Only one of redis-events, websocket-events, and inindexer-events can be enabled");
 
 #[cfg(feature = "redis-events")]
 async fn stream_v3_events<
@@ -358,7 +377,11 @@ pub enum IndexerEvent {
 }
 
 impl IndexerEvent {
-    #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
+    #[cfg(any(
+        feature = "redis-events",
+        feature = "websocket-events",
+        feature = "inindexer-events"
+    ))]
     fn get_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
         let nanosec = match self {
             IndexerEvent::NftMint(event) => event.block_timestamp_nanosec,

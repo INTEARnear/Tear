@@ -350,7 +350,11 @@ fn main() -> Result<(), anyhow::Error> {
 
             info!("Starting XEON");
 
-            #[cfg(any(feature = "redis-events", feature = "websocket-events"))]
+            #[cfg(any(
+                feature = "redis-events",
+                feature = "websocket-events",
+                feature = "inindexer-events"
+            ))]
             tearbot_common::indexer_events::start_stream(xeon.arc_clone_state()).await;
 
             tokio::time::sleep(Duration::from_secs(u64::MAX)).await;

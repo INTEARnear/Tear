@@ -6,3 +6,6 @@ node_modules
 .next
 connections.db
 connections.db-journal
+transaction-trees*.redb
+known_tokens.txt
+known_nft_tokens.txt
