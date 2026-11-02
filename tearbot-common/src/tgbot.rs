@@ -1693,11 +1693,12 @@ impl<'a> TgCallbackContext<'a> {
             match edit_result {
                 Ok(_) => {}
                 Err(RequestError::Api(ApiError::MessageNotModified)) => {}
+                Err(RequestError::Api(ApiError::MessageToEditHasNoText)) => {
+                    let message = self.send(text, reply_markup, Attachment::None).await?;
+                    self.last_message = Some(message.id);
+                }
                 Err(RequestError::Api(ApiError::Unknown(error_text))) => {
-                    if error_text == "Bad Request: there is no text in the message to edit" {
-                        let message = self.send(text, reply_markup, Attachment::None).await?;
-                        self.last_message = Some(message.id);
-                    } else if error_text == ENTITIES_TOO_LONG {
+                    if error_text == ENTITIES_TOO_LONG {
                         log::warn!("Message entities are too long, sending as a file: {text:?}");
                         let message = self
                             .bot
