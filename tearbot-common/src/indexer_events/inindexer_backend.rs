@@ -1,7 +1,10 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use async_trait::async_trait;
+use bigdecimal::{BigDecimal, Zero};
 use chrono::DateTime;
+use futures_util::{SinkExt, StreamExt};
 use inindexer::multiindexer::{MapError, ParallelJoinIndexers};
 use inindexer::near_indexer_primitives::types::{AccountId, BlockHeight};
 use inindexer::near_utils::{self, FtBalance};
@@ -17,6 +20,7 @@ use intear_events::events::{
         potlock_donation::PotlockDonationEvent, potlock_pot_donation::PotlockPotDonationEvent,
         potlock_pot_project_donation::PotlockPotProjectDonationEvent,
     },
+    price::price_token::PriceTokenEvent,
     socialdb::index::SocialDBIndexEvent,
     trade::{
         liquidity_pool::LiquidityPoolEvent,
@@ -30,13 +34,16 @@ use intear_events::events::{
 };
 use new_token_indexer::txt_file_storage::TxtFileStorage;
 use serde::Deserialize;
+use serde::de::IgnoredAny;
+use serde_with::DisplayFromStr;
 use tokio::sync::mpsc::Sender;
+use tokio_tungstenite::tungstenite::Message;
 
 use super::IndexerEvent;
 use crate::utils::{requests::get_reqwest_client, rpc::RPC_URLS};
 
 const MAINNET_TEARDATA_URL: &str = "https://mainnet-teardata.intea.rs";
-const TESTNET_TEARDATA_URL: &str = "https://testnet-teardata.intea.rs";
+const INTEAR_API_WEBSOCKET_URL: &str = "wss://api.intea.rs/ws";
 
 /// Runs the indexers of [all-indexers](https://github.com/INTEARnear/all-indexers) in this
 /// process, sending their events to `tx` instead of Redis
@@ -67,11 +74,8 @@ pub async fn start_indexers(tx: Sender<IndexerEvent>) {
             TxtFileStorage::new("known_tokens.txt").await,
             TxtFileStorage::new("known_nft_tokens.txt").await,
         ));
-    let mut testnet_indexer = log_indexer::LogIndexer(TestnetEventSender(tx));
 
     let mainnet_options = indexer_options(MAINNET_TEARDATA_URL, "transaction-trees.redb").await;
-    let testnet_options =
-        indexer_options(TESTNET_TEARDATA_URL, "transaction-trees-testnet.redb").await;
     tokio::spawn(async move {
         run_indexer(
             &mut mainnet_indexer,
@@ -81,15 +85,7 @@ pub async fn start_indexers(tx: Sender<IndexerEvent>) {
         .await
         .expect("Mainnet indexer failed");
     });
-    tokio::spawn(async move {
-        run_indexer(
-            &mut testnet_indexer,
-            TeardataProvider::testnet(),
-            testnet_options,
-        )
-        .await
-        .expect("Testnet indexer failed");
-    });
+    tokio::spawn(stream_prices(tx));
 }
 
 /// Continues from the last block saved in `storage_path`, or from the current final block if
@@ -120,9 +116,162 @@ async fn indexer_options(teardata_url: &str, storage_path: &str) -> IndexerOptio
     }
 }
 
-struct MainnetEventSender(Sender<IndexerEvent>);
+async fn stream_prices(tx: Sender<IndexerEvent>) {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum ServerMessage {
+        Hello {
+            #[allow(dead_code)]
+            hello: IgnoredAny,
+        },
+        Idle {
+            #[allow(dead_code)]
+            idle: IgnoredAny,
+        },
+        Error {
+            error: ApiError,
+        },
+        SubscriptionEnded {
+            end: ApiError,
+        },
+        SubscriptionCreated {
+            result: PriceChanges,
+        },
+        Push(PriceChanges),
+    }
 
-struct TestnetEventSender(Sender<IndexerEvent>);
+    #[derive(Deserialize)]
+    struct ApiError {
+        code: String,
+        message: String,
+    }
+
+    #[derive(Deserialize)]
+    struct PriceChanges {
+        height: BlockHeight,
+        timestamp_millis: u64,
+        /// Only in the reply to a subscription with `resume_from`
+        #[serde(default)]
+        resumed: bool,
+        #[serde(default)]
+        set: HashMap<AccountId, ChangedPrice>,
+    }
+
+    #[serde_with::serde_as]
+    #[derive(Deserialize)]
+    struct ChangedPrice {
+        #[serde_as(as = "DisplayFromStr")]
+        price_usd_raw: BigDecimal,
+    }
+
+    // The server sends `idle` after 15 seconds with nothing else, so a longer silence means that
+    // the connection is dead
+    const SILENCE_TIMEOUT: Duration = Duration::from_secs(45);
+    const RECONNECT_DELAY: Duration = Duration::from_secs(5);
+
+    let mut last_height: Option<BlockHeight> = None;
+    loop {
+        let mut stream = match tokio_tungstenite::connect_async(INTEAR_API_WEBSOCKET_URL).await {
+            Ok((stream, _)) => stream,
+            Err(err) => {
+                log::warn!("Failed to connect to Intear API: {err}");
+                tokio::time::sleep(RECONNECT_DELAY).await;
+                continue;
+            }
+        };
+        loop {
+            let message = match tokio::time::timeout(SILENCE_TIMEOUT, stream.next()).await {
+                Ok(Some(Ok(message))) => message,
+                Ok(Some(Err(err))) => {
+                    log::warn!("Intear API connection failed: {err}");
+                    break;
+                }
+                Ok(None) => {
+                    log::warn!("Intear API connection closed");
+                    break;
+                }
+                Err(_) => {
+                    log::warn!("Intear API sent nothing for {SILENCE_TIMEOUT:?}");
+                    break;
+                }
+            };
+            let text = match message {
+                Message::Text(text) => text,
+                Message::Close(frame) => {
+                    log::warn!("Intear API is closing the connection: {frame:?}");
+                    continue;
+                }
+                // Pings are answered by tungstenite, and the server doesn't send binary messages
+                Message::Ping(_) | Message::Pong(_) | Message::Binary(_) => continue,
+                Message::Frame(_) => unreachable!(),
+            };
+            let changes = match serde_json::from_str(&text)
+                .expect("Failed to parse Intear API message")
+            {
+                ServerMessage::Hello { .. } => {
+                    let mut params = serde_json::json!({
+                        "fields": ["price_usd_raw"],
+                        "snapshot": false,
+                    });
+                    if let Some(height) = last_height {
+                        params["resume_from"] = height.into();
+                    }
+                    let request = serde_json::json!({
+                        "id": 1,
+                        "method": "tokens.subscribe",
+                        "params": params,
+                    });
+                    if let Err(err) = stream.send(Message::Text(request.to_string())).await {
+                        log::warn!("Failed to subscribe to Intear API prices: {err}");
+                        break;
+                    }
+                    continue;
+                }
+                ServerMessage::Idle { .. } => continue,
+                ServerMessage::Error { error } => panic!(
+                    "Intear API refused price subscription: {}: {}",
+                    error.code, error.message
+                ),
+                ServerMessage::SubscriptionEnded { end } => {
+                    log::warn!(
+                        "Intear API ended price subscription: {}: {}",
+                        end.code,
+                        end.message
+                    );
+                    break;
+                }
+                ServerMessage::SubscriptionCreated { result } => {
+                    if let Some(height) = last_height
+                        && !result.resumed
+                    {
+                        log::warn!(
+                            "Intear API couldn't resume prices from block {height}, price changes since then are lost"
+                        );
+                    }
+                    result
+                }
+                ServerMessage::Push(changes) => changes,
+            };
+            for (token, ChangedPrice { price_usd_raw }) in changes.set {
+                // "0" means that the token has no price, not that it's worthless
+                if price_usd_raw.is_zero() {
+                    continue;
+                }
+                tx.send(IndexerEvent::PriceToken(PriceTokenEvent {
+                    token,
+                    price_usd: price_usd_raw,
+                    timestamp_nanosec: changes.timestamp_millis as u128 * 1_000_000,
+                }))
+                .await
+                .expect("Failed to send event");
+            }
+            last_height = Some(changes.height);
+        }
+        tokio::time::sleep(RECONNECT_DELAY).await;
+    }
+}
+
+struct MainnetEventSender(Sender<IndexerEvent>);
 
 #[async_trait]
 impl nft_indexer::NftEventHandler for MainnetEventSender {
@@ -453,8 +602,9 @@ impl trade_indexer::TradeEventHandler for MainnetEventSender {
                         }),
                     }),
                     trade_indexer::PoolType::Aidols(pool) => PoolType::Aidols(pool),
-                    trade_indexer::PoolType::IntearPlach(pool) => PoolType::IntearPlach(pool),
                     trade_indexer::PoolType::RefDcl(pool) => PoolType::RefDcl(pool),
+                    trade_indexer::PoolType::IntearPlach(pool) => PoolType::IntearPlach(pool),
+                    trade_indexer::PoolType::IntearQoq(pool) => PoolType::IntearQoq(pool),
                 },
                 block_height: event.block_height,
                 block_timestamp_nanosec: event.block_timestamp_nanosec,
@@ -549,25 +699,6 @@ impl log_indexer::LogEventHandler for MainnetEventSender {
     async fn handle_nep297(&mut self, event: LogNep297Event) {
         self.0
             .send(IndexerEvent::LogNep297(event))
-            .await
-            .expect("Failed to send event");
-    }
-
-    async fn flush_events(&mut self, _block_height: BlockHeight) {}
-}
-
-#[async_trait]
-impl log_indexer::LogEventHandler for TestnetEventSender {
-    async fn handle_text(&mut self, event: LogTextEvent) {
-        self.0
-            .send(IndexerEvent::TestnetLogText(event))
-            .await
-            .expect("Failed to send event");
-    }
-
-    async fn handle_nep297(&mut self, event: LogNep297Event) {
-        self.0
-            .send(IndexerEvent::TestnetLogNep297(event))
             .await
             .expect("Failed to send event");
     }

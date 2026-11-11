@@ -77,6 +77,7 @@ inindexer-events = [
     "log-indexer",
     "tx-indexer",
     "near-min-api",
+    "tokio-tungstenite",
 ]
 contract-logs-module = ["semver"]
 ft-buybot-module = []

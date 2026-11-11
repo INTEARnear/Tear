@@ -105,7 +105,7 @@ impl TipBotModule {
     }
 
     async fn check_treasury_near_balance(&self, treasury_wallet: &AccountId) -> Result<(), String> {
-        let treasury_balance = match Account(treasury_wallet.clone())
+        let treasury_balance = match Account(treasury_wallet.to_string().parse().unwrap())
             .view()
             .fetch_from(&self.network)
             .await
@@ -134,7 +134,7 @@ impl TipBotModule {
         required_amount: u128,
     ) -> Result<(), String> {
         if token_contract == "near" {
-            let treasury_balance = match Account(treasury_wallet.clone())
+            let treasury_balance = match Account(treasury_wallet.to_string().parse().unwrap())
                 .view()
                 .fetch_from(&self.network)
                 .await
@@ -161,7 +161,7 @@ impl TipBotModule {
             return Ok(());
         }
 
-        let treasury_token_balance: u128 = match Contract(token_contract.clone())
+        let treasury_token_balance: u128 = match Contract(token_contract.to_string().parse().unwrap())
             .call_function(
                 "ft_balance_of",
                 serde_json::json!({
@@ -196,7 +196,7 @@ impl TipBotModule {
             return Ok(true);
         }
 
-        if Contract(token_contract.clone())
+        if Contract(token_contract.to_string().parse().unwrap())
             .call_function(
                 "storage_balance_of",
                 serde_json::json!({
@@ -208,7 +208,7 @@ impl TipBotModule {
             .await
             .is_ok_and(|r| r.data.is_none_or(|r| r.total.is_zero()))
         {
-            let tx_result = Contract(token_contract.clone())
+            let tx_result = Contract(token_contract.to_string().parse().unwrap())
                 .call_function(
                     "storage_deposit",
                     serde_json::json!({
@@ -218,7 +218,7 @@ impl TipBotModule {
                 )
                 .transaction()
                 .deposit("0.00125 NEAR".parse().unwrap())
-                .with_signer(treasury_wallet.clone(), Arc::clone(&self.signer))
+                .with_signer(treasury_wallet.to_string().parse().unwrap(), Arc::clone(&self.signer))
                 .wait_until(TxExecutionStatus::ExecutedOptimistic)
                 .send_to(&self.network)
                 .await?;
@@ -238,15 +238,15 @@ impl TipBotModule {
         treasury_wallet: &AccountId,
     ) -> Result<ExecutionSuccess, anyhow::Error> {
         let tx_result = if token_contract == "near" {
-            Tokens::account(treasury_wallet.clone())
-                .send_to(recipient_account.clone())
+            Tokens::account(treasury_wallet.to_string().parse().unwrap())
+                .send_to(recipient_account.to_string().parse().unwrap())
                 .near(NearToken::from_yoctonear(amount))
                 .with_signer(Arc::clone(&self.signer))
                 .wait_until(TxExecutionStatus::ExecutedOptimistic)
                 .send_to(&self.network)
                 .await?
         } else {
-            Contract(token_contract.clone())
+            Contract(token_contract.to_string().parse().unwrap())
                 .call_function(
                     "ft_transfer",
                     serde_json::json!({
@@ -257,7 +257,7 @@ impl TipBotModule {
                 .transaction()
                 .deposit(NearToken::from_yoctonear(1))
                 .gas(NearGas::from_tgas(9))
-                .with_signer(treasury_wallet.clone(), Arc::clone(&self.signer))
+                .with_signer(treasury_wallet.to_string().parse().unwrap(), Arc::clone(&self.signer))
                 .wait_until(TxExecutionStatus::ExecutedOptimistic)
                 .send_to(&self.network)
                 .await?
@@ -1125,8 +1125,8 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                 let reply_markup = InlineKeyboardMarkup::new(buttons);
                 context.edit_or_send(message, reply_markup).await?;
 
-                match Account::create_account(wallet.clone())
-                    .fund_myself(self.parent_account_id.clone(), Default::default())
+                match Account::create_account(wallet.to_string().parse().unwrap())
+                    .fund_myself(self.parent_account_id.to_string().parse().unwrap(), Default::default())
                     .with_public_key(self.secret_key.public_key())
                     .with_signer(Arc::clone(&self.signer))
                     .wait_until(TxExecutionStatus::ExecutedOptimistic)
@@ -1223,7 +1223,7 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
 
                     for (ticker, token_contract) in &chat_config.tokens {
                         let balance = if token_contract == "near" {
-                            match Account(treasury_wallet.clone())
+                            match Account(treasury_wallet.to_string().parse().unwrap())
                                 .view()
                                 .fetch_from(&self.network)
                                 .await
@@ -1238,7 +1238,7 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                                 Err(_) => None,
                             }
                         } else {
-                            match Contract(token_contract.clone())
+                            match Contract(token_contract.to_string().parse().unwrap())
                                 .call_function(
                                     "ft_balance_of",
                                     serde_json::json!({
@@ -1478,7 +1478,7 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                         get_secret_key_from_seed(DEFAULT_HD_PATH.parse().unwrap(), &phrase, None)
                             .unwrap(),
                     );
-                    if let Ok(signed) = Account(wallet.clone())
+                    if let Ok(signed) = Account(wallet.to_string().parse().unwrap())
                         .add_key(
                             AccessKeyPermission::FullAccess,
                             signer.get_public_key().unwrap(),
@@ -1489,7 +1489,7 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                         .await
                     {
                         if let Ok(tx) =
-                            Transaction::construct(self.parent_account_id.clone(), wallet.clone())
+                            Transaction::construct(self.parent_account_id.to_string().parse().unwrap(), wallet.to_string().parse().unwrap())
                                 .add_action(Action::Delegate(Box::new(
                                     signed
                                         .transaction
@@ -1511,7 +1511,7 @@ Reply to someone's message with `/<ticker> <amount>` to send a tip in the chat\\
                                         format!(
                                             "https://wallet.intear.tech/auto-import-secret-key#{}/{}",
                                             wallet,
-                                            signer.get_secret_key(&wallet, signer.get_public_key().unwrap()).await.unwrap()
+                                            signer.get_secret_key(&wallet.to_string().parse().unwrap(), signer.get_public_key().unwrap()).await.unwrap()
                                         )
                                         .parse()
                                         .unwrap(),

@@ -1282,6 +1282,7 @@ async fn format_action(action: &ActionView, bot: &BotData) -> String {
                 "Deterministic state init with code referenced as {code:?} and deposit {deposit}"
             )
         }
+        ActionView::UniversalStateInit { .. } => "Universal account initialization".to_string()
     }
 }
 

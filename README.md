@@ -129,4 +129,4 @@ Some modules (for example, Contract Logs) get events from blockchain using an in
 
 1. WebSocket `wss://ws-events-v3.intear.tech/`: An indexer hosted by Intear, the easiest and the default option.
 2. Self-hosted [`all-indexers`](https://github.com/INTEARnear/all-indexers). To use this, install Redis, run `all-indexers` in the background, set `REDIS_URL` and `REDIS_URL_TESTNET` environment variables, and run the bot with `redis-events` feature.
-3. The indexers of [`all-indexers`](https://github.com/INTEARnear/all-indexers) running inside the bot, without Redis. To use this, run the bot with `inindexer-events` feature.
+3. The indexers of [`all-indexers`](https://github.com/INTEARnear/all-indexers) running inside the bot, without Redis, with prices from [Intear API](https://docs.intear.tech/api/) WebSocket. To use this, run the bot with `inindexer-events` feature.

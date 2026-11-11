@@ -1,5 +1,5 @@
 use inindexer::near_utils::dec_format;
-use near_api::AccountId;
+use near_primitives::types::AccountId;
 use serde::Deserialize;
 
 #[derive(Clone, Deserialize, Debug)]

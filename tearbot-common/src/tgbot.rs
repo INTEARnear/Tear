@@ -491,7 +491,7 @@ impl BotData {
                         .parse()
                         .expect("Invalid REFERRAL_ACCOUNT_ID"),
                 )
-                .send_to(account_id.clone())
+                .send_to(account_id.to_string().parse().unwrap())
                 .near(NearToken::from_yoctonear(amount.0))
                 .with_signer(
                     Signer::from_secret_key(
@@ -506,7 +506,7 @@ impl BotData {
                 .send_to(&NETWORK_CONFIG)
                 .await?
             } else {
-                Contract(token_id.clone())
+                Contract(token_id.to_string().parse().unwrap())
                     .call_function(
                         "ft_transfer",
                         serde_json::json!({
@@ -957,7 +957,7 @@ impl BotData {
                 .parse_mode(ParseMode::MarkdownV2)
                 .reply_markup(reply_markup)
                 .await
-                .inspect_err(log_parse_error(caption))?;
+                .inspect_err(log_send_error(chat_id, caption))?;
         if let Some(photo) = message.photo().and_then(|p| p.last()) {
             let file_id = photo.file.id.clone();
             self.photo_file_id_cache
@@ -989,7 +989,7 @@ impl BotData {
         .parse_mode(ParseMode::MarkdownV2)
         .reply_markup(reply_markup)
         .await
-        .inspect_err(log_parse_error(caption))?;
+        .inspect_err(log_send_error(chat_id, caption))?;
         if let Some(file_id) = message.animation().map(|a| a.file.id.clone()) {
             self.animation_file_id_cache
                 .insert_if_not_exists(url.to_string(), file_id)
@@ -1020,7 +1020,7 @@ impl BotData {
         .parse_mode(ParseMode::MarkdownV2)
         .reply_markup(reply_markup)
         .await
-        .inspect_err(log_parse_error(caption))?;
+        .inspect_err(log_send_error(chat_id, caption))?;
         if let Some(file_id) = message.audio().map(|a| a.file.id.clone()) {
             self.audio_file_id_cache
                 .insert_if_not_exists(url.to_string(), file_id)
@@ -1105,7 +1105,7 @@ impl BotData {
         .parse_mode(ParseMode::MarkdownV2)
         .reply_markup(reply_markup)
         .await
-        .inspect_err(log_parse_error(caption))?;
+        .inspect_err(log_send_error(chat_id, caption))?;
         Ok(())
     }
 
@@ -1127,7 +1127,7 @@ impl BotData {
                     show_above_text: false,
                 })
                 .await
-                .inspect_err(log_parse_error(message))?,
+                .inspect_err(log_send_error(chat_id, message))?,
         )
     }
 
@@ -1147,7 +1147,7 @@ impl BotData {
                 show_above_text: false,
             })
             .await
-            .inspect_err(log_parse_error(message))?;
+            .inspect_err(log_send_error(chat_id, message))?;
         Ok(())
     }
 
@@ -1362,7 +1362,7 @@ impl BotData {
                         log::warn!("Message entities are too long, sending as a file: {text:?}");
                         return self.send_as_document(chat_id, text, reply_markup).await;
                     }
-                    result => result.inspect_err(log_parse_error(text))?,
+                    result => result.inspect_err(log_send_error(chat_id, text))?,
                 }
             }
             Attachment::PhotoUrl(url) => attach_thread_id!(
@@ -1373,7 +1373,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::PhotoFileId(file_id) => attach_thread_id!(
                 self.bot
                     .send_photo(chat_id.chat_id(), InputFile::file_id(file_id)),
@@ -1383,7 +1383,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::PhotoBytes(bytes) => attach_thread_id!(
                 self.bot
                     .send_photo(chat_id.chat_id(), InputFile::memory(bytes)),
@@ -1393,7 +1393,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::AnimationUrl(url) => attach_thread_id!(
                 self.bot
                     .send_animation(chat_id.chat_id(), InputFile::url(url)),
@@ -1403,7 +1403,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::AnimationFileId(file_id) => attach_thread_id!(
                 self.bot
                     .send_animation(chat_id.chat_id(), InputFile::file_id(file_id)),
@@ -1413,7 +1413,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::AudioUrl(url) => attach_thread_id!(
                 self.bot.send_audio(chat_id.chat_id(), InputFile::url(url)),
                 chat_id
@@ -1422,7 +1422,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::AudioFileId(file_id) => attach_thread_id!(
                 self.bot
                     .send_audio(chat_id.chat_id(), InputFile::file_id(file_id)),
@@ -1432,7 +1432,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::VideoUrl(url) => attach_thread_id!(
                 self.bot.send_video(chat_id.chat_id(), InputFile::url(url)),
                 chat_id
@@ -1441,7 +1441,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::VideoFileId(file_id) => attach_thread_id!(
                 self.bot
                     .send_video(chat_id.chat_id(), InputFile::file_id(file_id)),
@@ -1451,7 +1451,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::DocumentUrl(url, file_name) => attach_thread_id!(
                 self.bot
                     .send_document(chat_id.chat_id(), InputFile::url(url).file_name(file_name)),
@@ -1461,7 +1461,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::DocumentText(content, file_name) => attach_thread_id!(
                 self.bot.send_document(
                     chat_id.chat_id(),
@@ -1473,7 +1473,7 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
             Attachment::DocumentFileId(file_id, file_name) => attach_thread_id!(
                 self.bot.send_document(
                     chat_id.chat_id(),
@@ -1485,70 +1485,50 @@ impl BotData {
             .parse_mode(ParseMode::MarkdownV2)
             .reply_markup(reply_markup)
             .await
-            .inspect_err(log_parse_error(text))?,
+            .inspect_err(log_send_error(chat_id, text))?,
         })
     }
 
     pub async fn reached_notification_limit(&self, chat_id: ChatId) -> bool {
-        if let Some(messages) = self.messages_sent_in_5m.get(&chat_id) {
-            let messages = messages.fetch_add(1, Ordering::Relaxed);
-            if messages > NOTIFICATION_LIMIT_5M {
-                self.send_message_limit_message(
-                    chat_id,
-                    NOTIFICATION_LIMIT_5M,
-                    Duration::from_secs(5 * 60),
-                    messages,
-                )
-                .await;
+        let windows = [
+            (
+                &self.messages_sent_in_5m,
+                NOTIFICATION_LIMIT_5M,
+                Duration::from_secs(5 * 60),
+            ),
+            (
+                &self.messages_sent_in_1h,
+                NOTIFICATION_LIMIT_1H,
+                Duration::from_secs(60 * 60),
+            ),
+            (
+                &self.messages_sent_in_1d,
+                NOTIFICATION_LIMIT_1D,
+                Duration::from_secs(24 * 60 * 60),
+            ),
+        ];
+        // Blocked notifications must not be counted, otherwise hitting the 1h or 1d limit
+        // keeps triggering 5m and 1h limit messages while nothing is being sent
+        for (messages_sent, limit, duration) in windows {
+            let messages = messages_sent
+                .get(&chat_id)
+                .map_or(0, |messages| messages.load(Ordering::Relaxed));
+            if messages >= limit {
+                self.send_message_limit_message(chat_id, limit, duration)
+                    .await;
                 return true;
             }
-        } else {
-            self.messages_sent_in_5m
-                .insert(chat_id, AtomicUsize::new(1));
         }
-        if let Some(messages) = self.messages_sent_in_1h.get(&chat_id) {
-            let messages = messages.fetch_add(1, Ordering::Relaxed);
-            if messages > NOTIFICATION_LIMIT_1H {
-                self.send_message_limit_message(
-                    chat_id,
-                    NOTIFICATION_LIMIT_1H,
-                    Duration::from_secs(60 * 60),
-                    messages,
-                )
-                .await;
-                return true;
-            }
-        } else {
-            self.messages_sent_in_1h
-                .insert(chat_id, AtomicUsize::new(1));
+        for (messages_sent, _, _) in windows {
+            messages_sent
+                .entry(chat_id)
+                .or_default()
+                .fetch_add(1, Ordering::Relaxed);
         }
-        if let Some(messages) = self.messages_sent_in_1d.get(&chat_id) {
-            let messages = messages.fetch_add(1, Ordering::Relaxed);
-            if messages > NOTIFICATION_LIMIT_1D {
-                self.send_message_limit_message(
-                    chat_id,
-                    NOTIFICATION_LIMIT_1D,
-                    Duration::from_secs(24 * 60 * 60),
-                    messages,
-                )
-                .await;
-                return true;
-            }
-        } else {
-            self.messages_sent_in_1d
-                .insert(chat_id, AtomicUsize::new(1));
-        }
-
         false
     }
 
-    async fn send_message_limit_message(
-        &self,
-        chat_id: ChatId,
-        limit: usize,
-        duration: Duration,
-        messages: usize,
-    ) {
+    async fn send_message_limit_message(&self, chat_id: ChatId, limit: usize, duration: Duration) {
         if let Some(last_notification) = self.last_message_limit_notification.get(&chat_id)
             && last_notification.elapsed() < duration
         {
@@ -1561,7 +1541,7 @@ impl BotData {
             tokio::time::sleep(Duration::from_secs(10)).await; // Make sure this is the last message after all notifications are sent
             if let Err(err) = bot
                 .send_message(chat_id, format!(
-                    "You have reached the notification limit of {messages}/{limit} messages in {}\\.\nPlease fix your settings\\.",
+                    "You have reached the notification limit of {limit} messages in {}\\.\nPlease fix your settings\\.",
                     markdown::escape(&format_duration(duration))
                 ))
                 .parse_mode(ParseMode::MarkdownV2)
@@ -1573,7 +1553,7 @@ impl BotData {
                     show_above_text: false,
                 })
                 .await {
-                    warn!("Error sending message limit notification: {err:?}");
+                    warn!("Error sending message limit notification to {chat_id}: {err:?}");
                 }
         });
     }
@@ -1781,7 +1761,7 @@ impl<'a> TgCallbackContext<'a> {
                 show_above_text: false,
             })
             .await
-            .inspect_err(log_parse_error(text))?;
+            .inspect_err(log_send_error(self.chat_id, text))?;
         Ok(message)
     }
 }
@@ -1840,10 +1820,14 @@ impl Drop for MustAnswerCallbackQuery {
 /// Undocumented server limit on the total size of message entities, mostly link URLs
 const ENTITIES_TOO_LONG: &str = "Bad Request: ENTITIES_TOO_LONG";
 
-fn log_parse_error(text: impl Into<String>) -> impl FnOnce(&RequestError) {
+fn log_send_error(
+    chat_id: impl Into<NotificationDestination>,
+    text: impl Into<String>,
+) -> impl FnOnce(&RequestError) {
+    let chat_id = chat_id.into();
     let text = text.into();
     move |err| {
-        log::warn!("{err:?}");
+        log::warn!("Failed to send message to {chat_id:?}: {err:?}");
         if let RequestError::Api(ApiError::CantParseEntities(s)) = err {
             log::warn!("Can't parse entities in message: {s}\n{text:?}");
         }

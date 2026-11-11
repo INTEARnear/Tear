@@ -3,9 +3,8 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use cached::proc_macro::cached;
 use chrono::{DateTime, Utc};
 use near_jsonrpc_primitives::types::blocks::RpcBlockResponse;
-use near_primitives::account::id::AccountIdRef;
+use near_primitives::account::id::{AccountIdRef, AccountType};
 use near_primitives::types::BlockId;
-use near_primitives::utils::account_is_implicit;
 use near_primitives::{
     hash::CryptoHash,
     types::{AccountId, BlockHeight},
@@ -442,7 +441,7 @@ struct ViewReceiptRecordResponse {
 }
 
 pub async fn account_exists(account_id: &AccountId) -> bool {
-    if account_is_implicit(account_id, true) {
+    if account_id.get_account_type() == AccountType::NearImplicitAccount {
         return true;
     }
     let info = view_account_not_cached(account_id).await;
