@@ -91,8 +91,8 @@ impl WalletTrackingModule {
                     let xeon = Arc::clone(&self.xeon);
                     let bot_id = *bot_id;
                     let tx_hash = event.transaction_id;
-                    let old_owner_id = event.old_owner_id.clone();
-                    let new_owner_id = event.new_owner_id.clone();
+                    let old_owner = subscriber.format_account_markdown(&event.old_owner_id);
+                    let new_owner = subscriber.format_account_markdown(&event.new_owner_id);
                     let token_id = event.token_id.clone();
                     let amount = event.amount;
                     tokio::spawn(async move {
@@ -105,12 +105,10 @@ impl WalletTrackingModule {
                         let tx_links = format_tx_explorer_links(tx_hash);
                         let message = format!(
                             "
-*`{old_account_id}` ➡️ `{new_account_id}`*: {amount}
+*{old_owner} ➡️ {new_owner}*: {amount}
 
 Tx: {tx_links}
                                 ",
-                            old_account_id = old_owner_id,
-                            new_account_id = new_owner_id,
                             amount = markdown::escape(
                                 &format_tokens(amount, &token_id, Some(&xeon)).await
                             ),
@@ -159,8 +157,8 @@ Tx: {tx_links}
                     let xeon = Arc::clone(&self.xeon);
                     let bot_id = *bot_id;
                     let tx_hash = event.transaction_id;
-                    let old_owner_id = event.old_owner_id.clone();
-                    let new_owner_id = event.new_owner_id.clone();
+                    let old_owner = subscriber.format_account_markdown(&event.old_owner_id);
+                    let new_owner = subscriber.format_account_markdown(&event.new_owner_id);
                     let contract_id = event.contract_id.clone();
                     let token_ids = event.token_ids.clone();
                     let token_prices = event.token_prices_near.clone();
@@ -195,12 +193,10 @@ Tx: {tx_links}
                             let message = format!(
                                 "
 *NFT {action_word}*
-*`{old_account_id}` ➡️ `{new_account_id}`*: `{token_id}`{price_text}
+*{old_owner} ➡️ {new_owner}*: `{token_id}`{price_text}
 
 Tx: {tx_links} \\| [Token](https://nearblocks.io/nft-token/{contract_id}/{token_id})
                                 ",
-                                old_account_id = old_owner_id,
-                                new_account_id = new_owner_id,
                                 token_id = markdown::escape_link_url(&token_id),
                                 contract_id = markdown::escape_link_url(contract_id.as_str()),
                             );
@@ -249,7 +245,7 @@ Tx: {tx_links} \\| [Token](https://nearblocks.io/nft-token/{contract_id}/{token_
                     let xeon = Arc::clone(&self.xeon);
                     let bot_id = *bot_id;
                     let tx_hash = event.transaction_id;
-                    let trader = event.trader.clone();
+                    let trader = subscriber.format_account_markdown(&event.trader);
                     let balance_changes = event.balance_changes.clone();
 
                     tokio::spawn(async move {
@@ -278,7 +274,7 @@ Tx: {tx_links} \\| [Token](https://nearblocks.io/nft-token/{contract_id}/{token_
                         let tx_links = format_tx_explorer_links(tx_hash);
                         let message = format!(
                             "
-*Swap by* `{trader}`
+*Swap by* {trader}
 
 {changes}
 
@@ -326,8 +322,8 @@ Tx: {tx_links}
                     let xeon = Arc::clone(&self.xeon);
                     let bot_id = *bot_id;
                     let tx_hash = event.transaction_id;
-                    let signer_id = event.signer_id.clone();
-                    let receiver_id = event.receiver_id.clone();
+                    let signer = subscriber.format_account_markdown(&event.signer_id);
+                    let receiver = subscriber.format_account_markdown(&event.receiver_id);
 
                     tokio::spawn(async move {
                         let Some(bot) = xeon.bot(&bot_id) else {
@@ -340,8 +336,8 @@ Tx: {tx_links}
                         let tx_links = format_tx_explorer_links(tx_hash);
                         let message = format!(
                             "
-*Transaction by* `{signer_id}`
-*Contract / Receiver:* `{receiver_id}`
+*Transaction by* {signer}
+*Contract / Receiver:* {receiver}
 
 Tx: {tx_links}
                             ",
@@ -398,7 +394,7 @@ Tx: {tx_links}
                     let bot_id = *bot_id;
                     let tx_hash = event.transaction_id;
                     let pool_id = event.account_id.clone();
-                    let account_id = staking_event.account_id.clone();
+                    let account = subscriber.format_account_markdown(&staking_event.account_id);
                     let action = staking_event.action.clone();
                     let amount = staking_event.amount;
 
@@ -420,7 +416,7 @@ Tx: {tx_links}
                         let message = format!(
                             "
 *Staking*
-*`{account_id}` {action_text} `{pool_id}`*: {}
+*{account} {action_text} `{pool_id}`*: {}
 
 Tx: {tx_links}
                             ",
@@ -564,7 +560,6 @@ impl XeonBotModule for WalletTrackingModule {
         let Some(user_id) = user_id else {
             return Ok(());
         };
-        #[allow(clippy::single_match)]
         match command {
             MessageCommand::WalletTrackingAddAccount(target_chat_id) => {
                 if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
@@ -598,6 +593,45 @@ impl XeonBotModule for WalletTrackingModule {
                 )
                 .await?;
             }
+            MessageCommand::WalletTrackingAccountSetName(target_chat_id, account_id) => {
+                if !check_admin_permission_in_chat(bot, target_chat_id, user_id).await {
+                    return Ok(());
+                }
+                let name = text.trim();
+                if name.chars().count() > MAX_WALLET_NAME_LENGTH {
+                    let message = format!(
+                        "Name is too long, maximum is {MAX_WALLET_NAME_LENGTH} characters\\. Try again\\."
+                    );
+                    let buttons = vec![vec![InlineKeyboardButton::callback(
+                        "⬅️ Cancel",
+                        bot.to_callback_data(&TgCommand::WalletTrackingAccount(
+                            target_chat_id,
+                            account_id,
+                        ))
+                        .await,
+                    )]];
+                    let reply_markup = InlineKeyboardMarkup::new(buttons);
+                    bot.send_text_message(chat_id.into(), message, reply_markup)
+                        .await?;
+                    return Ok(());
+                }
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        bot,
+                        user_id,
+                        chat_id,
+                        None,
+                        &bot.to_callback_data(&TgCommand::WalletTrackingAccountSetName(
+                            target_chat_id,
+                            account_id,
+                            Some(name.to_string()),
+                        ))
+                        .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -616,6 +650,25 @@ impl XeonBotModule for WalletTrackingModule {
         }
         match context.parse_command().await? {
             TgCommand::WalletTrackingSettings(target_chat_id) => {
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        context.bot(),
+                        context.user_id(),
+                        context.chat_id(),
+                        context.message_id(),
+                        &context
+                            .bot()
+                            .to_callback_data(&TgCommand::WalletTrackingSettingsPage(
+                                target_chat_id,
+                                0,
+                            ))
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
+            TgCommand::WalletTrackingSettingsPage(target_chat_id, page) => {
                 if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
                     .await
                 {
@@ -656,11 +709,18 @@ impl XeonBotModule for WalletTrackingModule {
                 let message = format!(
                     "Wallet tracking{for_chat_name}\n\nClick an account to set up tracking for it"
                 );
+                let accounts = subscriber.accounts_in_display_order();
+                let total_pages = accounts.len().div_ceil(ACCOUNTS_PER_PAGE);
+                let current_page = page.min(total_pages.saturating_sub(1));
                 let mut buttons = Vec::new();
                 let mut account_buttons = Vec::new();
-                for account_id in subscriber.accounts.keys() {
+                for (account_id, tracked_wallet) in accounts
+                    .into_iter()
+                    .skip(current_page * ACCOUNTS_PER_PAGE)
+                    .take(ACCOUNTS_PER_PAGE)
+                {
                     account_buttons.push(InlineKeyboardButton::callback(
-                        account_id.as_str(),
+                        tracked_wallet.display_name(account_id),
                         context
                             .bot()
                             .to_callback_data(&TgCommand::WalletTrackingAccount(
@@ -670,12 +730,40 @@ impl XeonBotModule for WalletTrackingModule {
                             .await,
                     ));
                 }
-                for chunk in account_buttons.into_iter().chunks(2).into_iter() {
+                for chunk in account_buttons
+                    .into_iter()
+                    .chunks(ACCOUNTS_PER_ROW)
+                    .into_iter()
+                {
                     let mut row = Vec::new();
                     for button in chunk {
                         row.push(button);
                     }
                     buttons.push(row);
+                }
+                if total_pages > 1 {
+                    buttons.push(vec![
+                        InlineKeyboardButton::callback(
+                            "⬅️ Previous Page",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::WalletTrackingSettingsPage(
+                                    target_chat_id,
+                                    current_page.saturating_sub(1),
+                                ))
+                                .await,
+                        ),
+                        InlineKeyboardButton::callback(
+                            "Next Page ➡️",
+                            context
+                                .bot()
+                                .to_callback_data(&TgCommand::WalletTrackingSettingsPage(
+                                    target_chat_id,
+                                    current_page + 1,
+                                ))
+                                .await,
+                        ),
+                    ]);
                 }
                 buttons.push(vec![InlineKeyboardButton::callback(
                     "➕ Add an account",
@@ -700,10 +788,12 @@ impl XeonBotModule for WalletTrackingModule {
                 {
                     return Ok(());
                 }
+                let mut page_of_removed_account = 0;
                 if let Some(bot_config) = self.bot_configs.get(&context.bot().id()) {
                     let subscriber = if let Some(mut subscriber) =
                         bot_config.subscribers.get(&target_chat_id).await
                     {
+                        page_of_removed_account = subscriber.page_of_account(&account_id);
                         subscriber.accounts.remove(&account_id);
                         subscriber
                     } else {
@@ -722,7 +812,10 @@ impl XeonBotModule for WalletTrackingModule {
                         context.message_id(),
                         &context
                             .bot()
-                            .to_callback_data(&TgCommand::WalletTrackingSettings(target_chat_id))
+                            .to_callback_data(&TgCommand::WalletTrackingSettingsPage(
+                                target_chat_id,
+                                page_of_removed_account,
+                            ))
                             .await,
                     ),
                     &mut None,
@@ -826,7 +919,8 @@ impl XeonBotModule for WalletTrackingModule {
                     return Ok(());
                 };
                 let message = format!(
-                    "Tracking settings for `{account_id}`\\. Click to toggle tracking for a specific type\\."
+                    "Tracking settings for {}\\. Click to toggle tracking for a specific type\\.",
+                    subscriber.format_account_markdown(&account_id),
                 );
                 let buttons = vec![
                     vec![
@@ -848,7 +942,7 @@ impl XeonBotModule for WalletTrackingModule {
                                 .to_callback_data(&TgCommand::WalletTrackingAccountToggleNft(
                                     target_chat_id,
                                     account_id.clone(),
-                                    !tracked_wallet.ft,
+                                    !tracked_wallet.nft,
                                 ))
                                 .await,
                         ),
@@ -905,12 +999,26 @@ impl XeonBotModule for WalletTrackingModule {
                             .await,
                     )],
                     vec![InlineKeyboardButton::callback(
+                        if tracked_wallet.name.is_some() {
+                            "✏️ Rename"
+                        } else {
+                            "✏️ Set name"
+                        },
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::WalletTrackingAccountEditName(
+                                target_chat_id,
+                                account_id.clone(),
+                            ))
+                            .await,
+                    )],
+                    vec![InlineKeyboardButton::callback(
                         "🗑 Remove",
                         context
                             .bot()
                             .to_callback_data(&TgCommand::WalletTrackingAccountRemove(
                                 target_chat_id,
-                                account_id,
+                                account_id.clone(),
                             ))
                             .await,
                     )],
@@ -918,7 +1026,10 @@ impl XeonBotModule for WalletTrackingModule {
                         "⬅️ Back",
                         context
                             .bot()
-                            .to_callback_data(&TgCommand::WalletTrackingSettings(target_chat_id))
+                            .to_callback_data(&TgCommand::WalletTrackingSettingsPage(
+                                target_chat_id,
+                                subscriber.page_of_account(&account_id),
+                            ))
                             .await,
                     )],
                 ];
@@ -1104,11 +1215,106 @@ impl XeonBotModule for WalletTrackingModule {
                 )
                 .await?;
             }
+            TgCommand::WalletTrackingAccountEditName(target_chat_id, account_id) => {
+                if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
+                    .await
+                {
+                    return Ok(());
+                }
+                let Some(bot_config) = self.bot_configs.get(&context.bot().id()) else {
+                    return Ok(());
+                };
+                let Some(subscriber) = bot_config.subscribers.get(&target_chat_id).await else {
+                    return Ok(());
+                };
+                let Some(tracked_wallet) = subscriber.accounts.get(&account_id) else {
+                    return Ok(());
+                };
+                let message = format!(
+                    "Enter a name for `{account_id}`\\. It will be shown instead of the account ID in the list and next to it in notifications\\."
+                );
+                let mut buttons = Vec::new();
+                if tracked_wallet.name.is_some() {
+                    buttons.push(vec![InlineKeyboardButton::callback(
+                        "🗑 Remove name",
+                        context
+                            .bot()
+                            .to_callback_data(&TgCommand::WalletTrackingAccountSetName(
+                                target_chat_id,
+                                account_id.clone(),
+                                None,
+                            ))
+                            .await,
+                    )]);
+                }
+                buttons.push(vec![InlineKeyboardButton::callback(
+                    "⬅️ Cancel",
+                    context
+                        .bot()
+                        .to_callback_data(&TgCommand::WalletTrackingAccount(
+                            target_chat_id,
+                            account_id.clone(),
+                        ))
+                        .await,
+                )]);
+                let reply_markup = InlineKeyboardMarkup::new(buttons);
+                context
+                    .bot()
+                    .set_message_command(
+                        context.user_id(),
+                        MessageCommand::WalletTrackingAccountSetName(target_chat_id, account_id),
+                    )
+                    .await?;
+                context.edit_or_send(message, reply_markup).await?;
+            }
+            TgCommand::WalletTrackingAccountSetName(target_chat_id, account_id, name) => {
+                if !check_admin_permission_in_chat(context.bot(), target_chat_id, context.user_id())
+                    .await
+                {
+                    return Ok(());
+                }
+                context
+                    .bot()
+                    .remove_message_command(&context.user_id())
+                    .await?;
+                if let Some(bot_config) = self.bot_configs.get(&context.bot().id())
+                    && let Some(mut subscriber) = bot_config.subscribers.get(&target_chat_id).await
+                {
+                    if let Some(tracked_wallet) = subscriber.accounts.get_mut(&account_id) {
+                        tracked_wallet.name = name;
+                    }
+                    bot_config
+                        .subscribers
+                        .insert_or_update(target_chat_id, subscriber)
+                        .await?;
+                }
+                self.handle_callback(
+                    TgCallbackContext::new(
+                        context.bot(),
+                        context.user_id(),
+                        context.chat_id(),
+                        context.message_id(),
+                        &context
+                            .bot()
+                            .to_callback_data(&TgCommand::WalletTrackingAccount(
+                                target_chat_id,
+                                account_id,
+                            ))
+                            .await,
+                    ),
+                    &mut None,
+                )
+                .await?;
+            }
             _ => {}
         }
         Ok(())
     }
 }
+
+const ACCOUNTS_PER_PAGE: usize = 10;
+const ACCOUNTS_PER_ROW: usize = 2;
+const MAX_WALLET_NAME_LENGTH: usize = 32;
 
 struct WalletTrackingBotConfig {
     pub subscribers: PersistentCachedStore<NotificationDestination, WalletTrackingSubscriberConfig>,
@@ -1128,6 +1334,36 @@ struct WalletTrackingSubscriberConfig {
     accounts: HashMap<AccountId, TrackedWallet>,
     #[serde(default = "default_enable")]
     enabled: bool,
+}
+
+impl WalletTrackingSubscriberConfig {
+    fn accounts_in_display_order(&self) -> Vec<(&AccountId, &TrackedWallet)> {
+        self.accounts
+            .iter()
+            .sorted_by_cached_key(|(account_id, tracked_wallet)| {
+                tracked_wallet.display_name(account_id).to_lowercase()
+            })
+            .collect()
+    }
+
+    fn page_of_account(&self, account_id: &AccountId) -> usize {
+        self.accounts_in_display_order()
+            .iter()
+            .position(|(tracked_account_id, _)| *tracked_account_id == account_id)
+            .unwrap_or_default()
+            / ACCOUNTS_PER_PAGE
+    }
+
+    fn format_account_markdown(&self, account_id: &AccountId) -> String {
+        match self
+            .accounts
+            .get(account_id)
+            .and_then(|tracked_wallet| tracked_wallet.name.as_ref())
+        {
+            Some(name) => markdown::escape(name),
+            None => format!("`{account_id}`"),
+        }
+    }
 }
 
 impl Default for WalletTrackingSubscriberConfig {
@@ -1152,6 +1388,16 @@ struct TrackedWallet {
     transactions: bool,
     #[serde(default)]
     staking: bool,
+    #[serde(default)]
+    name: Option<String>,
+}
+
+impl TrackedWallet {
+    fn display_name(&self, account_id: &AccountId) -> String {
+        self.name
+            .clone()
+            .unwrap_or_else(|| account_id.to_string())
+    }
 }
 
 impl Default for TrackedWallet {
@@ -1162,6 +1408,7 @@ impl Default for TrackedWallet {
             swaps: true,
             transactions: true,
             staking: false,
+            name: None,
         }
     }
 }

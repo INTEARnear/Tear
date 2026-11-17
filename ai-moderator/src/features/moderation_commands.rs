@@ -1,16 +1,11 @@
 use chrono::Utc;
 use std::time::Duration;
 use tearbot_common::{
-    bot_commands::TgCommand,
-    teloxide::{
-        payloads::{BanChatMemberSetters, RestrictChatMemberSetters, SendMessageSetters},
-        prelude::{ChatId, Message, Requester, UserId},
-        types::{
+    bot_commands::TgCommand, teloxide::{
+        payloads::{BanChatMemberSetters, RestrictChatMemberSetters, SendMessageSetters}, prelude::{ChatId, Message, Requester, UserId}, types::{
             ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, ReplyParameters,
-        },
-    },
-    tgbot::BotData,
-    utils::{SLIME_USER_ID, chat::get_chat_cached_5m, format_duration},
+        }, utils::markdown,
+    }, tgbot::BotData, utils::{SLIME_USER_ID, chat::get_chat_cached_5m, format_duration},
 };
 
 use crate::AiModeratorBotConfig;
@@ -412,7 +407,7 @@ async fn handle_report_command(
         .into_iter()
         .filter(|a| !a.is_anonymous() && !a.user.is_bot)
         .filter(|a| a.can_delete_messages())
-        .map(|a| format!("[{}](tg://user?id={})", a.user.full_name(), a.user.id))
+        .map(|a| format!("[{}](tg://user?id={})", markdown::escape(&a.user.full_name()), a.user.id))
         .collect::<Vec<_>>()
         .join(", ");
     let response_text = format!("Reported this message to admins: {admin_mentions}");

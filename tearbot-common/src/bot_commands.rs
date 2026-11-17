@@ -1102,6 +1102,8 @@ pub enum TgCommand {
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingSettings(NotificationDestination),
     #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingSettingsPage(NotificationDestination, usize),
+    #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAdd(NotificationDestination),
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAddAccount(NotificationDestination, AccountId),
@@ -1119,6 +1121,10 @@ pub enum TgCommand {
     WalletTrackingAccountToggleStaking(NotificationDestination, AccountId, bool),
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAccountRemove(NotificationDestination, AccountId),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountEditName(NotificationDestination, AccountId),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountSetName(NotificationDestination, AccountId, Option<String>),
     #[cfg(feature = "trading-bot-module")]
     TradingBotStaking,
     #[cfg(feature = "trading-bot-module")]
@@ -1753,6 +1759,8 @@ pub enum MessageCommand {
     },
     #[cfg(feature = "wallet-tracking-module")]
     WalletTrackingAddAccount(NotificationDestination),
+    #[cfg(feature = "wallet-tracking-module")]
+    WalletTrackingAccountSetName(NotificationDestination, AccountId),
     #[cfg(feature = "trading-bot-module")]
     TradingBotDcaAddTokenDirectionAmountIntervalOrders {
         token_id: AccountId,

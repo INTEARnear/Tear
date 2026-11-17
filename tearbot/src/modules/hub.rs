@@ -3272,13 +3272,13 @@ async fn create_notificatons_buttons(
         bot.to_callback_data(&TgCommand::BurrowLiquidationsSettings(target_chat_id))
             .await,
     ));
-    #[cfg(feature = "wallet-tracking")]
+    #[cfg(feature = "wallet-tracking-module")]
     buttons.push(InlineKeyboardButton::callback(
         "💼 Track Wallet",
         bot.to_callback_data(&TgCommand::WalletTrackingSettings(target_chat_id))
             .await,
     ));
-    #[cfg(feature = "house-of-stake")]
+    #[cfg(feature = "house-of-stake-module")]
     buttons.push(InlineKeyboardButton::callback(
         "🏦 House of Stake",
         bot.to_callback_data(&TgCommand::HouseOfStakeSettings(target_chat_id))
